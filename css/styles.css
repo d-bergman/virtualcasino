@@ -668,8 +668,163 @@
     }
 
     .full { grid-column: 1 / -1; }
+    [hidden] { display: none !important; }
     .view { display: none; }
     .view.active { display: block; }
+    .game-controls { display: none; }
+    .game-controls.active { display: block; }
+    .sub-tabs {
+      display: inline-grid;
+      grid-template-columns: repeat(2, minmax(120px, 1fr));
+      gap: 6px;
+      margin: 0 0 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      padding: 6px;
+    }
+
+    .sub-tab {
+      min-height: 38px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 850;
+      text-transform: uppercase;
+    }
+
+    .sub-tab.active {
+      background: linear-gradient(180deg, #8f5d12, #4f2b08);
+      color: #fff3c7;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.22);
+    }
+
+    .current-player-panel {
+      margin-bottom: 18px;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(255, 216, 107, 0.14), transparent 36%),
+        var(--panel);
+    }
+
+    .online-game-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .online-game-tile {
+      min-height: 230px;
+      border: 1px solid rgba(255,216,107,0.28);
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 50% 32%, rgba(149,61,255,0.26), transparent 38%),
+        linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+      color: var(--text);
+      padding: 22px;
+      text-align: left;
+      box-shadow: 0 18px 48px rgba(0,0,0,0.26);
+    }
+
+    .online-game-tile:not(:disabled):hover {
+      border-color: rgba(255,216,107,0.62);
+      transform: translateY(-1px);
+      transition: transform 160ms ease, border-color 160ms ease;
+    }
+
+    .online-game-tile strong {
+      display: block;
+      margin-top: 16px;
+      color: var(--gold);
+      font-size: 1.6rem;
+      text-transform: uppercase;
+    }
+
+    .online-game-tile small {
+      display: block;
+      max-width: 320px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .tile-icon {
+      display: flex;
+      height: 86px;
+      align-items: center;
+      gap: 0;
+    }
+
+    .cards-icon span,
+    .playing-card {
+      display: grid;
+      place-items: start;
+      width: 54px;
+      height: 76px;
+      border: 1px solid rgba(0,0,0,0.38);
+      border-radius: 8px;
+      background:
+        linear-gradient(145deg, #fffaf0, #d8cec0);
+      color: #121015;
+      padding: 8px;
+      font-weight: 950;
+      box-shadow: 0 14px 24px rgba(0,0,0,0.34);
+      transform: rotate(-8deg);
+    }
+
+    .cards-icon span + span {
+      color: #a51024;
+      transform: translateX(-14px) rotate(10deg);
+    }
+
+    .online-area {
+      margin-top: 18px;
+    }
+
+    .blackjack-mode { display: none; }
+    .blackjack-mode.active { display: block; }
+
+    .blackjack-table {
+      display: grid;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .hand-zone {
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 18% 0%, rgba(28, 156, 88, 0.14), transparent 36%),
+        rgba(255,255,255,0.035);
+      padding: 14px;
+    }
+
+    .playing-card-row {
+      display: flex;
+      min-height: 86px;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .playing-card.red { color: #a51024; }
+    .playing-card.hidden-card {
+      place-items: center;
+      background:
+        radial-gradient(circle, rgba(255,216,107,0.24), transparent 45%),
+        linear-gradient(145deg, #2b0e42, #09060e);
+      color: var(--gold);
+    }
+
+    .blackjack-status {
+      margin-top: 14px;
+      border: 1px solid rgba(255,216,107,0.18);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.045);
+      padding: 12px;
+      color: var(--gold);
+      font-weight: 800;
+    }
 
     .history-list,
     .achievement-list,
@@ -690,14 +845,92 @@
     }
 
     .medal {
+      position: relative;
       display: grid;
-      width: 42px;
-      height: 42px;
+      width: 48px;
+      height: 48px;
       place-items: center;
       border-radius: 50%;
-      background: rgba(255,216,107,0.12);
-      color: var(--gold);
+      border: 1px solid rgba(255,216,107,0.62);
+      background:
+        radial-gradient(circle at 35% 25%, rgba(255,255,255,0.36), transparent 18%),
+        radial-gradient(circle, rgba(255,216,107,0.22), transparent 52%),
+        conic-gradient(from 24deg, #ffe691, #8b4b0c, #7c2cff, #14101c, #ffe691);
+      color: #fff5c9;
       font-weight: 950;
+      box-shadow:
+        0 0 20px rgba(149,61,255,0.22),
+        inset 0 0 0 4px rgba(5,5,9,0.72),
+        inset 0 0 18px rgba(255,216,107,0.18);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+
+    .medal-spade {
+      border-color: rgba(255,216,107,0.8);
+      background:
+        radial-gradient(circle at 32% 22%, rgba(255,255,255,0.42), transparent 16%),
+        radial-gradient(circle at 50% 58%, rgba(255,216,107,0.28), transparent 46%),
+        conic-gradient(from 32deg, #fff2a8, #b77015, #2b1404, #5c3307, #fff2a8);
+      box-shadow:
+        0 0 22px rgba(255, 180, 56, 0.24),
+        inset 0 0 0 4px rgba(35, 20, 4, 0.74),
+        inset 0 0 20px rgba(255,216,107,0.22);
+    }
+
+    .medal-diamond {
+      border-color: rgba(74,166,255,0.86);
+      background:
+        radial-gradient(circle at 28% 18%, rgba(255,255,255,0.42), transparent 15%),
+        radial-gradient(circle at 52% 55%, rgba(68,174,255,0.34), transparent 45%),
+        conic-gradient(from 12deg, #dff5ff, #158bff, #061d3d, #6c38ff, #dff5ff);
+      color: #e9f7ff;
+      box-shadow:
+        0 0 22px rgba(37, 143, 255, 0.28),
+        inset 0 0 0 4px rgba(3, 13, 27, 0.78),
+        inset 0 0 20px rgba(68,174,255,0.22);
+    }
+
+    .medal-heart {
+      border-color: rgba(218,87,255,0.86);
+      background:
+        radial-gradient(circle at 30% 20%, rgba(255,255,255,0.4), transparent 15%),
+        radial-gradient(circle at 50% 56%, rgba(218,87,255,0.38), transparent 45%),
+        conic-gradient(from 22deg, #ffc3ff, #a93dff, #250637, #ff4fc6, #ffc3ff);
+      color: #fff1ff;
+      box-shadow:
+        0 0 24px rgba(202, 53, 255, 0.3),
+        inset 0 0 0 4px rgba(26, 4, 37, 0.78),
+        inset 0 0 20px rgba(218,87,255,0.24);
+    }
+
+    .medal-club {
+      border-color: rgba(88,238,147,0.76);
+      background:
+        radial-gradient(circle at 30% 20%, rgba(255,255,255,0.34), transparent 15%),
+        radial-gradient(circle at 54% 58%, rgba(88,238,147,0.3), transparent 46%),
+        conic-gradient(from 18deg, #d9ffe6, #15964d, #061d12, #075c34, #d9ffe6);
+      color: #e8fff0;
+      box-shadow:
+        0 0 22px rgba(34, 211, 116, 0.24),
+        inset 0 0 0 4px rgba(3, 24, 14, 0.78),
+        inset 0 0 20px rgba(88,238,147,0.2);
+    }
+
+    .medal-crown {
+      border-color: rgba(255,216,107,0.7);
+      background:
+        radial-gradient(circle at 32% 22%, rgba(255,255,255,0.4), transparent 16%),
+        radial-gradient(circle at 50% 56%, rgba(255,216,107,0.28), transparent 46%),
+        conic-gradient(from 32deg, #ffe691, #8b4b0c, #7c2cff, #14101c, #ffe691);
+    }
+
+    .medal::after {
+      position: absolute;
+      inset: 7px;
+      content: "";
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: inherit;
+      pointer-events: none;
     }
 
     .mobile-header,
@@ -721,6 +954,31 @@
       transition: opacity 220ms ease, transform 220ms ease;
     }
     .toast.show { opacity: 1; transform: translateY(0); }
+
+    .profile-dialog {
+      width: min(620px, calc(100vw - 28px));
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: var(--text);
+    }
+
+    .profile-dialog::backdrop {
+      background:
+        radial-gradient(circle at 50% 20%, rgba(149, 61, 255, 0.24), transparent 36%),
+        rgba(0,0,0,0.76);
+      backdrop-filter: blur(6px);
+    }
+
+    .profile-card {
+      border: 1px solid rgba(255,216,107,0.34);
+      border-radius: 8px;
+      background:
+        linear-gradient(145deg, rgba(39, 20, 58, 0.94), rgba(7, 7, 12, 0.98)),
+        radial-gradient(circle at top, rgba(255, 216, 107, 0.13), transparent 48%);
+      box-shadow: var(--shadow), inset 0 0 34px rgba(149, 61, 255, 0.14);
+      padding: 22px;
+    }
 
     .sync-pill {
       display: inline-flex;
@@ -773,7 +1031,7 @@
         bottom: max(12px, env(safe-area-inset-bottom));
         z-index: 40;
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(6, 1fr);
         border: 1px solid rgba(255,255,255,0.12);
         border-radius: 8px;
         background: rgba(12, 12, 18, 0.9);
@@ -845,6 +1103,7 @@
       .xp-row { grid-template-columns: auto 1fr; }
       .xp-row .medal { display: none; }
       .game-grid { grid-template-columns: 1fr; }
+      .online-game-grid { grid-template-columns: 1fr; }
       .form-grid,
       .action-grid { grid-template-columns: 1fr; }
       .side-stack { gap: 14px; }
