@@ -51,7 +51,7 @@
       <nav class="side-nav">
         <button class="nav-btn active" data-view="overview"><span>&#8962;</span><span>Overview</span></button>
         <button class="nav-btn" data-view="players"><span>&#9818;</span><span>Players</span></button>
-        <button class="nav-btn" data-view="sessions"><span>&#9830;</span><span>Sessions</span></button>
+        <button class="nav-btn" data-view="sessions"><span>&#9830;</span><span>Local Sessions</span></button>
         <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online Sessions</span></button>
         <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank & Loans</span></button>
         <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Achievements</span></button>
@@ -132,14 +132,15 @@
       </section>
 
       <section id="playersView" class="view">
-        <article class="panel panel-pad">
+        <article class="panel panel-pad admin-only">
           <div class="section-title"><span>&#9818; Manage Players</span></div>
           <div class="form-grid">
             <div><label for="newPlayerName">Player Name</label><input id="newPlayerName" type="text" placeholder="ex: Mom" /></div>
             <div style="align-self:end;"><button class="primary-btn" style="width:100%;" type="button" data-action="add-player">Add Player</button></div>
           </div>
+          <div id="playerAdminBoard" class="leaderboard-list" style="margin-top:14px;"></div>
         </article>
-        <article class="panel panel-pad" style="margin-top:18px;">
+        <article class="panel panel-pad admin-only" style="margin-top:18px;">
           <div class="section-title"><span>&#9819; Leaderboard</span></div>
           <div id="leaderboard" class="leaderboard-list"></div>
         </article>
@@ -268,6 +269,7 @@
               <span>&#9827; Blackjack Table</span>
               <button class="mini-btn tiny-btn" type="button" data-action="open-blackjack-guide">Guide</button>
             </div>
+            <div id="blackjackBankroll" class="rule-strip"></div>
             <div class="sub-tabs" aria-label="Blackjack mode tabs">
               <button class="sub-tab active" type="button" data-blackjack-mode="solo">Play Solo</button>
               <button class="sub-tab" type="button" data-blackjack-mode="multi">Multiplayer</button>
@@ -323,6 +325,30 @@
           </article>
         </div>
 
+        <div id="blackjackRoomArea" class="online-area" hidden>
+          <article class="panel panel-pad game-room-panel">
+            <div class="section-title">
+              <span id="blackjackRoomTitle">&#9827; Blackjack Room</span>
+              <span id="blackjackRoomHostBadge" class="sync-pill"></span>
+            </div>
+            <div id="blackjackRoomPlayers" class="room-player-grid"></div>
+            <div class="blackjack-table">
+              <div class="hand-zone">
+                <div class="section-title"><span>Dealer</span><span class="sync-pill">Room Table</span></div>
+                <div class="playing-card-row"><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span></div>
+              </div>
+              <div class="hand-zone">
+                <div class="section-title"><span>Players</span><span class="sync-pill">Live session lobby</span></div>
+                <div class="blackjack-status">Blackjack multiplayer room is open. Full shared hand play comes next; players can join, leave, or be disconnected by the host now.</div>
+              </div>
+            </div>
+            <div class="action-grid">
+              <button class="ghost-btn" type="button" data-action="leave-active-room">Leave Session</button>
+              <button id="closeBlackjackRoomBtn" class="primary-btn danger-btn" type="button" data-action="close-active-room">Close Room</button>
+            </div>
+          </article>
+        </div>
+
         <div id="pokerOnlineArea" class="online-area" hidden>
           <article class="panel panel-pad">
             <div class="section-title">
@@ -339,6 +365,31 @@
               <button class="ghost-btn" type="button" data-action="refresh-poker-rooms">Refresh Open Rooms</button>
             </div>
             <div id="pokerRooms" class="leaderboard-list" style="margin-top:14px;"></div>
+          </article>
+        </div>
+
+        <div id="pokerRoomArea" class="online-area" hidden>
+          <article class="panel panel-pad game-room-panel">
+            <div class="section-title">
+              <span id="pokerRoomTitle">&#9824; Hold'em Room</span>
+              <span id="pokerRoomHostBadge" class="sync-pill"></span>
+            </div>
+            <div class="rule-strip" id="pokerRoomRules"></div>
+            <div id="pokerRoomPlayers" class="room-player-grid"></div>
+            <div class="blackjack-table">
+              <div class="hand-zone">
+                <div class="section-title"><span>Community Board</span><span class="sync-pill">Kickers enabled</span></div>
+                <div class="playing-card-row"><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span></div>
+              </div>
+              <div class="hand-zone">
+                <div class="section-title"><span>Room Status</span><span class="sync-pill">Multiplayer only</span></div>
+                <div class="blackjack-status">Texas Hold'em room is open. Use this dedicated table while everyone joins; full betting and dealing comes next.</div>
+              </div>
+            </div>
+            <div class="action-grid">
+              <button class="ghost-btn" type="button" data-action="leave-active-room">Leave Session</button>
+              <button id="closePokerRoomBtn" class="primary-btn danger-btn" type="button" data-action="close-active-room">Close Room</button>
+            </div>
           </article>
         </div>
       </section>
@@ -397,13 +448,26 @@
   <nav class="bottom-nav" aria-label="Mobile navigation">
     <button class="nav-btn active" data-view="overview"><span>&#8962;</span><span>Home</span></button>
     <button class="nav-btn" data-view="players"><span>&#9818;</span><span>Players</span></button>
-    <button class="nav-btn" data-view="sessions"><span>&#9824;</span><span>Play</span></button>
+    <button class="nav-btn" data-view="sessions"><span>&#9824;</span><span>Local</span></button>
     <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online</span></button>
     <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Stars</span></button>
     <button class="nav-btn" data-view="export"><span>&#8943;</span><span>More</span></button>
   </nav>
 
   <div id="toast" class="toast"></div>
+  <dialog id="linkProfileDialog" class="profile-dialog">
+    <form method="dialog" class="profile-card">
+      <div class="section-title">
+        <span>Link Your Profile</span>
+        <button class="mini-btn" type="button" data-action="dismiss-link-profile">Later</button>
+      </div>
+      <p class="auth-message">Link this login to a player so bankroll, rooms, and achievements know who you are.</p>
+      <div class="action-grid">
+        <button class="primary-btn" type="button" data-action="open-profile">Open Profile Settings</button>
+        <button class="ghost-btn" type="button" data-action="dismiss-link-profile">Not Now</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="profileDialog" class="profile-dialog">
     <form id="profileForm" method="dialog" class="profile-card">

@@ -858,6 +858,55 @@
       font-weight: 800;
     }
 
+    .game-room-panel {
+      min-height: min(70vh, 720px);
+      background:
+        radial-gradient(circle at 50% 15%, rgba(255,216,107,0.12), transparent 30%),
+        radial-gradient(circle at 20% 80%, rgba(149,61,255,0.14), transparent 34%),
+        var(--panel);
+    }
+
+    .room-player-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .room-player-card {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.045);
+      padding: 12px;
+    }
+
+    .room-player-card strong {
+      color: var(--gold);
+    }
+
+    .room-player-card div div {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 3px;
+      text-transform: capitalize;
+    }
+
+    .danger-btn,
+    .danger-mini {
+      border-color: rgba(255, 92, 92, 0.35) !important;
+      background: linear-gradient(180deg, #7d1919, #3a0909) !important;
+      color: #ffe7e7 !important;
+    }
+
+    .mini-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
     .playing-card.red { color: #a51024; }
     .playing-card.hidden-card {
       place-items: center;
@@ -1192,6 +1241,7 @@
       .poker-guide-grid { grid-template-columns: 1fr; }
       .form-grid,
       .action-grid { grid-template-columns: 1fr; }
+      .room-player-grid { grid-template-columns: 1fr; }
       .side-stack { gap: 14px; }
       .toast { right: 16px; bottom: 92px; }
     }

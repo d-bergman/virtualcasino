@@ -140,6 +140,9 @@
     let activeAchievementTab = "unlocked";
     let achievementCheckTimer = null;
     let activeOnlineGame = "";
+    let activeRoomId = "";
+    let lastClosedRoomId = "";
+    let linkPromptDismissed = sessionStorage.getItem("virtualCasinoLinkPromptDismissed") === "1";
     let blackjackMode = "solo";
     let soloBlackjack = createEmptyBlackjackGame();
     let localProfile = JSON.parse(localStorage.getItem("virtualCasinoProfileV1") || "null") || {
@@ -183,7 +186,8 @@
       pokerBigBlind: $("pokerBigBlind"),
       pokerSeatRole: $("pokerSeatRole"),
       pokerRoomMessage: $("pokerRoomMessage"),
-      pokerGuideDialog: $("pokerGuideDialog")
+      pokerGuideDialog: $("pokerGuideDialog"),
+      linkProfileDialog: $("linkProfileDialog")
     };
 
     function decodeSave(text) {
@@ -337,6 +341,29 @@
       return null;
     }
 
+    function displayNameForPlayer(playerName) {
+      const profile = currentProfile();
+      if (profile.playerName === playerName && profile.displayName) return profile.displayName;
+      return playerName;
+    }
+
+    function currentDisplayName() {
+      const profile = currentProfile();
+      return profile.displayName || currentPlayer()?.name || "Champion";
+    }
+
+    function isDarrenAdmin() {
+      return currentPlayer()?.name === "Darren";
+    }
+
+    function activeRoom() {
+      return activeRoomId ? state.onlineRooms[activeRoomId] : null;
+    }
+
+    function isRoomHost(room = activeRoom()) {
+      return Boolean(room && room.hostKey === currentProfileKey());
+    }
+
     function log(message) {
       state.log.unshift(message);
       state.log = state.log.slice(0, 30);
@@ -429,6 +456,7 @@
 
     function render() {
       document.body.classList.toggle("auth-locked", !isSignedIn() && !document.body.classList.contains("auth-checking"));
+      handleActiveRoomClosure();
       document.querySelectorAll("[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === activeView));
       document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === `${activeView}View`));
       document.querySelectorAll("[data-game]").forEach((button) => button.classList.toggle("active", button.dataset.game === activeGame));
@@ -439,7 +467,8 @@
 
       const ranked = rankedPlayers();
       const champion = ranked[0] || state.players[0];
-      $("championName").innerHTML = `${escapeHtml(champion?.name || "Champion")} ${champion ? playerSymbol(champion.name) : ""}`;
+      const linked = currentPlayer();
+      $("championName").innerHTML = `${escapeHtml(linked ? currentDisplayName() : displayNameForPlayer(champion?.name || "Champion"))} ${linked ? playerSymbol(linked.name) : (champion ? playerSymbol(champion.name) : "")}`;
       const fxp = familyXP();
       const fl = levelFromXP(fxp);
       $("familyLevel").textContent = fl;
@@ -447,9 +476,11 @@
       $("familyXpFill").style.width = `${levelProgress(fxp)}%`;
       $("familyPrestige").textContent = state.players.reduce((sum, p) => sum + Number(p.stars || 0), 0) || 1;
 
-      $("crewGrid").innerHTML = ranked.map(renderPlayerCard).join("");
-      $("leaderboard").innerHTML = ranked.map((p, i) => renderListRow(`#${i + 1}`, p.name, `${money(stackValue(p.chips))} bankroll`, signedMoney(p.lifetime))).join("");
-      $("debtBoard").innerHTML = ranked.map((p) => renderListRow("&#9878;", p.name, `Debt ${money(p.bankDebt)}`, `Lifetime ${signedMoney(p.lifetime)}`)).join("");
+      $("crewGrid").innerHTML = ranked.slice(0, 3).map(renderPlayerCard).join("");
+      $("leaderboard").innerHTML = ranked.map((p, i) => renderListRow(`#${i + 1}`, displayNameForPlayer(p.name), `${money(stackValue(p.chips))} bankroll`, signedMoney(p.lifetime))).join("");
+      $("playerAdminBoard").innerHTML = state.players.map((p) => renderAdminPlayerRow(p)).join("");
+      document.querySelectorAll(".admin-only").forEach((item) => item.hidden = !isDarrenAdmin());
+      $("debtBoard").innerHTML = ranked.map((p) => renderListRow("&#9878;", displayNameForPlayer(p.name), `Debt ${money(p.bankDebt)}`, `Lifetime ${signedMoney(p.lifetime)}`)).join("");
       $("bankStatus").innerHTML = [
         renderListRow("&#9878;", "Total Loans Outstanding", "", money(state.players.reduce((sum, p) => sum + p.bankDebt, 0))),
         renderListRow("&#9888;", "Players In Debt", "", state.players.filter((p) => p.bankDebt > 0).length)
@@ -462,10 +493,14 @@
         : renderListRow("&#9733;", "No achievements unlocked yet", "Complete tracked milestones to unlock achievements.", "");
       renderAchievementBoards();
       renderCurrentPlayerStats();
+      renderBlackjackBankroll();
       $("gameGrid").innerHTML = ["poker","blackjack","uno"].map(renderGameCard).join("");
       document.querySelectorAll("[data-game-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.gamePanel === activeGame));
-      $("blackjackOnlineArea").hidden = activeOnlineGame !== "blackjack";
-      $("pokerOnlineArea").hidden = activeOnlineGame !== "poker";
+      const room = activeRoom();
+      $("blackjackOnlineArea").hidden = activeOnlineGame !== "blackjack" || Boolean(room);
+      $("pokerOnlineArea").hidden = activeOnlineGame !== "poker" || Boolean(room);
+      $("blackjackRoomArea").hidden = !(room && room.game === "blackjack");
+      $("pokerRoomArea").hidden = !(room && room.game === "poker");
       $("blackjackSoloPanel").classList.toggle("active", blackjackMode === "solo");
       $("blackjackSoloPanel").hidden = blackjackMode !== "solo";
       $("blackjackMultiPanel").classList.toggle("active", blackjackMode === "multi");
@@ -473,7 +508,9 @@
       renderBlackjackTable();
       renderBlackjackRooms();
       renderPokerRooms();
+      renderActiveRoom();
       renderSessionOverview();
+      maybePromptProfileLink();
     }
 
     function renderPlayerCard(player, index) {
@@ -488,7 +525,7 @@
           <div class="rank-badge">#${rank}</div>
           <div class="player-icon" aria-hidden="true">${symbol}</div>
           <div>
-            <div class="player-name"><span>${escapeHtml(player.name)} ${rank === 1 ? "&#9819;" : ""}</span><span>${symbol}</span></div>
+            <div class="player-name"><span>${escapeHtml(displayNameForPlayer(player.name))} ${rank === 1 ? "&#9819;" : ""}</span><span>${symbol}</span></div>
             <div class="stats-list">
               <div class="stat-line"><span>Current Bankroll</span><strong class="money">${money(stackValue(player.chips))}</strong></div>
               <div class="stat-line"><span>Lifetime P/L</span><strong class="${lifetimeClass}">${signedMoney(player.lifetime)}</strong></div>
@@ -503,6 +540,15 @@
             <div class="chip-text" title="${escapeAttr(chipText(player.chips))}">Chips: ${escapeHtml(chipText(player.chips))}</div>
           </div>
         </article>`;
+    }
+
+    function renderAdminPlayerRow(player) {
+      const protectedPlayer = player.name === "Darren";
+      return `<div class="list-row">
+        <span class="medal">${playerSymbol(player.name)}</span>
+        <div><strong>${escapeHtml(displayNameForPlayer(player.name))}</strong><div style="color:var(--muted);font-size:.82rem;">Player record: ${escapeHtml(player.name)}</div></div>
+        <button class="mini-btn danger-mini" type="button" data-player-name="${escapeAttr(player.name)}" data-action="delete-player" ${protectedPlayer ? "disabled" : ""}>Delete</button>
+      </div>`;
     }
 
     function unlockedAchievementRows() {
@@ -548,10 +594,41 @@
         return;
       }
       $("currentPlayerStats").innerHTML = [
-        renderListRow(playerSymbol(player.name), player.name, "Linked to this login", money(stackValue(player.chips))),
+        renderListRow(playerSymbol(player.name), currentDisplayName(), `Linked to ${player.name}`, money(stackValue(player.chips))),
         renderListRow("&#8597;", "Lifetime Profit / Loss", "All tracked play", signedMoney(player.lifetime)),
         renderListRow("&#9878;", "Bank Debt", "Outstanding loans", money(player.bankDebt))
       ].join("");
+    }
+
+    function renderBlackjackBankroll() {
+      const player = currentPlayer();
+      $("blackjackBankroll").innerHTML = player
+        ? `<span>${escapeHtml(currentDisplayName())}</span><span>Bankroll ${money(stackValue(player.chips))}</span><span>Debt ${money(player.bankDebt)}</span>`
+        : `<span>Link your profile to show bankroll here.</span>`;
+    }
+
+    function renderActiveRoom() {
+      const room = activeRoom();
+      if (!room) return;
+      const playersMarkup = Object.values(room.seats || {}).map((seat) => `
+        <div class="room-player-card">
+          <span class="medal ${medalClass(seat.role === "dealer" ? "Club" : "Spade")}">${seat.role === "dealer" ? "♣" : "♠"}</span>
+          <div><strong>${escapeHtml(seat.name)}</strong><div>${escapeHtml(seat.playerName || "Unlinked")} - ${escapeHtml(seat.role)}</div></div>
+        </div>`).join("") || `<div class="blackjack-status">No players seated.</div>`;
+      const hostText = isRoomHost(room) ? "You are host" : "Host controlled";
+      if (room.game === "blackjack") {
+        $("blackjackRoomTitle").textContent = `♣ ${room.name}`;
+        $("blackjackRoomHostBadge").textContent = hostText;
+        $("blackjackRoomPlayers").innerHTML = playersMarkup;
+        $("closeBlackjackRoomBtn").hidden = !isRoomHost(room);
+      }
+      if (room.game === "poker") {
+        $("pokerRoomTitle").textContent = `♠ ${room.name}`;
+        $("pokerRoomHostBadge").textContent = hostText;
+        $("pokerRoomPlayers").innerHTML = playersMarkup;
+        $("pokerRoomRules").innerHTML = `<span>Small blind ${money(room.smallBlind || 0)}</span><span>Big blind ${money(room.bigBlind || 0)}</span><span>Kickers decide tied ranks</span>`;
+        $("closePokerRoomBtn").hidden = !isRoomHost(room);
+      }
     }
 
     function achievementCompletionText(playerName) {
@@ -601,6 +678,7 @@
         blackjack: ["Blackjack", "PLAY BLACKJACK", "#0d457c", "rgba(26, 132, 255, 0.18)", "Blackjacks", state.gameStats.blackjack.wins || 3],
         uno: ["Uno", "PLAY UNO", "#68128c", "rgba(202, 53, 255, 0.18)", "Wins", state.gameStats.uno.wins || 8]
       }[game];
+      const onlineAction = game === "poker" ? "open-online-poker" : game === "blackjack" ? "open-online-blackjack" : "";
       return `
         <article class="game-card" style="--game-line:${meta[2]};--game-glow:${meta[3]};">
           <h3>${meta[0]}</h3>
@@ -611,7 +689,10 @@
             <span class="chip-stack left"></span>
             <span class="chip-stack right"></span>
           </div>
-          <button class="primary-btn" style="width:100%;" type="button" data-game="${game}">${meta[1]}</button>
+          <div class="action-grid">
+            <button class="primary-btn" type="button" data-game="${game}">PLAY LOCAL</button>
+            <button class="ghost-btn" type="button" ${onlineAction ? `data-action="${onlineAction}"` : "disabled"}>${onlineAction ? "PLAY ONLINE" : "COMING SOON"}</button>
+          </div>
           <div class="game-stats" style="margin-top:12px;">
             <div><span>Session Stats</span><strong>${meta[0]}</strong></div>
             <div><span>Games Played</span><strong>${state.gameStats[game].played || 0}</strong></div>
@@ -921,6 +1002,8 @@
         game: "blackjack",
         name,
         status: "open",
+        hostKey: currentProfileKey(),
+        closedReason: "",
         createdAt: Date.now(),
         seats: {
           [currentProfileKey()]: currentSeat(els.roomRole.value)
@@ -930,6 +1013,7 @@
       closeBlackjackRoomDialog();
       blackjackMode = "multi";
       activeOnlineGame = "blackjack";
+      activeRoomId = id;
       activeView = "online";
       save();
       toast(`Room created: ${name}`);
@@ -944,6 +1028,9 @@
       room.seats = room.seats || {};
       room.seats[currentProfileKey()] = currentSeat(preferredRole);
       log(`${currentSeat().name} joined blackjack room ${room.name}.`);
+      activeRoomId = roomId;
+      activeOnlineGame = "blackjack";
+      activeView = "online";
       save();
       toast(`Joined ${room.name} as ${preferredRole}.`);
     }
@@ -973,6 +1060,8 @@
         variant: "texas-holdem",
         name,
         status: "open",
+        hostKey: currentProfileKey(),
+        closedReason: "",
         smallBlind,
         bigBlind,
         kickerRules: true,
@@ -985,6 +1074,7 @@
       log(`${currentSeat().name} opened Hold'em room ${name} with ${money(smallBlind)} / ${money(bigBlind)} blinds.`);
       closePokerRoomDialog();
       activeOnlineGame = "poker";
+      activeRoomId = id;
       activeView = "online";
       save();
       toast(`Poker room created: ${name}`);
@@ -997,8 +1087,64 @@
       room.seats = room.seats || {};
       room.seats[currentProfileKey()] = currentSeat("player");
       log(`${currentSeat().name} joined Hold'em room ${room.name}.`);
+      activeRoomId = roomId;
+      activeOnlineGame = "poker";
+      activeView = "online";
       save();
       toast(`Joined ${room.name}.`);
+    }
+
+    function closeActiveRoom() {
+      const room = activeRoom();
+      if (!room) return;
+      if (!isRoomHost(room)) return toast("Only the host can close this room.");
+      room.status = "closed";
+      room.closedReason = "host";
+      room.closedAt = Date.now();
+      room.seats = {};
+      log(`${currentSeat().name} closed ${room.name}.`);
+      activeRoomId = "";
+      activeOnlineGame = room.game;
+      save();
+      toast("Room closed. Players were disconnected.");
+    }
+
+    function leaveActiveRoom() {
+      const room = activeRoom();
+      if (!room) return;
+      const key = currentProfileKey();
+      if (isRoomHost(room)) {
+        closeActiveRoom();
+        return;
+      }
+      if (room.seats) delete room.seats[key];
+      log(`${currentSeat().name} left ${room.name}.`);
+      activeRoomId = "";
+      activeOnlineGame = room.game;
+      save();
+      toast("You left the session.");
+    }
+
+    function handleActiveRoomClosure() {
+      if (!activeRoomId) return;
+      const room = state.onlineRooms[activeRoomId];
+      const key = currentProfileKey();
+      if (!room || room.status === "closed") {
+        if (lastClosedRoomId !== activeRoomId) {
+          lastClosedRoomId = activeRoomId;
+          toast("Host closed session.");
+        }
+        activeRoomId = "";
+        activeOnlineGame = room?.game || activeOnlineGame || "";
+        activeView = "online";
+        return;
+      }
+      if (!room.seats?.[key]) {
+        activeRoomId = "";
+        activeOnlineGame = room.game;
+        activeView = "online";
+        toast("You are no longer in that session.");
+      }
     }
 
     function openBlackjackGuide() {
@@ -1326,12 +1472,26 @@
         joinPokerRoom(target?.dataset.roomId || "");
         return;
       }
+      if (action === "close-active-room") {
+        closeActiveRoom();
+        return;
+      }
+      if (action === "leave-active-room") {
+        leaveActiveRoom();
+        return;
+      }
       if (action === "open-poker-guide") {
         openPokerGuide();
         return;
       }
       if (action === "close-poker-guide") {
         closePokerGuide();
+        return;
+      }
+      if (action === "dismiss-link-profile") {
+        linkPromptDismissed = true;
+        sessionStorage.setItem("virtualCasinoLinkPromptDismissed", "1");
+        if (els.linkProfileDialog.open) els.linkProfileDialog.close();
         return;
       }
       if (action === "borrow") {
@@ -1361,6 +1521,7 @@
         toast(`${player.name} borrowed ${money(amount)}. Chips added: ${chipText(chips)}.`);
       }
       if (action === "add-player") {
+        if (!isDarrenAdmin()) return toast("Only Darren can add players.");
         const name = $("newPlayerName").value.trim();
         if (!name) return toast("Enter a player name.");
         if (state.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) return toast("That player already exists.");
@@ -1369,8 +1530,20 @@
         log(`${name} joined the casino.`);
         save();
       }
-      if (action === "manual-xp") addXP($("manualPlayer").value, Number($("manualXP").value || 0), "Manual catch-up adjustment");
+      if (action === "delete-player") {
+        if (!isDarrenAdmin()) return toast("Only Darren can delete players.");
+        const name = target?.dataset.playerName || "";
+        if (!name || name === "Darren") return toast("Darren cannot be deleted.");
+        state.players = state.players.filter((player) => player.name !== name);
+        log(`${name} was removed from the casino.`);
+        save();
+      }
+      if (action === "manual-xp") {
+        if (!isDarrenAdmin()) return toast("Only Darren can set XP.");
+        addXP($("manualPlayer").value, Number($("manualXP").value || 0), "Manual catch-up adjustment");
+      }
       if (action === "manual-level") {
+        if (!isDarrenAdmin()) return toast("Only Darren can set levels and stars.");
         const player = playerByName($("manualPlayer").value);
         if (!player) return;
         player.xp = levelXP(Number($("manualLevel").value));
@@ -1481,6 +1654,7 @@
     }
 
     function openProfileDialog() {
+      if (els.linkProfileDialog.open) els.linkProfileDialog.close();
       const profile = currentProfile();
       fillSelect("profilePlayerName");
       els.profileEmail.value = profile.email || firebaseState.user?.email || "local@test";
@@ -1539,6 +1713,16 @@
         console.warn(error);
         els.profileMessage.textContent = profileErrorMessage(error);
       }
+    }
+
+    function maybePromptProfileLink() {
+      if (!isSignedIn() || currentPlayer() || linkPromptDismissed) return;
+      if (els.profileDialog.open || els.linkProfileDialog.open) return;
+      setTimeout(() => {
+        if (isSignedIn() && !currentPlayer() && !linkPromptDismissed && !els.profileDialog.open && !els.linkProfileDialog.open) {
+          els.linkProfileDialog.showModal();
+        }
+      }, 350);
     }
 
     function isSignedIn() {
