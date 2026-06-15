@@ -169,6 +169,7 @@
       signInPassword: $("signInPassword"),
       signInMessage: $("signInMessage"),
       toast: $("toast"),
+      mobileNavDrawer: $("mobileNavDrawer"),
       profileDialog: $("profileDialog"),
       profileEmail: $("profileEmail"),
       profileDisplayName: $("profileDisplayName"),
@@ -480,6 +481,7 @@
       $("leaderboard").innerHTML = ranked.map((p, i) => renderListRow(`#${i + 1}`, displayNameForPlayer(p.name), `${money(stackValue(p.chips))} bankroll`, signedMoney(p.lifetime))).join("");
       $("playerAdminBoard").innerHTML = state.players.map((p) => renderAdminPlayerRow(p)).join("");
       document.querySelectorAll(".admin-only").forEach((item) => item.hidden = !isDarrenAdmin());
+      document.querySelectorAll(".admin-link").forEach((item) => item.hidden = !isDarrenAdmin());
       $("debtBoard").innerHTML = ranked.map((p) => renderListRow("&#9878;", displayNameForPlayer(p.name), `Debt ${money(p.bankDebt)}`, `Lifetime ${signedMoney(p.lifetime)}`)).join("");
       $("bankStatus").innerHTML = [
         renderListRow("&#9878;", "Total Loans Outstanding", "", money(state.players.reduce((sum, p) => sum + p.bankDebt, 0))),
@@ -552,9 +554,11 @@
     }
 
     function unlockedAchievementRows() {
+      const linkedName = currentPlayer()?.name || "";
       return Object.entries(state.unlockedAchievements || {})
         .map(([id, unlock]) => ({definition: ACHIEVEMENT_DEFINITIONS.find((item) => item.id === id), unlock}))
         .filter((item) => item.definition)
+        .filter((item) => !linkedName || item.unlock.player === linkedName)
         .sort((a, b) => Number(b.unlock.at || 0) - Number(a.unlock.at || 0));
     }
 
@@ -571,7 +575,11 @@
     function renderAchievementBoards() {
       const unlocked = unlockedAchievementRows();
       const unlockedIds = new Set(unlocked.map((item) => item.definition.id));
-      const locked = ACHIEVEMENT_DEFINITIONS.filter((definition) => !unlockedIds.has(definition.id) && !shouldConcealAchievement(definition, false));
+      const linkedName = currentPlayer()?.name || "";
+      const linkedUnlockedIds = new Set(Object.entries(state.unlockedAchievements || {})
+        .filter(([, unlock]) => linkedName && unlock.player === linkedName)
+        .map(([id]) => id));
+      const locked = ACHIEVEMENT_DEFINITIONS.filter((definition) => !linkedUnlockedIds.has(definition.id) && !shouldConcealAchievement(definition, false));
       $("achievementUnlockedBoard").hidden = activeAchievementTab !== "unlocked";
       $("achievementLockedBoard").hidden = activeAchievementTab !== "locked";
       $("achievementUnlockedBoard").innerHTML = unlocked.length
@@ -633,7 +641,7 @@
 
     function achievementCompletionText(playerName) {
       const total = ACHIEVEMENT_DEFINITIONS.length;
-      const unlockedForPlayer = Object.values(state.unlockedAchievements || {}).filter((item) => !item.player || item.player === playerName).length;
+      const unlockedForPlayer = Object.values(state.unlockedAchievements || {}).filter((item) => item.player === playerName).length;
       return `${unlockedForPlayer}/${total}`;
     }
 
@@ -743,9 +751,9 @@
     }
 
     function renderPlayingCard(card, hidden = false) {
-      if (hidden) return `<span class="playing-card hidden-card">?</span>`;
+      if (hidden) return `<span class="playing-card hidden-card dealt-card">?</span>`;
       const red = card.suit === "♥" || card.suit === "♦";
-      return `<span class="playing-card ${red ? "red" : ""}">${escapeHtml(card.rank)}${escapeHtml(card.suit)}</span>`;
+      return `<span class="playing-card dealt-card ${red ? "red" : ""}">${escapeHtml(card.rank)}${escapeHtml(card.suit)}</span>`;
     }
 
     function renderBlackjackRooms() {
@@ -830,14 +838,18 @@
       soloBlackjack.splits = 0;
       soloBlackjack.dealerHand = [drawCard(soloBlackjack), drawCard(soloBlackjack)];
       soloBlackjack.revealDealer = false;
+      soloBlackjack.message = `Dealing ${money(bet)} hand...`;
+      render();
       const playerTotal = handValue(activeBlackjackHand().cards);
       const dealerTotal = handValue(soloBlackjack.dealerHand);
-      if (playerTotal === 21 || dealerTotal === 21) {
-        settleSoloBlackjack();
-      } else {
-        soloBlackjack.message = `Bet ${money(bet)}. Hit, stand, split a pair, or double down.`;
-      }
-      render();
+      setTimeout(() => {
+        if (playerTotal === 21 || dealerTotal === 21) {
+          settleSoloBlackjack();
+        } else {
+          soloBlackjack.message = `Bet ${money(bet)}. Hit, stand, split a pair, or double down.`;
+          render();
+        }
+      }, 520);
     }
 
     function hitSoloBlackjack() {
@@ -954,6 +966,7 @@
         }
       });
       if (wins > 0) toast(`${player.name} won ${wins} blackjack hand${wins === 1 ? "" : "s"} and gained XP.`);
+      if (!wins && !losses && pushes) toast(`Push. Your ${money(totalBlackjackExposure())} bet was returned.`);
       adjustPlayerBankroll(player, totalDelta);
       if (totalDelta !== 0) applyMoneyResult(player, totalDelta, "solo blackjack");
       state.gameStats.blackjack.played = Number(state.gameStats.blackjack.played || 0) + hands.length;
@@ -1364,6 +1377,10 @@
     }
 
     function handleAction(action, target = null) {
+      if (action === "toggle-mobile-nav") {
+        toggleMobileNav();
+        return;
+      }
       if (action === "open-profile") {
         openProfileDialog();
         return;
@@ -1551,6 +1568,17 @@
         log(`${player.name} manually set to Level ${$("manualLevel").value} with ${player.stars} star(s).`);
         save();
       }
+      if (action === "grant-bankroll") {
+        if (!isDarrenAdmin()) return toast("Only Darren can grant bankroll.");
+        const player = playerByName($("manualPlayer").value);
+        const amount = Number($("grantMoneyAmount").value || 0);
+        if (!player || amount === 0) return toast("Choose a player and amount.");
+        adjustPlayerBankroll(player, amount);
+        player.lifetime += amount;
+        log(`${player.name} received ${money(amount)} bankroll grant.`);
+        save();
+        toast(`${player.name} bankroll updated by ${signedMoney(amount)}.`);
+      }
       if (action === "new-session") {
         state.players.forEach((p) => { p.sessionBuyIn = 0; p.chips = {...blank}; });
         state.pokerSessionActive = true;
@@ -1649,17 +1677,27 @@
 
     function setView(view) {
       activeView = view;
+      closeMobileNav();
       render();
       window.scrollTo({top: 0, behavior: "smooth"});
     }
 
+    function toggleMobileNav() {
+      els.mobileNavDrawer.hidden = !els.mobileNavDrawer.hidden;
+    }
+
+    function closeMobileNav() {
+      els.mobileNavDrawer.hidden = true;
+    }
+
     function openProfileDialog() {
+      closeMobileNav();
       if (els.linkProfileDialog.open) els.linkProfileDialog.close();
       const profile = currentProfile();
       fillSelect("profilePlayerName");
       els.profileEmail.value = profile.email || firebaseState.user?.email || "local@test";
-      els.profileDisplayName.value = profile.displayName || "";
       els.profilePlayerName.value = playerByName(profile.playerName) ? profile.playerName : currentPlayer()?.name || "";
+      els.profileDisplayName.value = els.profilePlayerName.value || profile.displayName || "";
       els.profilePassword.value = "";
       els.profileMessage.textContent = "Link this login to the player record used for bankroll and achievements.";
       els.profileDialog.showModal();
@@ -1670,8 +1708,8 @@
     }
 
     async function saveProfileSettings() {
-      const displayName = els.profileDisplayName.value.trim() || els.profilePlayerName.value || "Player";
       const playerName = els.profilePlayerName.value;
+      const displayName = playerName || els.profileDisplayName.value.trim() || "Player";
       const newPassword = els.profilePassword.value;
       if (firebaseDisabled) {
         localProfile = {email: "local@test", displayName, playerName};
@@ -1984,6 +2022,9 @@
     els.profileDialog.addEventListener("click", (event) => {
       if (event.target === els.profileDialog) closeProfileDialog();
     });
+    els.mobileNavDrawer.addEventListener("click", (event) => {
+      if (event.target === els.mobileNavDrawer) closeMobileNav();
+    });
     els.blackjackRoomDialog.addEventListener("click", (event) => {
       if (event.target === els.blackjackRoomDialog) closeBlackjackRoomDialog();
     });
@@ -1995,6 +2036,9 @@
     });
     els.pokerGuideDialog.addEventListener("click", (event) => {
       if (event.target === els.pokerGuideDialog) closePokerGuide();
+    });
+    els.profilePlayerName.addEventListener("change", () => {
+      if (els.profilePlayerName.value) els.profileDisplayName.value = els.profilePlayerName.value;
     });
     $("soloBetPreset").addEventListener("change", () => {
       if ($("soloBetPreset").value) $("soloBetAmount").value = $("soloBetPreset").value;

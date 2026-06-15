@@ -64,7 +64,7 @@
 
     <main class="main">
       <header class="mobile-header">
-        <button class="icon-btn" type="button" data-action="open-profile" aria-label="Profile settings">&#9776;</button>
+        <button class="icon-btn" type="button" data-action="toggle-mobile-nav" aria-label="Open navigation">&#9776;</button>
         <div class="mobile-brand">
           <div class="brand-title">Casino</div>
           <div class="brand-subtitle">Family Card RPG</div>
@@ -99,7 +99,7 @@
           <div>
             <div class="section-title">
               <span>&#9818; Your Crew</span>
-              <button class="ghost-btn" type="button" data-view="players">&#9881; Manage Players</button>
+              <button class="ghost-btn admin-link" type="button" data-view="players">&#9881; Manage Players</button>
             </div>
             <div id="crewGrid" class="crew-grid"></div>
             <div class="section-title" style="margin-top:18px;"><span>Choose Your Game</span></div>
@@ -151,10 +151,12 @@
             <div><label for="manualXP">Add XP</label><input id="manualXP" type="number" inputmode="numeric" value="100" /></div>
             <div><label for="manualLevel">Exact Level</label><select id="manualLevel"></select></div>
             <div><label for="manualStars">Prestige Stars</label><input id="manualStars" type="number" inputmode="numeric" value="0" /></div>
+            <div><label for="grantMoneyAmount">Grant Bankroll</label><input id="grantMoneyAmount" type="number" inputmode="numeric" value="100" /></div>
           </div>
           <div class="action-grid">
             <button class="primary-btn" type="button" data-action="manual-xp">Add XP</button>
             <button class="ghost-btn" type="button" data-action="manual-level">Set Level / Stars</button>
+            <button class="ghost-btn" type="button" data-action="grant-bankroll">Grant Bankroll</button>
           </div>
         </article>
       </section>
@@ -335,7 +337,7 @@
             <div class="blackjack-table">
               <div class="hand-zone">
                 <div class="section-title"><span>Dealer</span><span class="sync-pill">Room Table</span></div>
-                <div class="playing-card-row"><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span></div>
+                <div class="playing-card-row"><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span></div>
               </div>
               <div class="hand-zone">
                 <div class="section-title"><span>Players</span><span class="sync-pill">Live session lobby</span></div>
@@ -379,7 +381,7 @@
             <div class="blackjack-table">
               <div class="hand-zone">
                 <div class="section-title"><span>Community Board</span><span class="sync-pill">Kickers enabled</span></div>
-                <div class="playing-card-row"><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span></div>
+                <div class="playing-card-row"><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span></div>
               </div>
               <div class="hand-zone">
                 <div class="section-title"><span>Room Status</span><span class="sync-pill">Multiplayer only</span></div>
@@ -455,6 +457,23 @@
   </nav>
 
   <div id="toast" class="toast"></div>
+  <div id="mobileNavDrawer" class="mobile-nav-drawer" hidden>
+    <div class="mobile-nav-panel">
+      <div class="section-title">
+        <span>Navigation</span>
+        <button class="mini-btn" type="button" data-action="toggle-mobile-nav">Close</button>
+      </div>
+      <button class="nav-btn" data-view="overview"><span>&#8962;</span><span>Overview</span></button>
+      <button class="nav-btn admin-link" data-view="players"><span>&#9818;</span><span>Players</span></button>
+      <button class="nav-btn" data-view="sessions"><span>&#9830;</span><span>Local Sessions</span></button>
+      <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online Sessions</span></button>
+      <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank & Loans</span></button>
+      <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Achievements</span></button>
+      <button class="nav-btn" data-view="history"><span>&#8635;</span><span>History</span></button>
+      <button class="nav-btn" data-view="export"><span>&#8682;</span><span>Export / Import</span></button>
+      <button class="nav-btn" type="button" data-action="open-profile"><span>&#9881;</span><span>Profile Settings</span></button>
+    </div>
+  </div>
   <dialog id="linkProfileDialog" class="profile-dialog">
     <form method="dialog" class="profile-card">
       <div class="section-title">
@@ -578,19 +597,18 @@
         <span>Texas Hold'em Cheat Sheet</span>
         <button class="mini-btn" type="button" data-action="close-poker-guide">Close</button>
       </div>
-      <div class="guide-grid poker-guide-grid">
-        <div><strong>Royal Flush</strong><p>A-K-Q-J-10 same suit. 1000 XP.</p></div>
-        <div><strong>Straight Flush</strong><p>Five in order, same suit. 500 XP.</p></div>
-        <div><strong>Four of a Kind</strong><p>Four cards same rank. 200 XP.</p></div>
-        <div><strong>Full House</strong><p>Three of a kind plus a pair. 100 XP.</p></div>
-        <div><strong>Flush</strong><p>Five same suit. 75 XP.</p></div>
-        <div><strong>Straight</strong><p>Five in order. A can be high or low. 50 XP.</p></div>
-        <div><strong>Three of a Kind</strong><p>Three cards same rank. 35 XP.</p></div>
-        <div><strong>Two Pair</strong><p>Two different pairs. 20 XP.</p></div>
-        <div><strong>One Pair</strong><p>One matching pair. 10 XP.</p></div>
-        <div><strong>High Card</strong><p>No made hand. Highest cards decide. 5 XP.</p></div>
-        <div><strong>Blinds</strong><p>Small blind posts first forced bet. Big blind is normally double and starts the action pressure.</p></div>
-        <div><strong>Kickers</strong><p>If players tie hand rank, unused highest cards break the tie in order.</p></div>
+      <div class="poker-visual-guide">
+        <div class="poker-hand-row"><div class="mini-hand"><span>10&#9829;</span><span>J&#9829;</span><span>Q&#9829;</span><span>K&#9829;</span><span>A&#9829;</span></div><div><strong>Royal Flush</strong><p>A-K-Q-J-10 same suit. 1000 XP.</p></div></div>
+        <div class="poker-hand-row"><div class="mini-hand"><span>5&#9824;</span><span>6&#9824;</span><span>7&#9824;</span><span>8&#9824;</span><span>9&#9824;</span></div><div><strong>Straight Flush</strong><p>Five in order, same suit. 500 XP.</p></div></div>
+        <div class="poker-hand-row"><div class="mini-hand"><span>A&#9829;</span><span>A&#9827;</span><span>A&#9830;</span><span>A&#9824;</span><span>2&#9829;</span></div><div><strong>Four of a Kind</strong><p>Four cards same rank. 200 XP.</p></div></div>
+        <div class="poker-hand-row"><div class="mini-hand"><span>A&#9824;</span><span>A&#9830;</span><span>A&#9827;</span><span>K&#9829;</span><span>K&#9824;</span></div><div><strong>Full House</strong><p>Three of a kind plus a pair. 100 XP.</p></div></div>
+        <div class="poker-hand-row"><div class="mini-hand"><span>2&#9829;</span><span>4&#9829;</span><span>6&#9829;</span><span>8&#9829;</span><span>K&#9829;</span></div><div><strong>Flush</strong><p>Five same suit. Highest card breaks flush ties. 75 XP.</p></div></div>
+        <div class="poker-hand-row"><div class="mini-hand"><span>5&#9829;</span><span>6&#9827;</span><span>7&#9830;</span><span>8&#9824;</span><span>9&#9829;</span></div><div><strong>Straight</strong><p>Five in order. Aces can be high or low. 50 XP.</p></div></div>
+        <div class="poker-hand-row"><div class="mini-hand"><span>A&#9827;</span><span>A&#9829;</span><span>A&#9824;</span><span>2&#9830;</span><span>7&#9827;</span></div><div><strong>Three of a Kind</strong><p>Three cards same rank. 35 XP.</p></div></div>
+        <div class="poker-hand-row"><div class="mini-hand"><span>K&#9830;</span><span>K&#9827;</span><span>Q&#9829;</span><span>Q&#9824;</span><span>J&#9830;</span></div><div><strong>Two Pair</strong><p>Two separate pairs. 20 XP.</p></div></div>
+        <div class="poker-hand-row"><div class="mini-hand"><span>A&#9827;</span><span>A&#9829;</span><span>9&#9824;</span><span>8&#9830;</span><span>7&#9827;</span></div><div><strong>One Pair</strong><p>One matching pair. 10 XP.</p></div></div>
+        <div class="poker-hand-row"><div class="mini-hand"><span>A&#9829;</span><span>8&#9824;</span><span>6&#9830;</span><span>4&#9827;</span><span>2&#9829;</span></div><div><strong>High Card</strong><p>No made hand. Highest cards decide. 5 XP.</p></div></div>
+        <div class="poker-hand-row rule-row"><div class="mini-hand"><span>SB</span><span>BB</span><span>K</span></div><div><strong>Blinds & Kickers</strong><p>Small blind and big blind seed the pot. Kickers break tied ranks from highest unused cards.</p></div></div>
       </div>
     </form>
   </dialog>

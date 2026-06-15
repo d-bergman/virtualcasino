@@ -1036,6 +1036,48 @@
     .mobile-header,
     .bottom-nav { display: none; }
 
+    .mobile-nav-drawer {
+      position: fixed;
+      inset: 0;
+      z-index: 1300;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(8px);
+      padding: 16px;
+    }
+
+    .mobile-nav-panel {
+      width: min(360px, calc(100vw - 32px));
+      border: 1px solid rgba(255,216,107,0.28);
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at top, rgba(149,61,255,0.22), transparent 42%),
+        rgba(12, 10, 18, 0.98);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .dealt-card {
+      animation: dealCard 360ms ease both;
+    }
+
+    .playing-card-row .dealt-card:nth-child(2) { animation-delay: 80ms; }
+    .playing-card-row .dealt-card:nth-child(3) { animation-delay: 160ms; }
+    .playing-card-row .dealt-card:nth-child(4) { animation-delay: 240ms; }
+    .playing-card-row .dealt-card:nth-child(5) { animation-delay: 320ms; }
+    .playing-card-row .dealt-card:nth-child(6) { animation-delay: 400ms; }
+
+    @keyframes dealCard {
+      from {
+        opacity: 0;
+        transform: translate3d(-22px, -18px, 0) rotate(-18deg) scale(0.92);
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
     .toast {
       position: fixed;
       right: 22px;
@@ -1092,6 +1134,60 @@
 
     .poker-guide-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .poker-visual-guide {
+      display: grid;
+      gap: 12px;
+    }
+
+    .poker-hand-row {
+      display: grid;
+      grid-template-columns: minmax(220px, 340px) 1fr;
+      gap: 18px;
+      align-items: center;
+      border: 1px solid rgba(255,216,107,0.16);
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at left, rgba(34,211,116,0.13), transparent 34%),
+        rgba(255,255,255,0.04);
+      padding: 12px;
+    }
+
+    .mini-hand {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mini-hand span {
+      display: grid;
+      place-items: start;
+      width: 48px;
+      height: 66px;
+      border-radius: 6px;
+      background: linear-gradient(145deg, #fffaf0, #d8cec0);
+      color: #171017;
+      padding: 7px;
+      font-weight: 950;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.28);
+    }
+
+    .mini-hand span:has(♥),
+    .mini-hand span:has(♦) {
+      color: #a51024;
+    }
+
+    .poker-hand-row strong {
+      color: var(--gold);
+      font-size: 1rem;
+      text-transform: uppercase;
+    }
+
+    .poker-hand-row p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.4;
     }
 
     .guide-grid div {
@@ -1242,6 +1338,7 @@
       .form-grid,
       .action-grid { grid-template-columns: 1fr; }
       .room-player-grid { grid-template-columns: 1fr; }
+      .poker-hand-row { grid-template-columns: 1fr; }
       .side-stack { gap: 14px; }
       .toast { right: 16px; bottom: 92px; }
     }
