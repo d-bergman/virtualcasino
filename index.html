@@ -1,0 +1,269 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Virtual Casino | Family Card RPG</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="auth-checking">
+  <div id="appLoader" class="app-loader" role="status" aria-live="polite">
+    <div class="loader-card">
+      <div class="loader-seal" aria-hidden="true">&#9819;</div>
+      <h2 class="loader-title">Loading Casino</h2>
+      <p>Preparing cards, chips, and family RPG records...</p>
+      <div class="loader-bar"><span></span></div>
+    </div>
+  </div>
+
+  <section id="authGate" class="auth-gate" aria-live="polite">
+    <form id="signInForm" class="auth-card">
+      <div class="auth-logo">
+        <div class="brand-art" aria-hidden="true">
+          <span class="card-mini">A&#9824;</span>
+          <span class="card-mini">A&#9829;</span>
+          <span class="chip-mini"></span>
+        </div>
+        <p class="eyebrow">Virtual Casino</p>
+        <h1>Family Sign In</h1>
+        <p>Sign in to unlock the live family card RPG tracker.</p>
+      </div>
+      <label for="signInEmail">Email</label>
+      <input id="signInEmail" type="email" autocomplete="username" placeholder="family@email.com" />
+      <label for="signInPassword">Password</label>
+      <input id="signInPassword" type="password" autocomplete="current-password" required />
+      <button class="primary-btn" type="submit" style="width:100%;margin-top:18px;">Sign In</button>
+      <div id="signInMessage" class="auth-message">Firebase authentication required.</div>
+    </form>
+  </section>
+
+  <div class="casino-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand-block">
+        <div class="brand-art" aria-hidden="true">
+          <span class="card-mini">A&#9824;</span>
+          <span class="card-mini">A&#9829;</span>
+          <span class="chip-mini"></span>
+        </div>
+        <div class="brand-title">Casino</div>
+        <div class="brand-subtitle">Virtual Family Card RPG</div>
+      </div>
+      <nav class="side-nav">
+        <button class="nav-btn active" data-view="overview"><span>&#8962;</span><span>Overview</span></button>
+        <button class="nav-btn" data-view="players"><span>&#9818;</span><span>Players</span></button>
+        <button class="nav-btn" data-view="sessions"><span>&#9830;</span><span>Sessions</span></button>
+        <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank & Loans</span></button>
+        <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Achievements</span></button>
+        <button class="nav-btn" data-view="history"><span>&#8635;</span><span>History</span></button>
+        <button class="nav-btn" data-view="export"><span>&#8682;</span><span>Export / Import</span></button>
+      </nav>
+      <div class="luck-card"><p>Good luck, have fun, and may the best player win!</p></div>
+    </aside>
+
+    <main class="main">
+      <header class="mobile-header">
+        <button class="icon-btn" type="button" data-view="players" aria-label="Open players">&#9776;</button>
+        <div class="mobile-brand">
+          <div class="brand-title">Casino</div>
+          <div class="brand-subtitle">Family Card RPG</div>
+        </div>
+        <button class="icon-btn" type="button" id="signOutMobile" aria-label="Sign out">&#9211;</button>
+      </header>
+
+      <section class="topbar">
+        <div class="welcome">
+          <p class="eyebrow">Welcome back,</p>
+          <h1 id="championName">Champion</h1>
+          <div class="quote">"Every hand is a new story."</div>
+        </div>
+        <article class="family-progress">
+          <div>
+            <p class="eyebrow">Family Level <span id="familyLevel">1</span></p>
+            <div class="level-row">
+              <strong id="familyXpLabel">0 / 100 XP</strong>
+              <div class="progress-track"><span id="familyXpFill" class="progress-fill" style="width:0%"></span></div>
+              <span id="syncStatus" class="sync-pill"><span id="syncDot" class="sync-dot"></span><span id="syncText">Cloud pending</span></span>
+            </div>
+          </div>
+          <div class="prestige">
+            Prestige
+            <strong id="familyPrestige">0</strong>
+          </div>
+        </article>
+      </section>
+
+      <div class="game-tabs" aria-label="Game tabs">
+        <button class="game-tab active" data-game="poker">&#9824; Poker</button>
+        <button class="game-tab" data-game="blackjack">&#9827; Blackjack</button>
+        <button class="game-tab" data-game="uno">&#9635; Uno</button>
+      </div>
+
+      <section id="overviewView" class="view active">
+        <div class="layout-grid">
+          <div>
+            <div class="section-title">
+              <span>&#9818; Your Crew</span>
+              <button class="ghost-btn" type="button" data-view="players">&#9881; Manage Players</button>
+            </div>
+            <div id="crewGrid" class="crew-grid"></div>
+            <div class="section-title" style="margin-top:18px;"><span>Choose Your Game</span></div>
+            <div id="gameGrid" class="game-grid"></div>
+            <article class="panel panel-pad" style="margin-top:18px;">
+              <div class="section-title"><span>Session Overview</span></div>
+              <div id="sessionOverview" class="leaderboard-list"></div>
+            </article>
+          </div>
+          <aside class="side-stack">
+            <article class="panel panel-pad">
+              <div class="section-title"><span>Bank & Loans</span></div>
+              <div class="form-grid">
+                <div class="full"><label for="borrowPlayer">Player</label><select id="borrowPlayer"></select></div>
+                <div class="full"><label for="borrowAmount">Custom Amount</label><input id="borrowAmount" type="number" inputmode="numeric" value="100" /></div>
+              </div>
+              <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="borrow">Issue Loan</button>
+              <div id="bankStatus" class="history-list" style="margin-top:14px;"></div>
+            </article>
+            <article class="panel panel-pad">
+              <div class="section-title"><span>Recent Achievements</span></div>
+              <div id="recentAchievements" class="achievement-list"></div>
+            </article>
+            <article class="panel panel-pad">
+              <div class="section-title"><span>Recent Activity</span></div>
+              <div id="recentActivity" class="history-list"></div>
+            </article>
+          </aside>
+        </div>
+      </section>
+
+      <section id="playersView" class="view">
+        <article class="panel panel-pad">
+          <div class="section-title"><span>Manage Players</span></div>
+          <div class="form-grid">
+            <div><label for="newPlayerName">Player Name</label><input id="newPlayerName" type="text" placeholder="ex: Mom" /></div>
+            <div style="align-self:end;"><button class="primary-btn" style="width:100%;" type="button" data-action="add-player">Add Player</button></div>
+          </div>
+        </article>
+        <article class="panel panel-pad" style="margin-top:18px;">
+          <div class="section-title"><span>Leaderboard</span></div>
+          <div id="leaderboard" class="leaderboard-list"></div>
+        </article>
+        <article class="panel panel-pad" style="margin-top:18px;">
+          <div class="section-title"><span>Manual Level / XP</span></div>
+          <div class="form-grid">
+            <div><label for="manualPlayer">Player</label><select id="manualPlayer"></select></div>
+            <div><label for="manualXP">Add XP</label><input id="manualXP" type="number" inputmode="numeric" value="100" /></div>
+            <div><label for="manualLevel">Exact Level</label><select id="manualLevel"></select></div>
+            <div><label for="manualStars">Prestige Stars</label><input id="manualStars" type="number" inputmode="numeric" value="0" /></div>
+          </div>
+          <div class="action-grid">
+            <button class="primary-btn" type="button" data-action="manual-xp">Add XP</button>
+            <button class="ghost-btn" type="button" data-action="manual-level">Set Level / Stars</button>
+          </div>
+        </article>
+      </section>
+
+      <section id="sessionsView" class="view">
+        <article class="panel panel-pad">
+          <div class="section-title"><span>Poker Session</span></div>
+          <div class="action-grid">
+            <button class="primary-btn" type="button" data-action="new-session">New Poker Session</button>
+            <button class="ghost-btn" type="button" data-action="end-session">End Session / Cash Out</button>
+          </div>
+          <div class="form-grid" style="margin-top:12px;">
+            <div><label for="buyinPlayer">Buy-in Player</label><select id="buyinPlayer"></select></div>
+            <div><label for="buyinAmount">Buy-in Amount</label><input id="buyinAmount" type="number" inputmode="numeric" value="465" /></div>
+          </div>
+          <div class="action-grid">
+            <button class="primary-btn" type="button" data-action="standard-buyin">Standard $465 Stack</button>
+            <button class="ghost-btn" type="button" data-action="custom-buyin">Custom Buy-in</button>
+          </div>
+          <div id="chipRecommendation" class="sync-pill" style="margin-top:12px;">10W / 10R / 8B / 5G / 2Black = $465</div>
+        </article>
+
+        <article class="panel panel-pad" style="margin-top:18px;">
+          <div class="section-title"><span>Chip Counter</span></div>
+          <div class="form-grid">
+            <div><label for="chipPlayer">Player</label><select id="chipPlayer"></select></div>
+            <div><label for="w">White</label><input id="w" type="number" inputmode="numeric" placeholder="0" /></div>
+            <div><label for="r">Red</label><input id="r" type="number" inputmode="numeric" placeholder="0" /></div>
+            <div><label for="b">Blue</label><input id="b" type="number" inputmode="numeric" placeholder="0" /></div>
+            <div><label for="g">Green</label><input id="g" type="number" inputmode="numeric" placeholder="0" /></div>
+            <div><label for="k">Black</label><input id="k" type="number" inputmode="numeric" placeholder="0" /></div>
+          </div>
+          <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="save-chips">Save Chip Count</button>
+        </article>
+
+        <article class="panel panel-pad" style="margin-top:18px;">
+          <div class="section-title"><span>XP & Results</span></div>
+          <div class="form-grid">
+            <div><label for="handPlayer">Poker Winner</label><select id="handPlayer"></select></div>
+            <div><label for="handType">Winning Hand</label><select id="handType"></select></div>
+            <div><label for="blackjackPlayer">Blackjack Player</label><select id="blackjackPlayer"></select></div>
+            <div><label for="blackjackEvent">Blackjack Event</label><select id="blackjackEvent"></select></div>
+            <div><label for="unoPlayer">Uno Player</label><select id="unoPlayer"></select></div>
+            <div><label for="unoEvent">Uno Event</label><select id="unoEvent"></select></div>
+          </div>
+          <div class="action-grid">
+            <button class="primary-btn" type="button" data-action="poker-xp">Add Poker XP</button>
+            <button class="primary-btn" type="button" data-action="blackjack-xp">Add Blackjack XP</button>
+            <button class="primary-btn" type="button" data-action="uno-xp">Add Uno XP</button>
+            <button class="ghost-btn" type="button" data-action="bonus">Poker Tournament +100 XP</button>
+          </div>
+        </article>
+      </section>
+
+      <section id="bankView" class="view">
+        <article class="panel panel-pad">
+          <div class="section-title"><span>Bank & Loans</span></div>
+          <div class="form-grid">
+            <div><label for="blackjackMoneyPlayer">Money Player</label><select id="blackjackMoneyPlayer"></select></div>
+            <div><label for="blackjackNetAmount">Net Amount</label><input id="blackjackNetAmount" type="number" inputmode="numeric" placeholder="ex: 25 or -10" /></div>
+          </div>
+          <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="blackjack-money">Record Blackjack Win / Loss</button>
+          <div id="debtBoard" class="leaderboard-list" style="margin-top:18px;"></div>
+        </article>
+      </section>
+
+      <section id="achievementsView" class="view">
+        <article class="panel panel-pad">
+          <div class="section-title"><span>Achievements</span></div>
+          <div id="achievementBoard" class="achievement-list"></div>
+        </article>
+      </section>
+
+      <section id="historyView" class="view">
+        <article class="panel panel-pad">
+          <div class="section-title"><span>Session History</span></div>
+          <div id="historyBoard" class="history-list"></div>
+        </article>
+      </section>
+
+      <section id="exportView" class="view">
+        <article class="panel panel-pad">
+          <div class="section-title"><span>Export / Import</span></div>
+          <label for="saveText">Save Text</label>
+          <textarea id="saveText" style="width:100%;min-height:180px;border-radius:8px;background:rgba(255,255,255,0.06);color:var(--text);border:1px solid rgba(255,255,255,0.12);padding:12px;"></textarea>
+          <div class="action-grid">
+            <button class="primary-btn" type="button" data-action="export">Export Current Save</button>
+            <button class="ghost-btn" type="button" data-action="import">Import Save Text</button>
+            <button class="ghost-btn" type="button" data-action="seed-save">Load Attached Canada Save</button>
+            <button class="ghost-btn" type="button" data-action="reset">Reset Tracker</button>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Mobile navigation">
+    <button class="nav-btn active" data-view="overview"><span>&#8962;</span><span>Home</span></button>
+    <button class="nav-btn" data-view="players"><span>&#9818;</span><span>Players</span></button>
+    <button class="nav-btn" data-view="sessions"><span>&#9824;</span><span>Play</span></button>
+    <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Stars</span></button>
+    <button class="nav-btn" data-view="export"><span>&#8943;</span><span>More</span></button>
+  </nav>
+
+  <div id="toast" class="toast"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
