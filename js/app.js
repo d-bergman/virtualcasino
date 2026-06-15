@@ -118,9 +118,12 @@
     function createEmptyBlackjackGame() {
       return {
         deck: [],
+        playerHands: [],
         playerHand: [],
         dealerHand: [],
         bet: 0,
+        activeHand: 0,
+        splits: 0,
         phase: "idle",
         message: "Place a bet and deal a hand.",
         revealDealer: false
@@ -172,7 +175,15 @@
       blackjackRoomDialog: $("blackjackRoomDialog"),
       roomName: $("roomName"),
       roomRole: $("roomRole"),
-      roomMessage: $("roomMessage")
+      roomMessage: $("roomMessage"),
+      blackjackGuideDialog: $("blackjackGuideDialog"),
+      pokerRoomDialog: $("pokerRoomDialog"),
+      pokerRoomName: $("pokerRoomName"),
+      pokerSmallBlind: $("pokerSmallBlind"),
+      pokerBigBlind: $("pokerBigBlind"),
+      pokerSeatRole: $("pokerSeatRole"),
+      pokerRoomMessage: $("pokerRoomMessage"),
+      pokerGuideDialog: $("pokerGuideDialog")
     };
 
     function decodeSave(text) {
@@ -454,12 +465,14 @@
       $("gameGrid").innerHTML = ["poker","blackjack","uno"].map(renderGameCard).join("");
       document.querySelectorAll("[data-game-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.gamePanel === activeGame));
       $("blackjackOnlineArea").hidden = activeOnlineGame !== "blackjack";
+      $("pokerOnlineArea").hidden = activeOnlineGame !== "poker";
       $("blackjackSoloPanel").classList.toggle("active", blackjackMode === "solo");
       $("blackjackSoloPanel").hidden = blackjackMode !== "solo";
       $("blackjackMultiPanel").classList.toggle("active", blackjackMode === "multi");
       $("blackjackMultiPanel").hidden = blackjackMode !== "multi";
       renderBlackjackTable();
       renderBlackjackRooms();
+      renderPokerRooms();
       renderSessionOverview();
     }
 
@@ -609,17 +622,43 @@
     }
 
     function renderBlackjackTable() {
+      const hands = blackjackHands();
       $("dealerHand").innerHTML = soloBlackjack.dealerHand.length
         ? soloBlackjack.dealerHand.map((card, index) => renderPlayingCard(card, index === 1 && !soloBlackjack.revealDealer && soloBlackjack.phase === "playing")).join("")
         : `<div class="sync-pill">No dealer hand</div>`;
-      $("playerHand").innerHTML = soloBlackjack.playerHand.length
-        ? soloBlackjack.playerHand.map((card) => renderPlayingCard(card)).join("")
+      $("playerHand").innerHTML = hands.length
+        ? hands.map((hand, index) => renderBlackjackHand(hand, index)).join("")
         : `<div class="sync-pill">No player hand</div>`;
       $("dealerTotal").textContent = soloBlackjack.dealerHand.length
         ? (soloBlackjack.revealDealer || soloBlackjack.phase !== "playing" ? handValue(soloBlackjack.dealerHand) : handValue([soloBlackjack.dealerHand[0]]))
         : "0";
-      $("playerTotal").textContent = soloBlackjack.playerHand.length ? handValue(soloBlackjack.playerHand) : "0";
+      $("playerTotal").textContent = hands.length ? hands.map((hand, index) => `H${index + 1}: ${handValue(hand.cards)}`).join(" / ") : "0";
       $("blackjackStatus").textContent = soloBlackjack.message;
+    }
+
+    function blackjackHands() {
+      if (Array.isArray(soloBlackjack.playerHands) && soloBlackjack.playerHands.length) return soloBlackjack.playerHands;
+      if (soloBlackjack.playerHand?.length) return [{cards: soloBlackjack.playerHand, bet: soloBlackjack.bet, doubled: false, stood: false}];
+      return [];
+    }
+
+    function activeBlackjackHand() {
+      return blackjackHands()[soloBlackjack.activeHand] || null;
+    }
+
+    function renderBlackjackHand(hand, index) {
+      const active = soloBlackjack.phase === "playing" && index === soloBlackjack.activeHand;
+      const cards = hand.cards.map((card) => renderPlayingCard(card)).join("");
+      const flags = [
+        active ? "Active" : "",
+        hand.doubled ? "Double" : "",
+        hand.stood ? "Stand" : "",
+        hand.result || ""
+      ].filter(Boolean).join(" / ");
+      return `<div class="blackjack-hand ${active ? "active" : ""}">
+        <div class="blackjack-hand-meta"><strong>Hand ${index + 1}</strong><span>${money(hand.bet || soloBlackjack.bet)} ${flags ? "- " + escapeHtml(flags) : ""}</span></div>
+        <div class="playing-card-row compact">${cards}</div>
+      </div>`;
     }
 
     function renderPlayingCard(card, hidden = false) {
@@ -640,6 +679,21 @@
     function renderRoomRow(room) {
       const seats = Object.values(room.seats || {}).map((seat) => `${seat.name} (${seat.role})`).join(", ") || "No seats yet";
       return `<div class="list-row"><span class="medal">&#9827;</span><div><strong>${escapeHtml(room.name)}</strong><div style="color:var(--muted);font-size:.82rem;">${escapeHtml(seats)}</div></div><button class="mini-btn" type="button" data-room-id="${escapeAttr(room.id)}" data-action="join-blackjack-room">Join</button></div>`;
+    }
+
+    function renderPokerRooms() {
+      const rooms = Object.values(state.onlineRooms || {})
+        .filter((room) => room.game === "poker" && room.status === "open")
+        .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+      $("pokerRooms").innerHTML = rooms.length
+        ? rooms.map((room) => renderPokerRoomRow(room)).join("")
+        : renderListRow("&#9824;", "No open Hold'em rooms", "Start a multiplayer room with blinds.", "");
+    }
+
+    function renderPokerRoomRow(room) {
+      const seats = Object.values(room.seats || {}).map((seat) => `${seat.name} (${seat.role})`).join(", ") || "No seats yet";
+      const blinds = `Small blind ${money(room.smallBlind || 0)} / Big blind ${money(room.bigBlind || 0)} - Kickers enabled`;
+      return `<div class="list-row"><span class="medal">&#9824;</span><div><strong>${escapeHtml(room.name)}</strong><div style="color:var(--muted);font-size:.82rem;">${escapeHtml(blinds)}<br>${escapeHtml(seats)}</div></div><button class="mini-btn" type="button" data-room-id="${escapeAttr(room.id)}" data-action="join-poker-room">Join</button></div>`;
     }
 
     function createDeck() {
@@ -689,34 +743,91 @@
       soloBlackjack.deck = createDeck();
       soloBlackjack.bet = bet;
       soloBlackjack.phase = "playing";
-      soloBlackjack.playerHand = [drawCard(soloBlackjack), drawCard(soloBlackjack)];
+      soloBlackjack.playerHands = [{cards: [drawCard(soloBlackjack), drawCard(soloBlackjack)], bet, doubled: false, stood: false, result: ""}];
+      soloBlackjack.playerHand = soloBlackjack.playerHands[0].cards;
+      soloBlackjack.activeHand = 0;
+      soloBlackjack.splits = 0;
       soloBlackjack.dealerHand = [drawCard(soloBlackjack), drawCard(soloBlackjack)];
       soloBlackjack.revealDealer = false;
-      const playerTotal = handValue(soloBlackjack.playerHand);
+      const playerTotal = handValue(activeBlackjackHand().cards);
       const dealerTotal = handValue(soloBlackjack.dealerHand);
       if (playerTotal === 21 || dealerTotal === 21) {
         settleSoloBlackjack();
       } else {
-        soloBlackjack.message = `Bet ${money(bet)}. Hit or stand.`;
+        soloBlackjack.message = `Bet ${money(bet)}. Hit, stand, split a pair, or double down.`;
       }
       render();
     }
 
     function hitSoloBlackjack() {
       if (soloBlackjack.phase !== "playing") return toast("Deal a hand first.");
-      soloBlackjack.playerHand.push(drawCard(soloBlackjack));
-      if (handValue(soloBlackjack.playerHand) > 21) settleSoloBlackjack();
-      else soloBlackjack.message = "Card dealt. Hit or stand.";
+      const hand = activeBlackjackHand();
+      if (!hand) return;
+      hand.cards.push(drawCard(soloBlackjack));
+      if (handValue(hand.cards) > 21) {
+        hand.stood = true;
+        hand.result = "Bust";
+        advanceBlackjackHand();
+      } else {
+        soloBlackjack.message = `Hand ${soloBlackjack.activeHand + 1}: card dealt.`;
+      }
       render();
     }
 
     function standSoloBlackjack() {
       if (soloBlackjack.phase !== "playing") return toast("Deal a hand first.");
-      while (handValue(soloBlackjack.dealerHand) < 17) {
-        soloBlackjack.dealerHand.push(drawCard(soloBlackjack));
+      const hand = activeBlackjackHand();
+      if (hand) hand.stood = true;
+      advanceBlackjackHand();
+      render();
+    }
+
+    function splitSoloBlackjack() {
+      if (soloBlackjack.phase !== "playing") return toast("Deal a hand first.");
+      const hand = activeBlackjackHand();
+      const player = currentPlayer();
+      if (!hand || hand.cards.length !== 2 || hand.cards[0].rank !== hand.cards[1].rank) return toast("Split is only available on matching pairs.");
+      if (soloBlackjack.splits >= 3 || blackjackHands().length >= 4) return toast("Split limit reached: four hands maximum.");
+      if (stackValue(player.chips) < totalBlackjackExposure() + hand.bet) return toast("Not enough bankroll to cover the split.");
+      unlockAchievement("blackjack-perfect-pair", player.name);
+      const splitCard = hand.cards.pop();
+      hand.cards.push(drawCard(soloBlackjack));
+      const newHand = {cards: [splitCard, drawCard(soloBlackjack)], bet: hand.bet, doubled: false, stood: false, result: ""};
+      soloBlackjack.playerHands.splice(soloBlackjack.activeHand + 1, 0, newHand);
+      soloBlackjack.splits += 1;
+      soloBlackjack.message = `Pair split. Playing hand ${soloBlackjack.activeHand + 1} of ${blackjackHands().length}.`;
+      render();
+    }
+
+    function doubleSoloBlackjack() {
+      if (soloBlackjack.phase !== "playing") return toast("Deal a hand first.");
+      const hand = activeBlackjackHand();
+      const player = currentPlayer();
+      if (!hand || hand.cards.length !== 2) return toast("Double down is only available on your first two cards.");
+      if (stackValue(player.chips) < totalBlackjackExposure() + hand.bet) return toast("Not enough bankroll to double down.");
+      hand.bet *= 2;
+      hand.doubled = true;
+      hand.cards.push(drawCard(soloBlackjack));
+      hand.stood = true;
+      if (handValue(hand.cards) > 21) hand.result = "Bust";
+      soloBlackjack.message = `Hand ${soloBlackjack.activeHand + 1} doubled down.`;
+      advanceBlackjackHand();
+      render();
+    }
+
+    function advanceBlackjackHand() {
+      const hands = blackjackHands();
+      const next = hands.findIndex((hand, index) => index > soloBlackjack.activeHand && !hand.stood && handValue(hand.cards) <= 21);
+      if (next >= 0) {
+        soloBlackjack.activeHand = next;
+        soloBlackjack.message = `Playing hand ${next + 1} of ${hands.length}.`;
+        return;
       }
       settleSoloBlackjack();
-      render();
+    }
+
+    function totalBlackjackExposure() {
+      return blackjackHands().reduce((sum, hand) => sum + Number(hand.bet || 0), 0);
     }
 
     function settleSoloBlackjack() {
@@ -724,32 +835,51 @@
       if (!player) return;
       soloBlackjack.phase = "done";
       soloBlackjack.revealDealer = true;
-      const playerTotal = handValue(soloBlackjack.playerHand);
-      const dealerTotal = handValue(soloBlackjack.dealerHand);
-      let delta = 0;
-      let message = "";
-      if (playerTotal > 21) {
-        delta = -soloBlackjack.bet;
-        message = `Bust. You lost ${money(soloBlackjack.bet)}.`;
-      } else if (dealerTotal > 21 || playerTotal > dealerTotal) {
-        delta = soloBlackjack.bet;
-        message = `You won ${money(soloBlackjack.bet)}.`;
-        addXP(player.name, blackjackXP["Win Hand"], "Blackjack: Win Hand", {persist: false});
-        if (soloBlackjack.playerHand.length >= 5 && playerTotal <= 21) {
-          addXP(player.name, blackjackXP["Five Card Charlie"], "Blackjack: Five Card Charlie", {persist: false, toast: false});
-        }
-      } else if (playerTotal === dealerTotal) {
-        message = "Push. Bet returned.";
-      } else {
-        delta = -soloBlackjack.bet;
-        message = `Dealer wins. You lost ${money(soloBlackjack.bet)}.`;
+      const hands = blackjackHands();
+      while (hands.some((hand) => handValue(hand.cards) <= 21) && handValue(soloBlackjack.dealerHand) < 17) {
+        soloBlackjack.dealerHand.push(drawCard(soloBlackjack));
       }
-      adjustPlayerBankroll(player, delta);
-      if (delta !== 0) applyMoneyResult(player, delta, "solo blackjack");
-      state.gameStats.blackjack.played = Number(state.gameStats.blackjack.played || 0) + 1;
-      if (delta > 0) state.gameStats.blackjack.wins = Number(state.gameStats.blackjack.wins || 0) + 1;
-      soloBlackjack.message = `${message} Dealer ${dealerTotal}, you ${playerTotal}.`;
-      log(`${player.name} played solo blackjack: ${message}`);
+      const dealerTotal = handValue(soloBlackjack.dealerHand);
+      let totalDelta = 0;
+      let wins = 0;
+      let losses = 0;
+      let pushes = 0;
+      hands.forEach((hand) => {
+        const playerTotal = handValue(hand.cards);
+        let delta = 0;
+        if (playerTotal > 21) {
+          delta = -hand.bet;
+          losses += 1;
+          hand.result = "Bust";
+        } else if (dealerTotal > 21 || playerTotal > dealerTotal) {
+          delta = hand.bet;
+          wins += 1;
+          hand.result = "Win";
+        } else if (playerTotal === dealerTotal) {
+          pushes += 1;
+          hand.result = "Push";
+        } else {
+          delta = -hand.bet;
+          losses += 1;
+          hand.result = "Loss";
+        }
+        totalDelta += delta;
+        if (delta > 0) {
+          addXP(player.name, blackjackXP["Win Hand"], "Blackjack: Win Hand", {persist: false, toast: false});
+          if (hand.cards.length === 2 && playerTotal === 21) addXP(player.name, blackjackXP["Natural Blackjack"], "Blackjack: Natural Blackjack", {persist: false, toast: false});
+          if (hand.doubled) unlockAchievement("blackjack-double-trouble", player.name);
+          if (hand.cards.length >= 5 && playerTotal <= 21) addXP(player.name, blackjackXP["Five Card Charlie"], "Blackjack: Five Card Charlie", {persist: false, toast: false});
+          if (hand.cards.length >= 6 && playerTotal <= 21) unlockAchievement("blackjack-six-card-miracle", player.name);
+        }
+      });
+      if (wins > 0) toast(`${player.name} won ${wins} blackjack hand${wins === 1 ? "" : "s"} and gained XP.`);
+      adjustPlayerBankroll(player, totalDelta);
+      if (totalDelta !== 0) applyMoneyResult(player, totalDelta, "solo blackjack");
+      state.gameStats.blackjack.played = Number(state.gameStats.blackjack.played || 0) + hands.length;
+      state.gameStats.blackjack.wins = Number(state.gameStats.blackjack.wins || 0) + wins;
+      state.gameStats.blackjack.profit = Number(state.gameStats.blackjack.profit || 0) + totalDelta;
+      soloBlackjack.message = `Dealer ${dealerTotal}. ${wins} win, ${losses} loss, ${pushes} push. Net ${signedMoney(totalDelta)}.`;
+      log(`${player.name} played solo blackjack: ${soloBlackjack.message}`);
       save();
     }
 
@@ -816,6 +946,75 @@
       log(`${currentSeat().name} joined blackjack room ${room.name}.`);
       save();
       toast(`Joined ${room.name} as ${preferredRole}.`);
+    }
+
+    function openPokerRoomDialog() {
+      els.pokerRoomName.value = `${currentProfile().displayName || currentPlayer()?.name || "Family"} Hold'em`;
+      els.pokerSmallBlind.value = "5";
+      els.pokerBigBlind.value = "10";
+      els.pokerSeatRole.value = "player";
+      els.pokerRoomMessage.textContent = "Create a Texas Hold'em multiplayer room.";
+      els.pokerRoomDialog.showModal();
+    }
+
+    function closePokerRoomDialog() {
+      els.pokerRoomDialog.close();
+    }
+
+    function createPokerRoom() {
+      if (!currentPlayer()) return toast("Link your profile to a player before creating a room.");
+      const name = els.pokerRoomName.value.trim() || "Family Hold'em";
+      const smallBlind = Math.max(1, Number(els.pokerSmallBlind.value || 0));
+      const bigBlind = Math.max(smallBlind * 2, Number(els.pokerBigBlind.value || 0));
+      const id = `poker-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      state.onlineRooms[id] = {
+        id,
+        game: "poker",
+        variant: "texas-holdem",
+        name,
+        status: "open",
+        smallBlind,
+        bigBlind,
+        kickerRules: true,
+        xpAuto: true,
+        createdAt: Date.now(),
+        seats: {
+          [currentProfileKey()]: currentSeat(els.pokerSeatRole.value)
+        }
+      };
+      log(`${currentSeat().name} opened Hold'em room ${name} with ${money(smallBlind)} / ${money(bigBlind)} blinds.`);
+      closePokerRoomDialog();
+      activeOnlineGame = "poker";
+      activeView = "online";
+      save();
+      toast(`Poker room created: ${name}`);
+    }
+
+    function joinPokerRoom(roomId) {
+      if (!currentPlayer()) return toast("Link your profile to a player before joining a room.");
+      const room = state.onlineRooms[roomId];
+      if (!room || room.status !== "open") return toast("That poker room is no longer open.");
+      room.seats = room.seats || {};
+      room.seats[currentProfileKey()] = currentSeat("player");
+      log(`${currentSeat().name} joined Hold'em room ${room.name}.`);
+      save();
+      toast(`Joined ${room.name}.`);
+    }
+
+    function openBlackjackGuide() {
+      els.blackjackGuideDialog.showModal();
+    }
+
+    function closeBlackjackGuide() {
+      els.blackjackGuideDialog.close();
+    }
+
+    function openPokerGuide() {
+      els.pokerGuideDialog.showModal();
+    }
+
+    function closePokerGuide() {
+      els.pokerGuideDialog.close();
     }
 
     function adjustPlayerBankroll(player, delta) {
@@ -1044,6 +1243,13 @@
         setTimeout(() => $("blackjackOnlineArea")?.scrollIntoView({behavior: "smooth", block: "start"}), 60);
         return;
       }
+      if (action === "open-online-poker") {
+        activeView = "online";
+        activeOnlineGame = "poker";
+        render();
+        setTimeout(() => $("pokerOnlineArea")?.scrollIntoView({behavior: "smooth", block: "start"}), 60);
+        return;
+      }
       if (action === "solo-blackjack-deal") {
         startSoloBlackjack();
         return;
@@ -1056,10 +1262,26 @@
         standSoloBlackjack();
         return;
       }
+      if (action === "solo-blackjack-split") {
+        splitSoloBlackjack();
+        return;
+      }
+      if (action === "solo-blackjack-double") {
+        doubleSoloBlackjack();
+        return;
+      }
       if (action === "solo-blackjack-reset") {
         soloBlackjack = createEmptyBlackjackGame();
         render();
         toast("Blackjack table cleared.");
+        return;
+      }
+      if (action === "open-blackjack-guide") {
+        openBlackjackGuide();
+        return;
+      }
+      if (action === "close-blackjack-guide") {
+        closeBlackjackGuide();
         return;
       }
       if (action === "open-blackjack-room-modal") {
@@ -1081,6 +1303,35 @@
       }
       if (action === "join-blackjack-room") {
         joinBlackjackRoom(target?.dataset.roomId || "");
+        return;
+      }
+      if (action === "open-poker-room-modal") {
+        openPokerRoomDialog();
+        return;
+      }
+      if (action === "close-poker-room-modal") {
+        closePokerRoomDialog();
+        return;
+      }
+      if (action === "create-poker-room") {
+        createPokerRoom();
+        return;
+      }
+      if (action === "refresh-poker-rooms") {
+        renderPokerRooms();
+        toast("Open poker rooms refreshed.");
+        return;
+      }
+      if (action === "join-poker-room") {
+        joinPokerRoom(target?.dataset.roomId || "");
+        return;
+      }
+      if (action === "open-poker-guide") {
+        openPokerGuide();
+        return;
+      }
+      if (action === "close-poker-guide") {
+        closePokerGuide();
         return;
       }
       if (action === "borrow") {
@@ -1551,6 +1802,15 @@
     });
     els.blackjackRoomDialog.addEventListener("click", (event) => {
       if (event.target === els.blackjackRoomDialog) closeBlackjackRoomDialog();
+    });
+    els.blackjackGuideDialog.addEventListener("click", (event) => {
+      if (event.target === els.blackjackGuideDialog) closeBlackjackGuide();
+    });
+    els.pokerRoomDialog.addEventListener("click", (event) => {
+      if (event.target === els.pokerRoomDialog) closePokerRoomDialog();
+    });
+    els.pokerGuideDialog.addEventListener("click", (event) => {
+      if (event.target === els.pokerGuideDialog) closePokerGuide();
     });
     $("soloBetPreset").addEventListener("change", () => {
       if ($("soloBetPreset").value) $("soloBetAmount").value = $("soloBetPreset").value;

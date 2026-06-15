@@ -249,9 +249,14 @@
               <strong>Blackjack</strong>
               <small>Play solo against the computer or open a room.</small>
             </button>
-            <button class="online-game-tile poker-tile" type="button" disabled>
+            <button class="online-game-tile poker-tile" type="button" data-action="open-online-poker">
               <span class="tile-icon cards-icon" aria-hidden="true"><span>A&#9824;</span><span>K&#9829;</span></span>
               <strong>Texas Hold'em</strong>
+              <small>Open multiplayer rooms with blinds, kicker rules, and automatic XP tables.</small>
+            </button>
+            <button class="online-game-tile uno-tile" type="button" disabled>
+              <span class="tile-icon cards-icon" aria-hidden="true"><span>+4</span><span>7</span></span>
+              <strong>Uno</strong>
               <small>Coming soon.</small>
             </button>
           </div>
@@ -259,7 +264,10 @@
 
         <div id="blackjackOnlineArea" class="online-area" hidden>
           <article class="panel panel-pad">
-            <div class="section-title"><span>&#9827; Blackjack Table</span></div>
+            <div class="section-title">
+              <span>&#9827; Blackjack Table</span>
+              <button class="mini-btn tiny-btn" type="button" data-action="open-blackjack-guide">Guide</button>
+            </div>
             <div class="sub-tabs" aria-label="Blackjack mode tabs">
               <button class="sub-tab active" type="button" data-blackjack-mode="solo">Play Solo</button>
               <button class="sub-tab" type="button" data-blackjack-mode="multi">Multiplayer</button>
@@ -299,6 +307,8 @@
                 <button class="primary-btn" type="button" data-action="solo-blackjack-deal">Deal</button>
                 <button class="ghost-btn" type="button" data-action="solo-blackjack-hit">Hit</button>
                 <button class="ghost-btn" type="button" data-action="solo-blackjack-stand">Stand</button>
+                <button class="ghost-btn" type="button" data-action="solo-blackjack-split">Split Pair</button>
+                <button class="ghost-btn" type="button" data-action="solo-blackjack-double">Double Down</button>
                 <button class="ghost-btn" type="button" data-action="solo-blackjack-reset">Clear Table</button>
               </div>
             </div>
@@ -310,6 +320,25 @@
               </div>
               <div id="blackjackRooms" class="leaderboard-list" style="margin-top:14px;"></div>
             </div>
+          </article>
+        </div>
+
+        <div id="pokerOnlineArea" class="online-area" hidden>
+          <article class="panel panel-pad">
+            <div class="section-title">
+              <span>&#9824; Texas Hold'em Rooms</span>
+              <button class="mini-btn tiny-btn" type="button" data-action="open-poker-guide">Hands / XP</button>
+            </div>
+            <div class="rule-strip">
+              <span>Multiplayer rooms only</span>
+              <span>Small blind + big blind required</span>
+              <span>Kickers break tied hand ranks</span>
+            </div>
+            <div class="action-grid">
+              <button class="primary-btn" type="button" data-action="open-poker-room-modal">Start New Poker Room</button>
+              <button class="ghost-btn" type="button" data-action="refresh-poker-rooms">Refresh Open Rooms</button>
+            </div>
+            <div id="pokerRooms" class="leaderboard-list" style="margin-top:14px;"></div>
           </article>
         </div>
       </section>
@@ -429,6 +458,76 @@
       </div>
       <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="create-blackjack-room">Create Room</button>
       <div id="roomMessage" class="auth-message"></div>
+    </form>
+  </dialog>
+
+  <dialog id="blackjackGuideDialog" class="profile-dialog">
+    <form method="dialog" class="profile-card">
+      <div class="section-title">
+        <span>Blackjack Quick Guide</span>
+        <button class="mini-btn" type="button" data-action="close-blackjack-guide">Close</button>
+      </div>
+      <div class="guide-grid">
+        <div><strong>Goal</strong><p>Beat the dealer without going over 21. Dealer draws until 17.</p></div>
+        <div><strong>Split Pairs</strong><p>Split only matching ranks. Standard limit is 3 splits, creating up to 4 total hands.</p></div>
+        <div><strong>Double Down</strong><p>Double your hand bet, draw exactly one card, then that hand stands.</p></div>
+        <div><strong>XP</strong><p>Winning hands and special results award Blackjack XP automatically in online play.</p></div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="pokerRoomDialog" class="profile-dialog">
+    <form method="dialog" class="profile-card">
+      <div class="section-title">
+        <span>New Hold'em Room</span>
+        <button class="mini-btn" type="button" data-action="close-poker-room-modal">Close</button>
+      </div>
+      <div class="form-grid">
+        <div>
+          <label for="pokerRoomName">Room Name</label>
+          <input id="pokerRoomName" type="text" placeholder="Family Hold'em" />
+        </div>
+        <div>
+          <label for="pokerSmallBlind">Small Blind</label>
+          <input id="pokerSmallBlind" type="number" inputmode="numeric" min="1" value="5" />
+        </div>
+        <div>
+          <label for="pokerBigBlind">Big Blind</label>
+          <input id="pokerBigBlind" type="number" inputmode="numeric" min="2" value="10" />
+        </div>
+        <div>
+          <label for="pokerSeatRole">Your Seat</label>
+          <select id="pokerSeatRole">
+            <option value="player">Player</option>
+            <option value="dealer">Dealer / Host</option>
+          </select>
+        </div>
+      </div>
+      <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="create-poker-room">Create Room</button>
+      <div id="pokerRoomMessage" class="auth-message"></div>
+    </form>
+  </dialog>
+
+  <dialog id="pokerGuideDialog" class="profile-dialog wide-dialog">
+    <form method="dialog" class="profile-card">
+      <div class="section-title">
+        <span>Texas Hold'em Cheat Sheet</span>
+        <button class="mini-btn" type="button" data-action="close-poker-guide">Close</button>
+      </div>
+      <div class="guide-grid poker-guide-grid">
+        <div><strong>Royal Flush</strong><p>A-K-Q-J-10 same suit. 1000 XP.</p></div>
+        <div><strong>Straight Flush</strong><p>Five in order, same suit. 500 XP.</p></div>
+        <div><strong>Four of a Kind</strong><p>Four cards same rank. 200 XP.</p></div>
+        <div><strong>Full House</strong><p>Three of a kind plus a pair. 100 XP.</p></div>
+        <div><strong>Flush</strong><p>Five same suit. 75 XP.</p></div>
+        <div><strong>Straight</strong><p>Five in order. A can be high or low. 50 XP.</p></div>
+        <div><strong>Three of a Kind</strong><p>Three cards same rank. 35 XP.</p></div>
+        <div><strong>Two Pair</strong><p>Two different pairs. 20 XP.</p></div>
+        <div><strong>One Pair</strong><p>One matching pair. 10 XP.</p></div>
+        <div><strong>High Card</strong><p>No made hand. Highest cards decide. 5 XP.</p></div>
+        <div><strong>Blinds</strong><p>Small blind posts first forced bet. Big blind is normally double and starts the action pressure.</p></div>
+        <div><strong>Kickers</strong><p>If players tie hand rank, unused highest cards break the tie in order.</p></div>
+      </div>
     </form>
   </dialog>
 

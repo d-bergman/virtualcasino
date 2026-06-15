@@ -709,7 +709,7 @@
 
     .online-game-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
     }
 
@@ -805,6 +805,57 @@
       flex-wrap: wrap;
       gap: 10px;
       align-items: center;
+    }
+
+    .playing-card-row.compact {
+      min-height: 78px;
+    }
+
+    .blackjack-hand {
+      min-width: min(100%, 310px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      padding: 10px;
+    }
+
+    .blackjack-hand.active {
+      border-color: rgba(255,216,107,0.72);
+      box-shadow: 0 0 24px rgba(255, 216, 107, 0.14);
+    }
+
+    .blackjack-hand-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+      color: var(--gold);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+    }
+
+    .tiny-btn {
+      min-height: 28px;
+      padding: 6px 10px;
+      font-size: 0.72rem;
+    }
+
+    .rule-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .rule-strip span {
+      border: 1px solid rgba(255,216,107,0.16);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.045);
+      color: var(--muted);
+      padding: 7px 10px;
+      font-size: 0.82rem;
+      font-weight: 800;
     }
 
     .playing-card.red { color: #a51024; }
@@ -963,6 +1014,10 @@
       color: var(--text);
     }
 
+    .wide-dialog {
+      width: min(920px, calc(100vw - 28px));
+    }
+
     .profile-dialog::backdrop {
       background:
         radial-gradient(circle at 50% 20%, rgba(149, 61, 255, 0.24), transparent 36%),
@@ -978,6 +1033,35 @@
         radial-gradient(circle at top, rgba(255, 216, 107, 0.13), transparent 48%);
       box-shadow: var(--shadow), inset 0 0 34px rgba(149, 61, 255, 0.14);
       padding: 22px;
+    }
+
+    .guide-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .poker-guide-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .guide-grid div {
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      padding: 12px;
+    }
+
+    .guide-grid strong {
+      color: var(--gold);
+      text-transform: uppercase;
+      font-size: 0.84rem;
+    }
+
+    .guide-grid p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.45;
     }
 
     .sync-pill {
@@ -1104,6 +1188,8 @@
       .xp-row .medal { display: none; }
       .game-grid { grid-template-columns: 1fr; }
       .online-game-grid { grid-template-columns: 1fr; }
+      .guide-grid,
+      .poker-guide-grid { grid-template-columns: 1fr; }
       .form-grid,
       .action-grid { grid-template-columns: 1fr; }
       .side-stack { gap: 14px; }
