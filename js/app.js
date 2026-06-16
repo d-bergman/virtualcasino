@@ -457,9 +457,13 @@
       clearTimeout(cloudWriteTimer);
       cloudWriteTimer = setTimeout(async () => {
         try {
-          const {dbRef, set, serverTimestamp} = firebaseState.modules;
+          const {dbRef, get, set, serverTimestamp} = firebaseState.modules;
+          const stateRef = dbRef(firebaseState.db, `${databasePath}/state`);
+          const latest = await get(stateRef).catch(() => null);
+          const latestRooms = latest?.val?.()?.onlineRooms;
           await set(dbRef(firebaseState.db, `${databasePath}/state`), {
             ...state,
+            onlineRooms: latestRooms && typeof latestRooms === "object" ? latestRooms : state.onlineRooms,
             updatedAtServer: serverTimestamp(),
             updatedByUid: firebaseState.user.uid,
             updatedByEmail: firebaseState.user.email || ""
@@ -471,6 +475,41 @@
           toast("Firebase save failed. Check database rules and config.");
         }
       }, 300);
+    }
+
+    async function refreshRoomFromCloud(roomId) {
+      if (!roomId || firebaseDisabled || !firebaseState.ready || !firebaseState.user) return state.onlineRooms?.[roomId] || null;
+      const {dbRef, get} = firebaseState.modules;
+      const snap = await get(dbRef(firebaseState.db, `${databasePath}/state/onlineRooms/${roomId}`)).catch(() => null);
+      const room = snap?.val?.();
+      if (room) {
+        state.onlineRooms = state.onlineRooms || {};
+        state.onlineRooms[roomId] = room;
+        localStorage.setItem(localKey, JSON.stringify(state));
+        render();
+      }
+      return room || state.onlineRooms?.[roomId] || null;
+    }
+
+    async function saveRoom(room) {
+      if (!room?.id) return;
+      state.onlineRooms = state.onlineRooms || {};
+      state.onlineRooms[room.id] = room;
+      state.updatedAt = Date.now();
+      localStorage.setItem(localKey, JSON.stringify(state));
+      render();
+      if (firebaseDisabled || !firebaseState.ready || !firebaseState.user) return;
+      const {dbRef, update, serverTimestamp} = firebaseState.modules;
+      await update(dbRef(firebaseState.db, `${databasePath}/state`), {
+        [`onlineRooms/${room.id}`]: room,
+        updatedAt: state.updatedAt,
+        updatedAtServer: serverTimestamp(),
+        updatedByUid: firebaseState.user.uid,
+        updatedByEmail: firebaseState.user.email || ""
+      }).catch((error) => {
+        console.warn(error);
+        toast("Room sync failed. Try refreshing rooms.");
+      });
     }
 
     function setSync(text, on) {
@@ -733,33 +772,49 @@
       $("multiBlackjackHands").innerHTML = Object.entries(seats).map(([key, seat]) => {
         const hand = hands[key];
         const animated = table.handAnimateIndexes?.[key] || [];
-        const cardHtml = hand?.cards?.length
-          ? hand.cards.map((card, index) => renderPlayingCard(card, false, animated.includes(index), false, Math.max(0, animated.indexOf(index)) * 800)).join("")
+        const seatHands = multiSeatHands(hand);
+        const cardHtml = seatHands.length
+          ? seatHands.map((seatHand, handIndex) => {
+            const animatedKey = `${handIndex}`;
+            const indexes = animated[animatedKey] || [];
+            const cards = seatHand.cards.map((card, index) => renderPlayingCard(card, false, indexes.includes(index), false, Math.max(0, indexes.indexOf(index)) * 800)).join("");
+            const status = seatHand.result || (seatHand.stood ? "Stand" : key === table.activeSeatKey && handIndex === Number(hand?.activeHand || 0) ? "Active" : "Queued");
+            return `<div class="blackjack-hand ${key === table.activeSeatKey && handIndex === Number(hand?.activeHand || 0) ? "active" : ""}">
+              <div class="blackjack-hand-meta"><strong>Hand ${handIndex + 1}</strong><span>${money(seatHand.bet || table.bet)} - ${escapeHtml(status)}${seatHand.doubled ? " / Double" : ""}${seatHand.delta ? ` / ${signedMoney(seatHand.delta)}` : ""}</span></div>
+              <div class="playing-card-row compact">${cards}</div>
+            </div>`;
+          }).join("")
           : `<span class="sync-pill">Waiting for round</span>`;
-        const total = hand?.cards?.length ? handValue(hand.cards) : 0;
-        const status = hand?.result || (hand?.stood ? "Stand" : key === table.activeSeatKey ? "Active" : table.phase === "waiting" ? "Waiting" : "Queued");
+        const total = activeMultiSeatHand(hand) ? handValue(activeMultiSeatHand(hand).cards) : 0;
+        const status = multiSeatSummary(hand, key === table.activeSeatKey ? "Active" : table.phase === "waiting" ? "Waiting" : "Queued");
         return `<div class="list-row ${key === table.activeSeatKey ? "active-room-hand" : ""}">
           <span class="medal ${medalClass(seat.playerName || seat.name)}">${playerSymbol(seat.playerName || seat.name)}</span>
           <div>
             <strong>${escapeHtml(seat.name)}</strong>
-            <div class="playing-card-row compact">${cardHtml}</div>
+            ${cardHtml}
             <div style="color:var(--muted);font-size:.82rem;">Total ${total} - ${escapeHtml(status)}${hand?.delta ? ` - ${signedMoney(hand.delta)}` : ""}</div>
           </div>
         </div>`;
       }).join("") || `<div class="blackjack-status">No players seated.</div>`;
       const currentKey = currentProfileKey();
       const isActive = table.phase === "player" && table.activeSeatKey === currentKey;
+      const activeHand = isActive ? activeMultiSeatHand(table.hands?.[currentKey]) : null;
+      const canSplit = Boolean(activeHand && activeHand.cards.length === 2 && activeHand.cards[0]?.rank === activeHand.cards[1]?.rank && Number(table.hands?.[currentKey]?.splits || 0) < 3 && multiSeatHands(table.hands?.[currentKey]).length < 4);
+      const canDouble = Boolean(activeHand && activeHand.cards.length === 2);
       const canStart = isRoomHost(room) && !["player", "dealer"].includes(table.phase) && Object.keys(seats).length > 0;
       document.querySelectorAll('[data-action="multi-blackjack-deal"]').forEach((button) => button.disabled = !canStart);
       document.querySelectorAll('[data-action="multi-blackjack-hit"]').forEach((button) => button.disabled = !isActive);
       document.querySelectorAll('[data-action="multi-blackjack-stand"]').forEach((button) => button.disabled = !isActive);
+      document.querySelectorAll('[data-action="multi-blackjack-split"]').forEach((button) => button.disabled = !canSplit);
+      document.querySelectorAll('[data-action="multi-blackjack-double"]').forEach((button) => button.disabled = !canDouble);
       const myHand = table.hands?.[currentProfileKey()];
       if (table.phase === "done" && myHand?.result) {
         const resultKey = `${room.id}:${table.roundId || 0}:${myHand.result}:${myHand.delta}`;
         if (resultKey !== lastRoomResultToastKey) {
           lastRoomResultToastKey = resultKey;
           const dealerTotal = handValue(table.dealerHand);
-          const total = handValue(myHand.cards || []);
+          const firstHand = multiSeatHands(myHand)[0];
+          const total = firstHand ? handValue(firstHand.cards || []) : 0;
           const title = Number(myHand.delta || 0) > 0
             ? `${currentDisplayName()} wins: ${total}`
             : Number(myHand.delta || 0) < 0
@@ -768,6 +823,25 @@
           setTimeout(() => resultToast(title, signedMoney(myHand.delta || 0)), 80);
         }
       }
+    }
+
+    function multiSeatHands(hand) {
+      if (!hand) return [];
+      if (Array.isArray(hand.playerHands)) return hand.playerHands;
+      if (Array.isArray(hand.cards)) return [{cards: hand.cards, bet: hand.bet || 0, stood: hand.stood || false, result: hand.result || "", delta: hand.delta || 0, doubled: false}];
+      return [];
+    }
+
+    function activeMultiSeatHand(hand) {
+      const hands = multiSeatHands(hand);
+      return hands[Number(hand?.activeHand || 0)] || hands[0] || null;
+    }
+
+    function multiSeatSummary(hand, fallback) {
+      const hands = multiSeatHands(hand);
+      if (!hands.length) return fallback;
+      if (hands.every((item) => item.result)) return hands.map((item) => item.result).join(" / ");
+      return fallback;
     }
 
     function achievementCompletionText(playerName) {
@@ -1224,11 +1298,11 @@
       els.blackjackRoomDialog.close();
     }
 
-    function createBlackjackRoom() {
+    async function createBlackjackRoom() {
       if (!currentPlayer()) return toast("Link your profile to a player before creating a room.");
       const name = els.roomName.value.trim() || "Family Blackjack";
       const id = `blackjack-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      state.onlineRooms[id] = {
+      const room = {
         id,
         game: "blackjack",
         name,
@@ -1242,19 +1316,20 @@
           [currentProfileKey()]: currentSeat("player")
         }
       };
+      state.onlineRooms[id] = room;
       log(`${currentSeat().name} opened blackjack room ${name}.`);
       closeBlackjackRoomDialog();
       blackjackMode = "multi";
       activeOnlineGame = "blackjack";
       activeRoomId = id;
       activeView = "online";
-      save();
+      await saveRoom(room);
       toast(`Room created: ${name}`);
     }
 
-    function joinBlackjackRoom(roomId) {
+    async function joinBlackjackRoom(roomId) {
       if (!currentPlayer()) return toast("Link your profile to a player before joining a room.");
-      const room = state.onlineRooms[roomId];
+      const room = await refreshRoomFromCloud(roomId);
       if (!room || room.status !== "open") return toast("That room is no longer open.");
       room.seats = room.seats || {};
       if (!room.seats[currentProfileKey()] && Object.keys(room.seats).length >= 4) return toast("That blackjack room is full.");
@@ -1264,7 +1339,7 @@
       activeRoomId = roomId;
       activeOnlineGame = "blackjack";
       activeView = "online";
-      save();
+      await saveRoom(room);
       toast(`Joined ${room.name}.`);
     }
 
@@ -1327,8 +1402,8 @@
       toast(`Joined ${room.name}.`);
     }
 
-    function startMultiplayerBlackjackRound() {
-      const room = activeRoom();
+    async function startMultiplayerBlackjackRound() {
+      const room = await refreshRoomFromCloud(activeRoomId);
       if (!room || room.game !== "blackjack") return;
       if (!isRoomHost(room)) return toast("Only the host can start the shared round.");
       const bet = Math.max(1, Number($("multiBjBetAmount").value || 0));
@@ -1351,30 +1426,36 @@
       table.hands = {};
       table.handAnimateIndexes = {};
       entries.forEach(([key]) => {
-        table.hands[key] = {cards: [drawCard(table), drawCard(table)], stood: false, result: "", delta: 0};
-        table.handAnimateIndexes[key] = [0, 1];
+        table.hands[key] = {
+          playerHands: [{cards: [drawCard(table), drawCard(table)], bet, stood: false, result: "", delta: 0, doubled: false}],
+          activeHand: 0,
+          splits: 0,
+          delta: 0
+        };
+        table.handAnimateIndexes[key] = {"0": [0, 1]};
       });
       table.message = `Round started. ${seats[table.activeSeatKey].name} acts first.`;
       room.table = table;
-      save();
+      await saveRoom(room);
       setTimeout(() => {
         const latest = state.onlineRooms[room.id];
         if (!latest?.table || latest.table.phase !== "player") return;
         latest.table.dealerAnimateIndexes = [];
         latest.table.handAnimateIndexes = {};
-        save();
+        saveRoom(latest);
       }, 1900);
     }
 
-    function hitMultiplayerBlackjack() {
-      const room = activeRoom();
+    async function hitMultiplayerBlackjack() {
+      const room = await refreshRoomFromCloud(activeRoomId);
       const table = room?.table;
       const key = currentProfileKey();
       if (!room || !table || table.phase !== "player" || table.activeSeatKey !== key) return toast("It is not your turn.");
-      const hand = table.hands?.[key];
-      if (!hand) return;
+      const seatHand = table.hands?.[key];
+      const hand = activeMultiSeatHand(seatHand);
+      if (!seatHand || !hand) return;
       hand.cards.push(drawCard(table));
-      table.handAnimateIndexes = {[key]: [hand.cards.length - 1]};
+      table.handAnimateIndexes = {[key]: {[String(seatHand.activeHand || 0)]: [hand.cards.length - 1]}};
       table.dealerAnimateIndexes = [];
       table.dealerFlipIndexes = [];
       if (handValue(hand.cards) > 21) {
@@ -1384,30 +1465,84 @@
       } else {
         table.message = `${room.seats[key].name} drew a card.`;
       }
-      save();
+      await saveRoom(room);
     }
 
-    function standMultiplayerBlackjack() {
-      const room = activeRoom();
+    async function standMultiplayerBlackjack() {
+      const room = await refreshRoomFromCloud(activeRoomId);
       const table = room?.table;
       const key = currentProfileKey();
       if (!room || !table || table.phase !== "player" || table.activeSeatKey !== key) return toast("It is not your turn.");
-      const hand = table.hands?.[key];
+      const hand = activeMultiSeatHand(table.hands?.[key]);
       if (hand) hand.stood = true;
       advanceMultiplayerBlackjack(room);
-      save();
+      await saveRoom(room);
+    }
+
+    async function splitMultiplayerBlackjack() {
+      const room = await refreshRoomFromCloud(activeRoomId);
+      const table = room?.table;
+      const key = currentProfileKey();
+      if (!room || !table || table.phase !== "player" || table.activeSeatKey !== key) return toast("It is not your turn.");
+      const player = currentPlayer();
+      const seatHand = table.hands?.[key];
+      const hand = activeMultiSeatHand(seatHand);
+      if (!seatHand || !hand || hand.cards.length !== 2 || hand.cards[0].rank !== hand.cards[1].rank) return toast("Split is only available on matching pairs.");
+      if (Number(seatHand.splits || 0) >= 3 || multiSeatHands(seatHand).length >= 4) return toast("Split limit reached: four hands maximum.");
+      const totalExposure = multiSeatHands(seatHand).reduce((sum, item) => sum + Number(item.bet || table.bet || 0), 0);
+      if (!player || stackValue(player.chips) < totalExposure + Number(hand.bet || table.bet || 0)) return toast("Not enough bankroll to cover the split.");
+      const splitCard = hand.cards.pop();
+      hand.cards.push(drawCard(table));
+      const newHand = {cards: [splitCard, drawCard(table)], bet: hand.bet || table.bet, stood: false, result: "", delta: 0, doubled: false};
+      seatHand.playerHands.splice(Number(seatHand.activeHand || 0) + 1, 0, newHand);
+      seatHand.splits = Number(seatHand.splits || 0) + 1;
+      table.handAnimateIndexes = {[key]: {[String(seatHand.activeHand || 0)]: [1], [String(Number(seatHand.activeHand || 0) + 1)]: [1]}};
+      table.message = `${room.seats[key].name} split a pair.`;
+      await saveRoom(room);
+    }
+
+    async function doubleMultiplayerBlackjack() {
+      const room = await refreshRoomFromCloud(activeRoomId);
+      const table = room?.table;
+      const key = currentProfileKey();
+      if (!room || !table || table.phase !== "player" || table.activeSeatKey !== key) return toast("It is not your turn.");
+      const player = currentPlayer();
+      const seatHand = table.hands?.[key];
+      const hand = activeMultiSeatHand(seatHand);
+      if (!seatHand || !hand || hand.cards.length !== 2) return toast("Double down is only available on your first two cards.");
+      const totalExposure = multiSeatHands(seatHand).reduce((sum, item) => sum + Number(item.bet || table.bet || 0), 0);
+      if (!player || stackValue(player.chips) < totalExposure + Number(hand.bet || table.bet || 0)) return toast("Not enough bankroll to double down.");
+      hand.bet = Number(hand.bet || table.bet || 0) * 2;
+      hand.doubled = true;
+      hand.cards.push(drawCard(table));
+      table.handAnimateIndexes = {[key]: {[String(seatHand.activeHand || 0)]: [hand.cards.length - 1]}};
+      hand.stood = true;
+      if (handValue(hand.cards) > 21) hand.result = "Bust";
+      table.message = `${room.seats[key].name} doubled down.`;
+      advanceMultiplayerBlackjack(room);
+      await saveRoom(room);
     }
 
     function advanceMultiplayerBlackjack(room) {
       const table = room.table;
+      const activeSeatHand = table.hands?.[table.activeSeatKey];
+      const activeHands = multiSeatHands(activeSeatHand);
+      const nextHandIndex = activeHands.findIndex((hand, index) => index > Number(activeSeatHand?.activeHand || 0) && !hand.stood && handValue(hand.cards) <= 21);
+      if (nextHandIndex >= 0) {
+        activeSeatHand.activeHand = nextHandIndex;
+        table.handAnimateIndexes = {};
+        table.message = `${room.seats[table.activeSeatKey].name}'s hand ${nextHandIndex + 1}.`;
+        return;
+      }
       const entries = Object.keys(room.seats || {});
       const currentIndex = entries.indexOf(table.activeSeatKey);
       const next = entries.slice(currentIndex + 1).find((key) => {
-        const hand = table.hands?.[key];
-        return hand && !hand.stood && handValue(hand.cards) <= 21;
+        const seatHand = table.hands?.[key];
+        return multiSeatHands(seatHand).some((hand) => !hand.stood && handValue(hand.cards) <= 21);
       });
       if (next) {
         table.activeSeatKey = next;
+        table.hands[next].activeHand = 0;
         table.handAnimateIndexes = {};
         table.message = `${room.seats[next].name}'s turn.`;
         return;
@@ -1423,7 +1558,7 @@
       table.dealerAnimateIndexes = [];
       table.handAnimateIndexes = {};
       table.message = "Dealer reveals and draws to 17.";
-      save();
+      saveRoom(room);
       setTimeout(() => {
         const latest = state.onlineRooms[room.id];
         if (!latest?.table || latest.table.phase !== "dealer") return;
@@ -1435,7 +1570,7 @@
         }
         latestTable.dealerFlipIndexes = [];
         latestTable.dealerAnimateIndexes = animated;
-        save();
+        saveRoom(latest);
         setTimeout(() => settleMultiplayerBlackjack(latest), Math.max(850, animated.length * 800 + 120));
       }, 500);
     }
@@ -1453,26 +1588,32 @@
       Object.entries(table.hands || {}).forEach(([key, hand]) => {
         const seat = room.seats?.[key];
         const player = seat?.playerName ? playerByName(seat.playerName) : null;
-        const total = handValue(hand.cards);
-        let delta = 0;
-        if (total > 21) {
-          delta = -table.bet;
-          hand.result = "Bust";
-        } else if (dealerTotal > 21 || total > dealerTotal) {
-          delta = table.bet;
-          hand.result = "Win";
-          winners += 1;
-        } else if (total === dealerTotal) {
-          hand.result = "Push";
-        } else {
-          delta = -table.bet;
-          hand.result = "Loss";
-        }
-        hand.delta = delta;
+        let seatDelta = 0;
+        multiSeatHands(hand).forEach((playerHand) => {
+          const total = handValue(playerHand.cards);
+          let delta = 0;
+          if (total > 21) {
+            delta = -Number(playerHand.bet || table.bet || 0);
+            playerHand.result = "Bust";
+          } else if (dealerTotal > 21 || total > dealerTotal) {
+            delta = Number(playerHand.bet || table.bet || 0);
+            playerHand.result = "Win";
+            winners += 1;
+          } else if (total === dealerTotal) {
+            playerHand.result = "Push";
+          } else {
+            delta = -Number(playerHand.bet || table.bet || 0);
+            playerHand.result = "Loss";
+          }
+          playerHand.delta = delta;
+          seatDelta += delta;
+        });
+        hand.delta = seatDelta;
+        hand.result = multiSeatHands(hand).map((playerHand) => playerHand.result).join(" / ");
         if (player) {
-          adjustPlayerBankroll(player, delta);
-          if (delta !== 0) applyMoneyResult(player, delta, `online blackjack room ${room.name}`);
-          if (delta > 0) addXP(player.name, blackjackXP["Win Hand"], "Online Blackjack: Win Hand", {persist: false, toast: false});
+          adjustPlayerBankroll(player, seatDelta);
+          if (seatDelta !== 0) applyMoneyResult(player, seatDelta, `online blackjack room ${room.name}`);
+          if (seatDelta > 0) addXP(player.name, blackjackXP["Win Hand"], "Online Blackjack: Win Hand", {persist: false, toast: false});
         }
       });
       state.gameStats.blackjack.played = Number(state.gameStats.blackjack.played || 0) + Object.keys(table.hands || {}).length;
@@ -1480,10 +1621,31 @@
       state.gameStats.blackjack.profit = Number(state.gameStats.blackjack.profit || 0) + Object.values(table.hands || {}).reduce((sum, hand) => sum + Number(hand.delta || 0), 0);
       table.message = `Dealer ${dealerTotal}. Round settled for ${Object.keys(table.hands || {}).length} player(s).`;
       log(`${room.name} blackjack round settled. ${table.message}`);
-      save();
+      state.onlineRooms[room.id] = room;
+      save({cloud: false});
+      persistSettledRoomState(room);
     }
 
-    function closeActiveRoom() {
+    async function persistSettledRoomState(room) {
+      if (firebaseDisabled || !firebaseState.ready || !firebaseState.user) return;
+      const {dbRef, update, serverTimestamp} = firebaseState.modules;
+      await update(dbRef(firebaseState.db, `${databasePath}/state`), {
+        players: state.players,
+        gameStats: state.gameStats,
+        counters: state.counters,
+        log: state.log,
+        [`onlineRooms/${room.id}`]: room,
+        updatedAt: Date.now(),
+        updatedAtServer: serverTimestamp(),
+        updatedByUid: firebaseState.user.uid,
+        updatedByEmail: firebaseState.user.email || ""
+      }).catch((error) => {
+        console.warn(error);
+        toast("Settlement sync failed. Check the room before continuing.");
+      });
+    }
+
+    async function closeActiveRoom() {
       const room = activeRoom();
       if (!room) return;
       if (!isRoomHost(room)) return toast("Only the host can close this room.");
@@ -1493,8 +1655,8 @@
       room.seats = {};
       log(`${currentSeat().name} closed ${room.name}.`);
       activeRoomId = "";
-      activeOnlineGame = room.game;
-      save();
+      activeOnlineGame = "";
+      await saveRoom(room);
       toast("Room closed. Players were disconnected.");
     }
 
@@ -1524,7 +1686,7 @@
           toast("Host closed session.");
         }
         activeRoomId = "";
-        activeOnlineGame = room?.game || activeOnlineGame || "";
+        activeOnlineGame = "";
         activeView = "online";
         return;
       }
@@ -1925,6 +2087,14 @@
       }
       if (action === "multi-blackjack-stand") {
         standMultiplayerBlackjack();
+        return;
+      }
+      if (action === "multi-blackjack-split") {
+        splitMultiplayerBlackjack();
+        return;
+      }
+      if (action === "multi-blackjack-double") {
+        doubleMultiplayerBlackjack();
         return;
       }
       if (action === "open-poker-room-modal") {
