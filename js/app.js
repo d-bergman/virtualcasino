@@ -543,7 +543,8 @@
       $("gameGrid").innerHTML = ["poker","blackjack","uno"].map(renderGameCard).join("");
       document.querySelectorAll("[data-game-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.gamePanel === activeGame));
       const room = activeRoom();
-      $("onlineTilePage").hidden = Boolean(activeOnlineGame || room);
+      const onlineTilePage = $("onlineTilePage");
+      if (onlineTilePage) onlineTilePage.hidden = Boolean(activeOnlineGame || room);
       $("blackjackOnlineArea").hidden = activeOnlineGame !== "blackjack" || Boolean(room);
       $("pokerOnlineArea").hidden = activeOnlineGame !== "poker" || Boolean(room);
       $("blackjackRoomArea").hidden = !(room && room.game === "blackjack");
@@ -1806,16 +1807,21 @@
       }
       if (action === "open-online-blackjack") {
         activeView = "online";
-        els.blackjackModeDialog.showModal();
+        if (els.blackjackModeDialog) {
+          els.blackjackModeDialog.showModal();
+        } else {
+          activeOnlineGame = "blackjack";
+          blackjackMode = "solo";
+        }
         render();
         return;
       }
       if (action === "choose-blackjack-mode") {
-        els.blackjackModeDialog.showModal();
+        if (els.blackjackModeDialog) els.blackjackModeDialog.showModal();
         return;
       }
       if (action === "close-blackjack-mode") {
-        els.blackjackModeDialog.close();
+        if (els.blackjackModeDialog?.open) els.blackjackModeDialog.close();
         return;
       }
       if (action === "open-blackjack-solo") {
@@ -1823,7 +1829,7 @@
         activeOnlineGame = "blackjack";
         activeRoomId = "";
         blackjackMode = "solo";
-        if (els.blackjackModeDialog.open) els.blackjackModeDialog.close();
+        if (els.blackjackModeDialog?.open) els.blackjackModeDialog.close();
         render();
         setTimeout(() => $("blackjackOnlineArea")?.scrollIntoView({behavior: "smooth", block: "start"}), 60);
         return;
@@ -1833,7 +1839,7 @@
         activeOnlineGame = "blackjack";
         activeRoomId = "";
         blackjackMode = "multi";
-        if (els.blackjackModeDialog.open) els.blackjackModeDialog.close();
+        if (els.blackjackModeDialog?.open) els.blackjackModeDialog.close();
         render();
         setTimeout(() => $("blackjackOnlineArea")?.scrollIntoView({behavior: "smooth", block: "start"}), 60);
         return;
@@ -2567,7 +2573,7 @@
     els.blackjackRoomDialog.addEventListener("click", (event) => {
       if (event.target === els.blackjackRoomDialog) closeBlackjackRoomDialog();
     });
-    els.blackjackModeDialog.addEventListener("click", (event) => {
+    els.blackjackModeDialog?.addEventListener("click", (event) => {
       if (event.target === els.blackjackModeDialog) els.blackjackModeDialog.close();
     });
     els.blackjackGuideDialog.addEventListener("click", (event) => {
