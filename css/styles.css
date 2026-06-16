@@ -1153,6 +1153,93 @@
       box-shadow: 0 10px 20px rgba(0,0,0,0.28);
     }
 
+    .slot-machine {
+      margin-top: 18px;
+      border: 1px solid rgba(255,216,107,0.24);
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255,216,107,0.18), transparent 36%),
+        linear-gradient(135deg, rgba(67,15,88,0.28), rgba(8,8,14,0.92));
+      padding: 16px;
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.42);
+    }
+
+    .slot-reels {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .slot-reel {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.06);
+      min-height: 210px;
+      align-content: center;
+      overflow: hidden;
+    }
+
+    .slot-reel.spinning .slot-symbol {
+      animation: slotPulse 360ms ease-in-out infinite alternate;
+    }
+
+    .slot-symbol {
+      display: grid;
+      place-items: center;
+      min-height: 56px;
+      border: 1px solid rgba(255,216,107,0.22);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(221,214,199,0.92));
+      color: #170d17;
+      font-weight: 900;
+      font-size: 1.25rem;
+      box-shadow: 0 12px 24px rgba(0,0,0,0.32);
+    }
+
+    .slot-symbol.wild {
+      color: #fff;
+      background: linear-gradient(135deg, #7c2cff, #d94cff);
+    }
+
+    .slot-symbol.scatter {
+      color: #201000;
+      background: linear-gradient(135deg, #fff6bb, #f3a51d);
+    }
+
+    .slot-paytable {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .slot-paytable div {
+      border: 1px solid rgba(255,216,107,0.18);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      padding: 10px;
+    }
+
+    .slot-paytable strong,
+    .slot-paytable span {
+      display: block;
+    }
+
+    .slot-paytable span {
+      color: var(--muted);
+      font-size: .82rem;
+      margin-top: 3px;
+    }
+
+    @keyframes slotPulse {
+      from { transform: translateY(-6px); filter: brightness(1.25); }
+      to { transform: translateY(6px); filter: brightness(0.85); }
+    }
+
     .profile-dialog {
       width: min(620px, calc(100vw - 28px));
       border: 0;
@@ -1389,6 +1476,10 @@
       .xp-row .medal { display: none; }
       .game-grid { grid-template-columns: 1fr; }
       .online-game-grid { grid-template-columns: 1fr; }
+      .slot-reels { gap: 5px; }
+      .slot-reel { min-height: 156px; padding: 6px; gap: 5px; }
+      .slot-symbol { min-height: 42px; font-size: .95rem; }
+      .slot-paytable { grid-template-columns: 1fr; }
       .guide-grid,
       .poker-guide-grid { grid-template-columns: 1fr; }
       .form-grid,

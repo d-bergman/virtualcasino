@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Virtual Casino | Family Card RPG</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260616-4" />
+  <link rel="stylesheet" href="css/styles.css?v=20260616-5" />
 </head>
 <body class="auth-checking">
   <div id="appLoader" class="app-loader" role="status" aria-live="polite">
@@ -293,13 +293,56 @@
               <strong>Uno</strong>
               <small>Coming soon.</small>
             </button>
-            <button class="online-game-tile slots-tile" type="button" disabled>
+            <button class="online-game-tile slots-tile" type="button" data-action="open-online-slots">
               <span class="tile-icon slots-icon" aria-hidden="true"><span>7</span><span>BAR</span><span>&#9733;</span></span>
               <strong>Slots</strong>
-              <small>Coming soon.</small>
+              <small>Solo 9-line machine with wilds, scatters, and jackpot hits.</small>
             </button>
           </div>
         </article>
+
+        <div id="slotsOnlineArea" class="online-area" hidden>
+          <article class="panel panel-pad">
+            <div class="section-title">
+              <span>&#127922; Crown Line Slots</span>
+              <span>
+                <button class="mini-btn tiny-btn" type="button" data-action="back-online-games">Games</button>
+              </span>
+            </div>
+            <div id="slotsBankroll" class="rule-strip"></div>
+            <div class="form-grid">
+              <div>
+                <label for="slotBetAmount">Bet Per Line</label>
+                <input id="slotBetAmount" type="number" inputmode="numeric" min="1" value="1" />
+              </div>
+              <div>
+                <label for="slotBetPreset">Preset</label>
+                <select id="slotBetPreset">
+                  <option value="">Select preset</option>
+                  <option value="1">$1 x 9 lines</option>
+                  <option value="2">$2 x 9 lines</option>
+                  <option value="5">$5 x 9 lines</option>
+                  <option value="10">$10 x 9 lines</option>
+                  <option value="25">$25 x 9 lines</option>
+                </select>
+              </div>
+            </div>
+            <div class="slot-machine">
+              <div id="slotReels" class="slot-reels"></div>
+              <div id="slotStatus" class="blackjack-status">Choose a bet per line and spin.</div>
+            </div>
+            <div class="action-grid">
+              <button class="primary-btn" type="button" data-action="slots-spin">Spin</button>
+              <button class="ghost-btn" type="button" data-action="slots-reset">Clear Machine</button>
+            </div>
+            <div class="slot-paytable">
+              <div><strong>9 paylines</strong><span>Total wager is bet per line x 9.</span></div>
+              <div><strong>Wild</strong><span>Substitutes for regular symbols.</span></div>
+              <div><strong>Scatter</strong><span>3+ stars pay bonus from total wager.</span></div>
+              <div><strong>Jackpot</strong><span>5 crowns pays 1000x line bet.</span></div>
+            </div>
+          </article>
+        </div>
 
         <div id="blackjackOnlineArea" class="online-area" hidden>
           <article class="panel panel-pad">
@@ -695,6 +738,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=20260616-4"></script>
+  <script type="module" src="js/app.js?v=20260616-5"></script>
 </body>
 </html>

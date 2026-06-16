@@ -150,6 +150,42 @@
       };
     }
 
+    function createEmptySlotMachine() {
+      return {
+        reels: Array.from({length: 5}, () => Array.from({length: 3}, () => "blank")),
+        spinning: false,
+        message: "Choose a bet per line and spin.",
+        lastWin: 0,
+        lastWager: 0,
+        winningLines: [],
+        jackpot: false
+      };
+    }
+
+    const slotPaylines = [
+      [1,1,1,1,1],
+      [0,0,0,0,0],
+      [2,2,2,2,2],
+      [0,1,2,1,0],
+      [2,1,0,1,2],
+      [1,0,0,0,1],
+      [1,2,2,2,1],
+      [0,0,1,2,2],
+      [2,2,1,0,0]
+    ];
+
+    const slotSymbols = [
+      {id:"crown", label:"Crown", display:"&#9819;", weight:1, pays:{3:50,4:200,5:1000}},
+      {id:"seven", label:"Seven", display:"7", weight:2, pays:{3:25,4:100,5:500}},
+      {id:"bar", label:"BAR", display:"BAR", weight:4, pays:{3:12,4:50,5:200}},
+      {id:"bell", label:"Bell", display:"&#9830;", weight:7, pays:{3:8,4:25,5:100}},
+      {id:"chip", label:"Chip", display:"&#9679;", weight:10, pays:{3:5,4:15,5:50}},
+      {id:"cherry", label:"Cherry", display:"&#9829;", weight:14, pays:{3:3,4:8,5:25}},
+      {id:"card", label:"Card", display:"A", weight:18, pays:{3:2,4:5,5:15}},
+      {id:"wild", label:"Wild", display:"W", weight:3, pays:{3:10,4:40,5:150}, wild:true},
+      {id:"scatter", label:"Scatter", display:"&#9733;", weight:5, scatter:true}
+    ];
+
     const defaultState = normalize(decodeSave(attachedSaveText));
     let state = normalize(JSON.parse(localStorage.getItem(localKey) || "null") || structuredClone(defaultState));
     let activeView = "overview";
@@ -168,6 +204,7 @@
     let blackjackMode = "solo";
     let lastRoomResultToastKey = "";
     let soloBlackjack = createEmptyBlackjackGame();
+    let slotMachine = createEmptySlotMachine();
     let localProfile = JSON.parse(localStorage.getItem("virtualCasinoProfileV1") || "null") || {
       email: "local@test",
       displayName: "Champion",
@@ -279,6 +316,10 @@
         blackjack: {played: 18, wins: 3, profit: 120, biggest: 0},
         uno: {played: 15, wins: 8, profit: 60, biggest: 0}
       };
+      data.gameStats.poker = {...{played:0,wins:0,profit:0,biggest:0}, ...(data.gameStats.poker || {})};
+      data.gameStats.blackjack = {...{played:0,wins:0,profit:0,biggest:0}, ...(data.gameStats.blackjack || {})};
+      data.gameStats.uno = {...{played:0,wins:0,profit:0,biggest:0}, ...(data.gameStats.uno || {})};
+      data.gameStats.slots = {...{played:0,wins:0,profit:0,biggest:0}, ...(data.gameStats.slots || {})};
       return data;
     }
 
@@ -611,6 +652,7 @@
       if (onlineTilePage) onlineTilePage.hidden = Boolean(activeOnlineGame || room);
       $("blackjackOnlineArea").hidden = activeOnlineGame !== "blackjack" || Boolean(room);
       $("pokerOnlineArea").hidden = activeOnlineGame !== "poker" || Boolean(room);
+      $("slotsOnlineArea").hidden = activeOnlineGame !== "slots" || Boolean(room);
       $("blackjackRoomArea").hidden = !(room && room.game === "blackjack");
       $("pokerRoomArea").hidden = !(room && room.game === "poker");
       $("blackjackSoloPanel").classList.toggle("active", blackjackMode === "solo");
@@ -622,6 +664,7 @@
       renderBlackjackRooms();
       renderPokerRooms();
       renderActiveRoom();
+      renderSlots();
       renderSessionOverview();
       maybePromptProfileLink();
     }
@@ -1043,6 +1086,142 @@
       return `<div class="list-row"><span class="medal">&#9824;</span><div><strong>${escapeHtml(room.name)}</strong><div style="color:var(--muted);font-size:.82rem;">${escapeHtml(blinds)}<br>${escapeHtml(seats)}</div></div><button class="mini-btn" type="button" data-room-id="${escapeAttr(room.id)}" data-action="join-poker-room">Join</button></div>`;
     }
 
+    function renderSlots() {
+      const player = currentPlayer();
+      const lineBet = selectedSlotLineBet();
+      const totalWager = lineBet * slotPaylines.length;
+      $("slotsBankroll").innerHTML = player
+        ? `<span>${escapeHtml(currentDisplayName())}</span><span>Bankroll ${money(stackValue(player.chips))}</span><span>Wager ${money(totalWager)} (${money(lineBet)} x ${slotPaylines.length})</span>`
+        : `<span>Link your profile to play slots.</span>`;
+      $("slotReels").innerHTML = slotMachine.reels.map((reel) => `
+        <div class="slot-reel ${slotMachine.spinning ? "spinning" : ""}">
+          ${reel.map((symbolId) => renderSlotSymbol(symbolId)).join("")}
+        </div>
+      `).join("");
+      $("slotStatus").innerHTML = `${escapeHtml(slotMachine.message)}${slotMachine.lastWin ? ` <strong class="${slotMachine.lastWin >= slotMachine.lastWager ? "money" : "loss"}">Paid ${money(slotMachine.lastWin)}</strong>` : ""}`;
+      document.querySelectorAll('[data-action="slots-spin"]').forEach((button) => button.disabled = slotMachine.spinning);
+      document.querySelectorAll('[data-action="slots-reset"]').forEach((button) => button.disabled = slotMachine.spinning);
+    }
+
+    function renderSlotSymbol(symbolId) {
+      const symbol = slotSymbols.find((item) => item.id === symbolId) || slotSymbols[0];
+      const classes = ["slot-symbol", symbol.wild ? "wild" : "", symbol.scatter ? "scatter" : ""].filter(Boolean).join(" ");
+      return `<span class="${classes}" title="${escapeAttr(symbol.label)}">${symbol.display}</span>`;
+    }
+
+    function selectedSlotLineBet() {
+      const preset = Number($("slotBetPreset")?.value || 0);
+      const manual = Number($("slotBetAmount")?.value || 0);
+      return Math.max(0, Math.round(preset || manual));
+    }
+
+    function weightedSlotSymbol() {
+      const total = slotSymbols.reduce((sum, symbol) => sum + symbol.weight, 0);
+      let roll = Math.random() * total;
+      for (const symbol of slotSymbols) {
+        roll -= symbol.weight;
+        if (roll <= 0) return symbol.id;
+      }
+      return slotSymbols[slotSymbols.length - 1].id;
+    }
+
+    function spinSlotGrid() {
+      return Array.from({length: 5}, () => Array.from({length: 3}, weightedSlotSymbol));
+    }
+
+    function evaluateSlots(reels, lineBet) {
+      const wins = [];
+      let totalWin = 0;
+      slotPaylines.forEach((line, index) => {
+        const symbols = line.map((row, reel) => reels[reel][row]);
+        const result = evaluateSlotLine(symbols, lineBet);
+        if (result.win > 0) {
+          totalWin += result.win;
+          wins.push({line:index + 1, ...result});
+        }
+      });
+      const scatterCount = reels.flat().filter((symbol) => symbol === "scatter").length;
+      if (scatterCount >= 3) {
+        const scatterWin = Math.round(lineBet * slotPaylines.length * ({3:5,4:20,5:100}[Math.min(scatterCount, 5)] || 0));
+        totalWin += scatterWin;
+        wins.push({line:"Scatter", symbol:"scatter", count:scatterCount, win:scatterWin});
+      }
+      return {totalWin: Math.round(totalWin), wins};
+    }
+
+    function evaluateSlotLine(symbols, lineBet) {
+      const regularSymbols = slotSymbols.filter((symbol) => !symbol.scatter && !symbol.wild);
+      let best = {win:0, symbol:"", count:0};
+      regularSymbols.forEach((candidate) => {
+        let count = 0;
+        for (const symbol of symbols) {
+          if (symbol === candidate.id || symbol === "wild") count += 1;
+          else break;
+        }
+        const multiplier = candidate.pays[count] || 0;
+        const win = Math.round(lineBet * multiplier);
+        if (win > best.win) best = {win, symbol:candidate.id, count};
+      });
+      if (symbols.every((symbol) => symbol === "wild")) {
+        const wild = slotSymbols.find((symbol) => symbol.id === "wild");
+        const win = Math.round(lineBet * wild.pays[5]);
+        if (win > best.win) best = {win, symbol:"wild", count:5};
+      }
+      return best;
+    }
+
+    function spinSlots() {
+      const player = currentPlayer();
+      const lineBet = selectedSlotLineBet();
+      const wager = lineBet * slotPaylines.length;
+      if (slotMachine.spinning) return;
+      if (!player) return toast("Link your profile to a player before playing slots.");
+      if (lineBet <= 0) return toast("Enter a bet per line or choose a preset.");
+      if (stackValue(player.chips) < wager) return toast(`You need ${money(wager)} for 9 active lines.`);
+      slotMachine.spinning = true;
+      slotMachine.lastWin = 0;
+      slotMachine.lastWager = wager;
+      slotMachine.winningLines = [];
+      slotMachine.jackpot = false;
+      slotMachine.message = `Spinning ${money(lineBet)} across 9 lines...`;
+      render();
+      let ticks = 0;
+      const animation = setInterval(() => {
+        slotMachine.reels = spinSlotGrid();
+        ticks += 1;
+        renderSlots();
+        if (ticks >= 8) {
+          clearInterval(animation);
+          finishSlotSpin(player, lineBet, wager);
+        }
+      }, 120);
+    }
+
+    function finishSlotSpin(player, lineBet, wager) {
+      slotMachine.reels = spinSlotGrid();
+      const result = evaluateSlots(slotMachine.reels, lineBet);
+      const net = result.totalWin - wager;
+      slotMachine.spinning = false;
+      slotMachine.lastWin = result.totalWin;
+      slotMachine.winningLines = result.wins;
+      slotMachine.jackpot = result.wins.some((win) => win.symbol === "crown" && win.count === 5);
+      slotMachine.message = result.totalWin > 0
+        ? `${result.wins.length} winning line${result.wins.length === 1 ? "" : "s"}. Net ${signedMoney(net)}.`
+        : `No winning lines. Net ${signedMoney(net)}.`;
+      adjustPlayerBankroll(player, net);
+      if (net !== 0) applyMoneyResult(player, net, "slots");
+      state.gameStats.slots.played = Number(state.gameStats.slots.played || 0) + 1;
+      if (result.totalWin > wager) state.gameStats.slots.wins = Number(state.gameStats.slots.wins || 0) + 1;
+      state.gameStats.slots.profit = Number(state.gameStats.slots.profit || 0) + net;
+      state.gameStats.slots.biggest = Math.max(Number(state.gameStats.slots.biggest || 0), result.totalWin);
+      log(`${player.name} spun slots for ${money(wager)} and paid ${money(result.totalWin)} (${signedMoney(net)} net).`);
+      save();
+      const title = result.totalWin > 0
+        ? slotMachine.jackpot ? `${player.name} hits Jackpot!` : `${player.name} wins on slots`
+        : `Slots miss`;
+      resultToast(title, signedMoney(net));
+    }
+
     function createDeck() {
       const suits = ["♠", "♥", "♦", "♣"];
       const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -1072,6 +1251,15 @@
         aces -= 1;
       }
       return total;
+    }
+
+    function isNaturalBlackjack(hand) {
+      return Boolean(hand && !hand.fromSplit && Array.isArray(hand.cards) && hand.cards.length === 2 && handValue(hand.cards) === 21);
+    }
+
+    function blackjackWinPayout(hand, dealerNatural = false) {
+      if (dealerNatural) return Number(hand.bet || 0);
+      return isNaturalBlackjack(hand) ? Math.round(Number(hand.bet || 0) * 1.5) : Number(hand.bet || 0);
     }
 
     function selectedBet() {
@@ -1151,8 +1339,9 @@
       if (stackValue(player.chips) < totalBlackjackExposure() + hand.bet) return toast("Not enough bankroll to cover the split.");
       unlockAchievement("blackjack-perfect-pair", player.name);
       const splitCard = hand.cards.pop();
+      hand.fromSplit = true;
       hand.cards.push(drawCard(soloBlackjack));
-      const newHand = {cards: [splitCard, drawCard(soloBlackjack)], bet: hand.bet, doubled: false, stood: false, result: ""};
+      const newHand = {cards: [splitCard, drawCard(soloBlackjack)], bet: hand.bet, doubled: false, stood: false, result: "", fromSplit: true};
       soloBlackjack.playerHands.splice(soloBlackjack.activeHand + 1, 0, newHand);
       soloBlackjack.splits += 1;
       soloBlackjack.playerAnimateIndexes = {
@@ -1241,21 +1430,30 @@
       }
       clearBlackjackAnimations();
       const dealerTotal = handValue(soloBlackjack.dealerHand);
+      const dealerNatural = soloBlackjack.dealerHand.length === 2 && dealerTotal === 21;
       let totalDelta = 0;
       let wins = 0;
       let losses = 0;
       let pushes = 0;
       hands.forEach((hand) => {
         const playerTotal = handValue(hand.cards);
+        const playerNatural = isNaturalBlackjack(hand);
         let delta = 0;
         if (playerTotal > 21) {
           delta = -hand.bet;
           losses += 1;
           hand.result = "Bust";
-        } else if (dealerTotal > 21 || playerTotal > dealerTotal) {
-          delta = hand.bet;
+        } else if (playerNatural && dealerNatural) {
+          pushes += 1;
+          hand.result = "Push";
+        } else if (playerNatural || dealerTotal > 21 || playerTotal > dealerTotal) {
+          delta = blackjackWinPayout(hand, dealerNatural);
           wins += 1;
-          hand.result = "Win";
+          hand.result = playerNatural ? "Blackjack" : "Win";
+        } else if (dealerNatural) {
+          delta = -hand.bet;
+          losses += 1;
+          hand.result = "Loss";
         } else if (playerTotal === dealerTotal) {
           pushes += 1;
           hand.result = "Push";
@@ -1267,7 +1465,7 @@
         totalDelta += delta;
         if (delta > 0) {
           addXP(player.name, blackjackXP["Win Hand"], "Blackjack: Win Hand", {persist: false, toast: false});
-          if (hand.cards.length === 2 && playerTotal === 21) addXP(player.name, blackjackXP["Natural Blackjack"], "Blackjack: Natural Blackjack", {persist: false, toast: false});
+          if (playerNatural) addXP(player.name, blackjackXP["Natural Blackjack"], "Blackjack: Natural Blackjack", {persist: false, toast: false});
           if (hand.doubled) unlockAchievement("blackjack-double-trouble", player.name);
           if (hand.cards.length >= 5 && playerTotal <= 21) addXP(player.name, blackjackXP["Five Card Charlie"], "Blackjack: Five Card Charlie", {persist: false, toast: false});
           if (hand.cards.length >= 6 && playerTotal <= 21) unlockAchievement("blackjack-six-card-miracle", player.name);
@@ -1452,7 +1650,7 @@
       table.handAnimateIndexes = {};
       entries.forEach(([key]) => {
         table.hands[key] = {
-          playerHands: [{cards: [drawCard(table), drawCard(table)], bet, stood: false, result: "", delta: 0, doubled: false}],
+          playerHands: [{cards: [drawCard(table), drawCard(table)], bet, stood: false, result: "", delta: 0, doubled: false, fromSplit: false}],
           activeHand: 0,
           splits: 0,
           delta: 0
@@ -1517,8 +1715,9 @@
       const totalExposure = multiSeatHands(seatHand).reduce((sum, item) => sum + Number(item.bet || table.bet || 0), 0);
       if (!player || stackValue(player.chips) < totalExposure + Number(hand.bet || table.bet || 0)) return toast("Not enough bankroll to cover the split.");
       const splitCard = hand.cards.pop();
+      hand.fromSplit = true;
       hand.cards.push(drawCard(table));
-      const newHand = {cards: [splitCard, drawCard(table)], bet: hand.bet || table.bet, stood: false, result: "", delta: 0, doubled: false};
+      const newHand = {cards: [splitCard, drawCard(table)], bet: hand.bet || table.bet, stood: false, result: "", delta: 0, doubled: false, fromSplit: true};
       seatHand.playerHands.splice(Number(seatHand.activeHand || 0) + 1, 0, newHand);
       seatHand.splits = Number(seatHand.splits || 0) + 1;
       table.handAnimateIndexes = {[key]: {[String(seatHand.activeHand || 0)]: [1], [String(Number(seatHand.activeHand || 0) + 1)]: [1]}};
@@ -1609,6 +1808,7 @@
       table.dealerFlipIndexes = [];
       table.handAnimateIndexes = {};
       const dealerTotal = handValue(table.dealerHand);
+      const dealerNatural = table.dealerHand.length === 2 && dealerTotal === 21;
       let winners = 0;
       Object.entries(table.hands || {}).forEach(([key, hand]) => {
         const seat = room.seats?.[key];
@@ -1616,14 +1816,21 @@
         let seatDelta = 0;
         multiSeatHands(hand).forEach((playerHand) => {
           const total = handValue(playerHand.cards);
+          const playerNatural = isNaturalBlackjack(playerHand);
           let delta = 0;
           if (total > 21) {
             delta = -Number(playerHand.bet || table.bet || 0);
             playerHand.result = "Bust";
-          } else if (dealerTotal > 21 || total > dealerTotal) {
-            delta = Number(playerHand.bet || table.bet || 0);
+          } else if (playerNatural && dealerNatural) {
+            playerHand.result = "Push";
+          } else if (playerNatural || dealerTotal > 21 || total > dealerTotal) {
+            delta = blackjackWinPayout(playerHand, dealerNatural);
             playerHand.result = "Win";
             winners += 1;
+            if (playerNatural) playerHand.result = "Blackjack";
+          } else if (dealerNatural) {
+            delta = -Number(playerHand.bet || table.bet || 0);
+            playerHand.result = "Loss";
           } else if (total === dealerTotal) {
             playerHand.result = "Push";
           } else {
@@ -1639,6 +1846,7 @@
           adjustPlayerBankroll(player, seatDelta);
           if (seatDelta !== 0) applyMoneyResult(player, seatDelta, `online blackjack room ${room.name}`);
           if (seatDelta > 0) addXP(player.name, blackjackXP["Win Hand"], "Online Blackjack: Win Hand", {persist: false, toast: false});
+          if (multiSeatHands(hand).some((playerHand) => playerHand.result === "Blackjack")) addXP(player.name, blackjackXP["Natural Blackjack"], "Online Blackjack: Natural Blackjack", {persist: false, toast: false});
         }
       });
       state.gameStats.blackjack.played = Number(state.gameStats.blackjack.played || 0) + Object.keys(table.hands || {}).length;
@@ -2038,6 +2246,14 @@
         setTimeout(() => $("pokerOnlineArea")?.scrollIntoView({behavior: "smooth", block: "start"}), 60);
         return;
       }
+      if (action === "open-online-slots") {
+        activeView = "online";
+        activeOnlineGame = "slots";
+        activeRoomId = "";
+        render();
+        setTimeout(() => $("slotsOnlineArea")?.scrollIntoView({behavior: "smooth", block: "start"}), 60);
+        return;
+      }
       if (action === "back-online-games") {
         activeView = "online";
         activeOnlineGame = "";
@@ -2071,6 +2287,17 @@
         soloBlackjack = createEmptyBlackjackGame();
         render();
         toast("Blackjack table cleared.");
+        return;
+      }
+      if (action === "slots-spin") {
+        spinSlots();
+        return;
+      }
+      if (action === "slots-reset") {
+        if (slotMachine.spinning) return toast("Wait for the reels to stop.");
+        slotMachine = createEmptySlotMachine();
+        render();
+        toast("Slots cleared.");
         return;
       }
       if (action === "open-blackjack-guide") {
@@ -2804,6 +3031,11 @@
     $("soloBetPreset").addEventListener("change", () => {
       if ($("soloBetPreset").value) $("soloBetAmount").value = $("soloBetPreset").value;
     });
+    $("slotBetPreset").addEventListener("change", () => {
+      if ($("slotBetPreset").value) $("slotBetAmount").value = $("slotBetPreset").value;
+      renderSlots();
+    });
+    $("slotBetAmount").addEventListener("input", renderSlots);
     fillStaticSelects();
     render();
     initFirebase();
