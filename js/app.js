@@ -124,6 +124,7 @@
         bet: 0,
         activeHand: 0,
         splits: 0,
+        animateCards: false,
         phase: "idle",
         message: "Place a bet and deal a hand.",
         revealDealer: false
@@ -759,14 +760,15 @@
 
     function renderBlackjackTable() {
       const hands = blackjackHands();
+      const hideDealerHole = soloBlackjack.dealerHand.length > 1 && !soloBlackjack.revealDealer && (soloBlackjack.phase === "playing" || soloBlackjack.phase === "dealing");
       $("dealerHand").innerHTML = soloBlackjack.dealerHand.length
-        ? soloBlackjack.dealerHand.map((card, index) => renderPlayingCard(card, index === 1 && !soloBlackjack.revealDealer && soloBlackjack.phase === "playing")).join("")
+        ? soloBlackjack.dealerHand.map((card, index) => renderPlayingCard(card, index === 1 && hideDealerHole, soloBlackjack.animateCards)).join("")
         : `<div class="sync-pill">No dealer hand</div>`;
       $("playerHand").innerHTML = hands.length
         ? hands.map((hand, index) => renderBlackjackHand(hand, index)).join("")
         : `<div class="sync-pill">No player hand</div>`;
       $("dealerTotal").textContent = soloBlackjack.dealerHand.length
-        ? (soloBlackjack.revealDealer || soloBlackjack.phase !== "playing" ? handValue(soloBlackjack.dealerHand) : handValue([soloBlackjack.dealerHand[0]]))
+        ? (hideDealerHole ? handValue([soloBlackjack.dealerHand[0]]) : handValue(soloBlackjack.dealerHand))
         : "0";
       $("playerTotal").textContent = hands.length ? hands.map((hand, index) => `H${index + 1}: ${handValue(hand.cards)}`).join(" / ") : "0";
       $("blackjackStatus").textContent = soloBlackjack.message;
@@ -799,7 +801,7 @@
 
     function renderBlackjackHand(hand, index) {
       const active = soloBlackjack.phase === "playing" && index === soloBlackjack.activeHand;
-      const cards = hand.cards.map((card) => renderPlayingCard(card)).join("");
+      const cards = hand.cards.map((card) => renderPlayingCard(card, false, soloBlackjack.animateCards)).join("");
       const flags = [
         active ? "Active" : "",
         hand.doubled ? "Double" : "",
@@ -812,10 +814,11 @@
       </div>`;
     }
 
-    function renderPlayingCard(card, hidden = false) {
-      if (hidden) return `<span class="playing-card hidden-card dealt-card">?</span>`;
+    function renderPlayingCard(card, hidden = false, animate = false) {
+      const animationClass = animate ? "dealt-card" : "";
+      if (hidden) return `<span class="playing-card hidden-card ${animationClass}">?</span>`;
       const red = card.suit === "♥" || card.suit === "♦";
-      return `<span class="playing-card dealt-card ${red ? "red" : ""}">${escapeHtml(card.rank)}${escapeHtml(card.suit)}</span>`;
+      return `<span class="playing-card ${animationClass} ${red ? "red" : ""}">${escapeHtml(card.rank)}${escapeHtml(card.suit)}</span>`;
     }
 
     function renderBlackjackRooms() {
@@ -901,6 +904,7 @@
       soloBlackjack.splits = 0;
       soloBlackjack.dealerHand = [drawCard(soloBlackjack), drawCard(soloBlackjack)];
       soloBlackjack.revealDealer = false;
+      soloBlackjack.animateCards = true;
       soloBlackjack.message = `Dealing ${money(bet)} hand...`;
       render();
       const playerTotal = handValue(activeBlackjackHand().cards);
@@ -910,9 +914,9 @@
           settleSoloBlackjack();
         } else {
           soloBlackjack.phase = "playing";
+          soloBlackjack.animateCards = false;
           soloBlackjack.message = `Bet ${money(bet)}. Hit, stand, split a pair, or double down.`;
-          $("blackjackStatus").textContent = soloBlackjack.message;
-          renderBlackjackControls();
+          render();
         }
       }, 3400);
     }
@@ -929,7 +933,7 @@
       } else {
         soloBlackjack.message = `Hand ${soloBlackjack.activeHand + 1}: card dealt.`;
       }
-      render();
+      if (soloBlackjack.phase !== "dealing") render();
     }
 
     function standSoloBlackjack() {
@@ -937,7 +941,7 @@
       const hand = activeBlackjackHand();
       if (hand) hand.stood = true;
       advanceBlackjackHand();
-      render();
+      if (soloBlackjack.phase !== "dealing") render();
     }
 
     function splitSoloBlackjack() {
@@ -970,7 +974,7 @@
       if (handValue(hand.cards) > 21) hand.result = "Bust";
       soloBlackjack.message = `Hand ${soloBlackjack.activeHand + 1} doubled down.`;
       advanceBlackjackHand();
-      render();
+      if (soloBlackjack.phase !== "dealing") render();
     }
 
     function advanceBlackjackHand() {
@@ -981,7 +985,27 @@
         soloBlackjack.message = `Playing hand ${next + 1} of ${hands.length}.`;
         return;
       }
+      if (hands.some((hand) => handValue(hand.cards) <= 21)) {
+        revealDealerAndSettle();
+        return;
+      }
       settleSoloBlackjack();
+    }
+
+    function revealDealerAndSettle() {
+      soloBlackjack.phase = "dealing";
+      soloBlackjack.revealDealer = true;
+      soloBlackjack.animateCards = true;
+      while (handValue(soloBlackjack.dealerHand) < 17) {
+        soloBlackjack.dealerHand.push(drawCard(soloBlackjack));
+      }
+      soloBlackjack.message = "Dealer reveals and draws to 17.";
+      render();
+      const delay = Math.max(900, soloBlackjack.dealerHand.length * 800 + 250);
+      setTimeout(() => {
+        soloBlackjack.animateCards = false;
+        settleSoloBlackjack();
+      }, delay);
     }
 
     function totalBlackjackExposure() {
@@ -997,6 +1021,7 @@
       while (hands.some((hand) => handValue(hand.cards) <= 21) && handValue(soloBlackjack.dealerHand) < 17) {
         soloBlackjack.dealerHand.push(drawCard(soloBlackjack));
       }
+      soloBlackjack.animateCards = false;
       const dealerTotal = handValue(soloBlackjack.dealerHand);
       let totalDelta = 0;
       let wins = 0;
