@@ -55,6 +55,7 @@
         <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online Sessions</span></button>
         <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank & Loans</span></button>
         <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Achievements</span></button>
+        <button class="nav-btn admin-link" data-view="admin"><span>&#9881;</span><span>Admin</span></button>
         <button class="nav-btn" data-view="history"><span>&#8635;</span><span>History</span></button>
         <button class="nav-btn" data-view="export"><span>&#8682;</span><span>Export / Import</span></button>
         <button class="nav-btn" type="button" data-action="open-profile"><span>&#9881;</span><span>Profile</span></button>
@@ -99,7 +100,7 @@
           <div>
             <div class="section-title">
               <span>&#9818; Your Crew</span>
-              <button class="ghost-btn admin-link" type="button" data-view="players">&#9881; Manage Players</button>
+              <button class="ghost-btn admin-link" type="button" data-view="admin">&#9881; Manage Players</button>
             </div>
             <div id="crewGrid" class="crew-grid"></div>
             <div class="section-title" style="margin-top:18px;"><span>Choose Your Game</span></div>
@@ -132,17 +133,24 @@
       </section>
 
       <section id="playersView" class="view">
-        <article class="panel panel-pad admin-only">
+        <article class="panel panel-pad">
+          <div class="section-title"><span>&#9819; Leaderboard</span></div>
+          <div id="leaderboard" class="leaderboard-list"></div>
+        </article>
+        <article class="panel panel-pad" style="margin-top:18px;">
+          <div class="section-title"><span>&#9818; All Players</span></div>
+          <div id="allPlayersBoard" class="leaderboard-list"></div>
+        </article>
+      </section>
+
+      <section id="adminView" class="view">
+        <article class="panel panel-pad">
           <div class="section-title"><span>&#9818; Manage Players</span></div>
           <div class="form-grid">
             <div><label for="newPlayerName">Player Name</label><input id="newPlayerName" type="text" placeholder="ex: Mom" /></div>
             <div style="align-self:end;"><button class="primary-btn" style="width:100%;" type="button" data-action="add-player">Add Player</button></div>
           </div>
           <div id="playerAdminBoard" class="leaderboard-list" style="margin-top:14px;"></div>
-        </article>
-        <article class="panel panel-pad admin-only" style="margin-top:18px;">
-          <div class="section-title"><span>&#9819; Leaderboard</span></div>
-          <div id="leaderboard" class="leaderboard-list"></div>
         </article>
         <article class="panel panel-pad" style="margin-top:18px;">
           <div class="section-title"><span>&#9733; Manual Level / XP</span></div>
@@ -158,6 +166,24 @@
             <button class="ghost-btn" type="button" data-action="manual-level">Set Level / Stars</button>
             <button class="ghost-btn" type="button" data-action="grant-bankroll">Grant Bankroll</button>
           </div>
+        </article>
+        <article class="panel panel-pad" style="margin-top:18px;">
+          <div class="section-title"><span>&#9827; Local Blackjack Settlement</span></div>
+          <div class="form-grid">
+            <div><label for="localBjPlayer">Player</label><select id="localBjPlayer"></select></div>
+            <div><label for="localBjStart">Starting Bankroll</label><input id="localBjStart" type="number" inputmode="numeric" placeholder="ex: 297" /></div>
+            <div><label for="localBjWhite">White</label><input id="localBjWhite" type="number" inputmode="numeric" placeholder="0" /></div>
+            <div><label for="localBjRed">Red</label><input id="localBjRed" type="number" inputmode="numeric" placeholder="0" /></div>
+            <div><label for="localBjBlue">Blue</label><input id="localBjBlue" type="number" inputmode="numeric" placeholder="0" /></div>
+            <div><label for="localBjGreen">Green</label><input id="localBjGreen" type="number" inputmode="numeric" placeholder="0" /></div>
+            <div><label for="localBjBlack">Black</label><input id="localBjBlack" type="number" inputmode="numeric" placeholder="0" /></div>
+          </div>
+          <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="settle-local-blackjack">Settle Local Blackjack</button>
+          <div id="localBjPreview" class="blackjack-status">Enter ending chips to calculate profit/loss and pay debt first.</div>
+        </article>
+        <article class="panel panel-pad" style="margin-top:18px;">
+          <div class="section-title"><span>&#9881; Account Linkage</span></div>
+          <div id="linkageAdminBoard" class="leaderboard-list"></div>
         </article>
       </section>
 
@@ -452,6 +478,7 @@
     <button class="nav-btn" data-view="players"><span>&#9818;</span><span>Players</span></button>
     <button class="nav-btn" data-view="sessions"><span>&#9824;</span><span>Local</span></button>
     <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online</span></button>
+    <button class="nav-btn admin-link" data-view="admin"><span>&#9881;</span><span>Admin</span></button>
     <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Stars</span></button>
     <button class="nav-btn" data-view="export"><span>&#8943;</span><span>More</span></button>
   </nav>
@@ -464,11 +491,12 @@
         <button class="mini-btn" type="button" data-action="toggle-mobile-nav">Close</button>
       </div>
       <button class="nav-btn" data-view="overview"><span>&#8962;</span><span>Overview</span></button>
-      <button class="nav-btn admin-link" data-view="players"><span>&#9818;</span><span>Players</span></button>
+      <button class="nav-btn" data-view="players"><span>&#9818;</span><span>Players</span></button>
       <button class="nav-btn" data-view="sessions"><span>&#9830;</span><span>Local Sessions</span></button>
       <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online Sessions</span></button>
       <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank & Loans</span></button>
       <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Achievements</span></button>
+      <button class="nav-btn admin-link" data-view="admin"><span>&#9881;</span><span>Admin</span></button>
       <button class="nav-btn" data-view="history"><span>&#8635;</span><span>History</span></button>
       <button class="nav-btn" data-view="export"><span>&#8682;</span><span>Export / Import</span></button>
       <button class="nav-btn" type="button" data-action="open-profile"><span>&#9881;</span><span>Profile Settings</span></button>
@@ -506,6 +534,11 @@
         <div>
           <label for="profilePlayerName">Linked Player</label>
           <select id="profilePlayerName"></select>
+          <div id="profileRelinkHelp" class="field-note">Already linked. Request Relink requires admin pass.</div>
+        </div>
+        <div>
+          <label for="profileRelinkPass">Request Relink</label>
+          <input id="profileRelinkPass" type="password" placeholder="Admin pass" />
         </div>
         <div>
           <label for="profilePassword">New Password</label>
@@ -517,6 +550,20 @@
         <button class="ghost-btn" type="button" data-action="sign-out">Sign Out</button>
       </div>
       <div id="profileMessage" class="auth-message"></div>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog" class="profile-dialog">
+    <form method="dialog" class="profile-card">
+      <div class="section-title">
+        <span id="confirmTitle">Confirm</span>
+        <button class="mini-btn" type="button" data-action="cancel-confirm">Cancel</button>
+      </div>
+      <p id="confirmBody" class="auth-message">Are you sure?</p>
+      <div class="action-grid">
+        <button id="confirmActionButton" class="primary-btn danger-btn" type="button" data-action="confirm-delete-player">Delete</button>
+        <button class="ghost-btn" type="button" data-action="cancel-confirm">Keep Player</button>
+      </div>
     </form>
   </dialog>
 

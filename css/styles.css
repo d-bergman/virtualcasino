@@ -566,6 +566,12 @@
     .stat-line strong { color: #fff; font-size: 1.02rem; }
     .money { color: var(--green) !important; font-weight: 900; }
     .loss { color: var(--red) !important; font-weight: 900; }
+    .field-note {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
     .chip-text { color: var(--muted); font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .xp-row {
       display: grid;
@@ -895,6 +901,20 @@
       text-transform: capitalize;
     }
 
+    .linkage-row {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+
+    .linkage-row select {
+      margin-top: 8px;
+      min-height: 36px;
+    }
+
+    .linkage-actions {
+      display: grid;
+      gap: 8px;
+    }
+
     .danger-btn,
     .danger-mini {
       border-color: rgba(255, 92, 92, 0.35) !important;
@@ -904,6 +924,11 @@
 
     .mini-btn:disabled {
       opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    button:disabled {
+      opacity: 0.48;
       cursor: not-allowed;
     }
 
@@ -1059,14 +1084,14 @@
     }
 
     .dealt-card {
-      animation: dealCard 360ms ease both;
+      animation: dealCard 800ms ease both;
     }
 
-    .playing-card-row .dealt-card:nth-child(2) { animation-delay: 80ms; }
-    .playing-card-row .dealt-card:nth-child(3) { animation-delay: 160ms; }
-    .playing-card-row .dealt-card:nth-child(4) { animation-delay: 240ms; }
-    .playing-card-row .dealt-card:nth-child(5) { animation-delay: 320ms; }
-    .playing-card-row .dealt-card:nth-child(6) { animation-delay: 400ms; }
+    .playing-card-row .dealt-card:nth-child(2) { animation-delay: 800ms; }
+    .playing-card-row .dealt-card:nth-child(3) { animation-delay: 1600ms; }
+    .playing-card-row .dealt-card:nth-child(4) { animation-delay: 2400ms; }
+    .playing-card-row .dealt-card:nth-child(5) { animation-delay: 3200ms; }
+    .playing-card-row .dealt-card:nth-child(6) { animation-delay: 4000ms; }
 
     @keyframes dealCard {
       from {
@@ -1260,7 +1285,7 @@
         bottom: max(12px, env(safe-area-inset-bottom));
         z-index: 40;
         display: grid;
-        grid-template-columns: repeat(6, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
         border: 1px solid rgba(255,255,255,0.12);
         border-radius: 8px;
         background: rgba(12, 12, 18, 0.9);
