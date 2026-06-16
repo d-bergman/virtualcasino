@@ -195,6 +195,7 @@
     let localTestSignedIn = false;
     let activeAchievementTab = "unlocked";
     let achievementCheckTimer = null;
+    let roomPollTimer = null;
     let activeOnlineGame = "";
     let activeRoomId = "";
     let lastClosedRoomId = "";
@@ -541,17 +542,17 @@
       localStorage.setItem(localKey, JSON.stringify(state));
       render();
       if (firebaseDisabled || !firebaseState.ready || !firebaseState.user) return;
-      const {dbRef, set, update, serverTimestamp} = firebaseState.modules;
-      await set(dbRef(firebaseState.db, `${databasePath}/state/onlineRooms/${room.id}`), room).catch((error) => {
-        console.warn(error);
-        toast("Room sync failed. Try refreshing rooms.");
-      });
+      const {dbRef, update, serverTimestamp} = firebaseState.modules;
       await update(dbRef(firebaseState.db, `${databasePath}/state`), {
+        [`onlineRooms/${room.id}`]: room,
         updatedAt: state.updatedAt,
         updatedAtServer: serverTimestamp(),
         updatedByUid: firebaseState.user.uid,
         updatedByEmail: firebaseState.user.email || ""
-      }).catch(() => {});
+      }).catch((error) => {
+        console.warn(error);
+        toast("Room sync failed. Check Firebase rules and try again.");
+      });
     }
 
     async function clearAllRooms() {
@@ -563,19 +564,43 @@
       localStorage.setItem(localKey, JSON.stringify(state));
       render();
       if (!firebaseDisabled && firebaseState.ready && firebaseState.user) {
-        const {dbRef, set, update, serverTimestamp} = firebaseState.modules;
-        await set(dbRef(firebaseState.db, `${databasePath}/state/onlineRooms`), null).catch((error) => {
-          console.warn(error);
-          toast("Room clear failed. Check Firebase rules.");
-        });
+        const {dbRef, update, serverTimestamp} = firebaseState.modules;
         await update(dbRef(firebaseState.db, `${databasePath}/state`), {
+          onlineRooms: null,
           updatedAt: Date.now(),
           updatedAtServer: serverTimestamp(),
           updatedByUid: firebaseState.user.uid,
           updatedByEmail: firebaseState.user.email || ""
-        }).catch(() => {});
+        }).catch((error) => {
+          console.warn(error);
+          toast("Room clear failed. Check Firebase rules.");
+        });
       }
       toast("All online rooms cleared.");
+    }
+
+    function applyRoomsSnapshot(rooms) {
+      const nextRooms = rooms && typeof rooms === "object" && !Array.isArray(rooms) ? rooms : {};
+      const before = JSON.stringify(state.onlineRooms || {});
+      const after = JSON.stringify(nextRooms);
+      if (before === after) return false;
+      state.onlineRooms = nextRooms;
+      localStorage.setItem(localKey, JSON.stringify(state));
+      setSync("Room sync live", true);
+      handleActiveRoomClosure();
+      render();
+      return true;
+    }
+
+    function startRoomPoller() {
+      clearInterval(roomPollTimer);
+      if (firebaseDisabled || !firebaseState.ready || !firebaseState.user) return;
+      const {dbRef, get} = firebaseState.modules;
+      const roomsRef = dbRef(firebaseState.db, `${databasePath}/state/onlineRooms`);
+      roomPollTimer = setInterval(async () => {
+        const snap = await get(roomsRef).catch(() => null);
+        if (snap) applyRoomsSnapshot(snap.val() || {});
+      }, 3000);
     }
 
     function setSync(text, on) {
@@ -2799,6 +2824,7 @@
         authModule.onAuthStateChanged(firebaseState.auth, async (user) => {
           firebaseState.user = user;
           if (!user) {
+            clearInterval(roomPollTimer);
             if (firebaseState.unsubscribe) firebaseState.unsubscribe();
             if (firebaseState.roomsUnsubscribe) firebaseState.roomsUnsubscribe();
             document.body.classList.remove("auth-checking");
@@ -2877,15 +2903,12 @@
         setSync("Database blocked", false);
       });
       firebaseState.roomsUnsubscribe = onValue(roomsRef, (snap) => {
-        state.onlineRooms = snap.val() || {};
-        localStorage.setItem(localKey, JSON.stringify(state));
-        setSync("Room sync live", true);
-        handleActiveRoomClosure();
-        render();
+        applyRoomsSnapshot(snap.val() || {});
       }, (error) => {
         console.warn(error);
         setSync("Room sync blocked", false);
       });
+      startRoomPoller();
     }
 
     async function signIn(email, password) {
@@ -2931,6 +2954,7 @@
 
     async function signOutUser() {
       clearInterval(achievementCheckTimer);
+      clearInterval(roomPollTimer);
       if (firebaseState.user && firebaseState.ready) {
         if (firebaseState.roomsUnsubscribe) firebaseState.roomsUnsubscribe();
         await firebaseState.modules.update(firebaseState.modules.dbRef(firebaseState.db, `${databasePath}/users/${firebaseState.user.uid}`), {
