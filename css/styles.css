@@ -1085,13 +1085,12 @@
 
     .dealt-card {
       animation: dealCard 800ms ease both;
+      animation-delay: var(--deal-delay, 0ms);
     }
 
-    .playing-card-row .dealt-card:nth-child(2) { animation-delay: 800ms; }
-    .playing-card-row .dealt-card:nth-child(3) { animation-delay: 1600ms; }
-    .playing-card-row .dealt-card:nth-child(4) { animation-delay: 2400ms; }
-    .playing-card-row .dealt-card:nth-child(5) { animation-delay: 3200ms; }
-    .playing-card-row .dealt-card:nth-child(6) { animation-delay: 4000ms; }
+    .flip-card {
+      animation: flipCard 500ms ease both;
+    }
 
     @keyframes dealCard {
       from {
@@ -1101,6 +1100,12 @@
       to {
         opacity: 1;
       }
+    }
+
+    @keyframes flipCard {
+      0% { transform: rotateY(0deg) scale(0.96); }
+      52% { transform: rotateY(88deg) scale(1.04); }
+      100% { transform: rotateY(0deg) scale(1); }
     }
 
     .toast {
@@ -1121,6 +1126,32 @@
       transition: opacity 220ms ease, transform 220ms ease;
     }
     .toast.show { opacity: 1; transform: translateY(0); }
+    .toast strong { display:block; color:var(--gold); margin-bottom:4px; }
+    .toast .result-delta { font-size:1.35rem; font-weight:900; }
+
+    .active-room-hand {
+      border-color: rgba(255,216,107,0.55);
+      background:
+        radial-gradient(circle at left, rgba(255,216,107,0.12), transparent 38%),
+        rgba(26,23,32,0.88);
+    }
+
+    .slots-icon {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .slots-icon span {
+      min-width: 34px;
+      border: 1px solid rgba(255,216,107,0.35);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.92);
+      color: #150d16;
+      padding: 8px 4px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.28);
+    }
 
     .profile-dialog {
       width: min(620px, calc(100vw - 28px));

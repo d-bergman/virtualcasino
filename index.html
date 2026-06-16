@@ -185,6 +185,11 @@
           <div class="section-title"><span>&#9881; Account Linkage</span></div>
           <div id="linkageAdminBoard" class="leaderboard-list"></div>
         </article>
+        <article class="panel panel-pad" style="margin-top:18px;">
+          <div class="section-title"><span>&#127922; Room Failsafe</span></div>
+          <p class="auth-message">Use this if an online room gets stuck open.</p>
+          <button class="primary-btn danger-btn" style="width:100%;" type="button" data-action="clear-all-rooms">Delete All Open Rooms</button>
+        </article>
       </section>
 
       <section id="sessionsView" class="view">
@@ -270,7 +275,7 @@
       </section>
 
       <section id="onlineView" class="view">
-        <article class="panel panel-pad">
+        <article id="onlineTilePage" class="panel panel-pad">
           <div class="section-title"><span>&#127922; Online Sessions</span></div>
           <div class="online-game-grid">
             <button class="online-game-tile blackjack-tile" type="button" data-action="open-online-blackjack">
@@ -288,6 +293,11 @@
               <strong>Uno</strong>
               <small>Coming soon.</small>
             </button>
+            <button class="online-game-tile slots-tile" type="button" disabled>
+              <span class="tile-icon slots-icon" aria-hidden="true"><span>7</span><span>BAR</span><span>&#9733;</span></span>
+              <strong>Slots</strong>
+              <small>Coming soon.</small>
+            </button>
           </div>
         </article>
 
@@ -295,7 +305,11 @@
           <article class="panel panel-pad">
             <div class="section-title">
               <span>&#9827; Blackjack Table</span>
-              <button class="mini-btn tiny-btn" type="button" data-action="open-blackjack-guide">Guide</button>
+              <span>
+                <button class="mini-btn tiny-btn" type="button" data-action="back-online-games">Games</button>
+                <button class="mini-btn tiny-btn" type="button" data-action="choose-blackjack-mode">Switch</button>
+                <button class="mini-btn tiny-btn" type="button" data-action="open-blackjack-guide">Guide</button>
+              </span>
             </div>
             <div id="blackjackBankroll" class="rule-strip"></div>
             <div class="sub-tabs" aria-label="Blackjack mode tabs">
@@ -357,20 +371,30 @@
           <article class="panel panel-pad game-room-panel">
             <div class="section-title">
               <span id="blackjackRoomTitle">&#9827; Blackjack Room</span>
-              <span id="blackjackRoomHostBadge" class="sync-pill"></span>
+              <span>
+                <button class="mini-btn tiny-btn" type="button" data-action="back-online-games">Games</button>
+                <span id="blackjackRoomHostBadge" class="sync-pill"></span>
+              </span>
             </div>
             <div id="blackjackRoomPlayers" class="room-player-grid"></div>
             <div class="blackjack-table">
               <div class="hand-zone">
-                <div class="section-title"><span>Dealer</span><span class="sync-pill">Room Table</span></div>
-                <div class="playing-card-row"><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span></div>
+                <div class="section-title"><span>Dealer</span><span id="multiDealerTotal" class="sync-pill">0</span></div>
+                <div id="multiDealerHand" class="playing-card-row"></div>
               </div>
               <div class="hand-zone">
-                <div class="section-title"><span>Players</span><span class="sync-pill">Live session lobby</span></div>
-                <div class="blackjack-status">Blackjack multiplayer room is open. Full shared hand play comes next; players can join, leave, or be disconnected by the host now.</div>
+                <div class="section-title"><span>Player Hands</span><span id="multiActiveSeat" class="sync-pill">Waiting</span></div>
+                <div id="multiBlackjackHands" class="leaderboard-list"></div>
               </div>
             </div>
+            <div class="form-grid">
+              <div><label for="multiBjBetAmount">Shared Bet</label><input id="multiBjBetAmount" type="number" inputmode="numeric" min="1" value="5" /></div>
+            </div>
+            <div id="multiBlackjackStatus" class="blackjack-status">Start a shared round when players have joined.</div>
             <div class="action-grid">
+              <button class="primary-btn" type="button" data-action="multi-blackjack-deal">Start Round</button>
+              <button class="ghost-btn" type="button" data-action="multi-blackjack-hit">Hit</button>
+              <button class="ghost-btn" type="button" data-action="multi-blackjack-stand">Stand</button>
               <button class="ghost-btn" type="button" data-action="leave-active-room">Leave Session</button>
               <button id="closeBlackjackRoomBtn" class="primary-btn danger-btn" type="button" data-action="close-active-room">Close Room</button>
             </div>
@@ -381,7 +405,10 @@
           <article class="panel panel-pad">
             <div class="section-title">
               <span>&#9824; Texas Hold'em Rooms</span>
-              <button class="mini-btn tiny-btn" type="button" data-action="open-poker-guide">Hands / XP</button>
+              <span>
+                <button class="mini-btn tiny-btn" type="button" data-action="back-online-games">Games</button>
+                <button class="mini-btn tiny-btn" type="button" data-action="open-poker-guide">Hands / XP</button>
+              </span>
             </div>
             <div class="rule-strip">
               <span>Multiplayer rooms only</span>
@@ -578,16 +605,22 @@
           <label for="roomName">Room Name</label>
           <input id="roomName" type="text" placeholder="Family Blackjack" />
         </div>
-        <div>
-          <label for="roomRole">Your Seat</label>
-          <select id="roomRole">
-            <option value="player">Player</option>
-            <option value="dealer">Dealer</option>
-          </select>
-        </div>
       </div>
       <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="create-blackjack-room">Create Room</button>
       <div id="roomMessage" class="auth-message"></div>
+    </form>
+  </dialog>
+
+  <dialog id="blackjackModeDialog" class="profile-dialog">
+    <form method="dialog" class="profile-card">
+      <div class="section-title">
+        <span>Choose Blackjack Mode</span>
+        <button class="mini-btn" type="button" data-action="close-blackjack-mode">Close</button>
+      </div>
+      <div class="action-grid">
+        <button class="primary-btn" type="button" data-action="open-blackjack-solo">Play Solo</button>
+        <button class="ghost-btn" type="button" data-action="open-blackjack-multi">Multiplayer Rooms</button>
+      </div>
     </form>
   </dialog>
 

@@ -125,9 +125,28 @@
         activeHand: 0,
         splits: 0,
         animateCards: false,
+        dealerAnimateIndexes: [],
+        dealerFlipIndexes: [],
+        playerAnimateIndexes: {},
         phase: "idle",
         message: "Place a bet and deal a hand.",
         revealDealer: false
+      };
+    }
+
+    function createEmptyMultiplayerBlackjackTable() {
+      return {
+        deck: [],
+        dealerHand: [],
+        hands: {},
+        bet: 0,
+        activeSeatKey: "",
+        phase: "waiting",
+        revealDealer: false,
+        dealerAnimateIndexes: [],
+        dealerFlipIndexes: [],
+        handAnimateIndexes: {},
+        message: "Start a shared round when players have joined."
       };
     }
 
@@ -147,6 +166,7 @@
     let relinkUnlocked = false;
     let pendingDeletePlayer = "";
     let blackjackMode = "solo";
+    let lastRoomResultToastKey = "";
     let soloBlackjack = createEmptyBlackjackGame();
     let localProfile = JSON.parse(localStorage.getItem("virtualCasinoProfileV1") || "null") || {
       email: "local@test",
@@ -185,8 +205,8 @@
       confirmTitle: $("confirmTitle"),
       confirmBody: $("confirmBody"),
       blackjackRoomDialog: $("blackjackRoomDialog"),
+      blackjackModeDialog: $("blackjackModeDialog"),
       roomName: $("roomName"),
-      roomRole: $("roomRole"),
       roomMessage: $("roomMessage"),
       blackjackGuideDialog: $("blackjackGuideDialog"),
       pokerRoomDialog: $("pokerRoomDialog"),
@@ -523,6 +543,7 @@
       $("gameGrid").innerHTML = ["poker","blackjack","uno"].map(renderGameCard).join("");
       document.querySelectorAll("[data-game-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.gamePanel === activeGame));
       const room = activeRoom();
+      $("onlineTilePage").hidden = Boolean(activeOnlineGame || room);
       $("blackjackOnlineArea").hidden = activeOnlineGame !== "blackjack" || Boolean(room);
       $("pokerOnlineArea").hidden = activeOnlineGame !== "poker" || Boolean(room);
       $("blackjackRoomArea").hidden = !(room && room.game === "blackjack");
@@ -668,8 +689,8 @@
       if (!room) return;
       const playersMarkup = Object.values(room.seats || {}).map((seat) => `
         <div class="room-player-card">
-          <span class="medal ${medalClass(seat.role === "dealer" ? "Club" : "Spade")}">${seat.role === "dealer" ? "♣" : "♠"}</span>
-          <div><strong>${escapeHtml(seat.name)}</strong><div>${escapeHtml(seat.playerName || "Unlinked")} - ${escapeHtml(seat.role)}</div></div>
+          <span class="medal ${medalClass("Spade")}">♠</span>
+          <div><strong>${escapeHtml(seat.name)}</strong><div>${escapeHtml(seat.playerName || "Unlinked")} - Player</div></div>
         </div>`).join("") || `<div class="blackjack-status">No players seated.</div>`;
       const hostText = isRoomHost(room) ? "You are host" : "Host controlled";
       if (room.game === "blackjack") {
@@ -677,6 +698,7 @@
         $("blackjackRoomHostBadge").textContent = hostText;
         $("blackjackRoomPlayers").innerHTML = playersMarkup;
         $("closeBlackjackRoomBtn").hidden = !isRoomHost(room);
+        renderBlackjackRoomTable(room);
       }
       if (room.game === "poker") {
         $("pokerRoomTitle").textContent = `♠ ${room.name}`;
@@ -684,6 +706,66 @@
         $("pokerRoomPlayers").innerHTML = playersMarkup;
         $("pokerRoomRules").innerHTML = `<span>Small blind ${money(room.smallBlind || 0)}</span><span>Big blind ${money(room.bigBlind || 0)}</span><span>Kickers decide tied ranks</span>`;
         $("closePokerRoomBtn").hidden = !isRoomHost(room);
+      }
+    }
+
+    function renderBlackjackRoomTable(room) {
+      const table = room.table || createEmptyMultiplayerBlackjackTable();
+      const seats = room.seats || {};
+      const hideDealerHole = table.dealerHand.length > 1 && !table.revealDealer && ["player", "dealer"].includes(table.phase);
+      $("multiDealerHand").innerHTML = table.dealerHand.length
+        ? table.dealerHand.map((card, index) => renderPlayingCard(
+          card,
+          index === 1 && hideDealerHole,
+          table.dealerAnimateIndexes?.includes(index),
+          table.dealerFlipIndexes?.includes(index),
+          Math.max(0, table.dealerAnimateIndexes?.indexOf(index) || 0) * 800
+        )).join("")
+        : `<div class="sync-pill">No dealer hand</div>`;
+      $("multiDealerTotal").textContent = table.dealerHand.length
+        ? (hideDealerHole ? handValue([table.dealerHand[0]]) : handValue(table.dealerHand))
+        : "0";
+      const activeSeat = seats[table.activeSeatKey];
+      $("multiActiveSeat").textContent = activeSeat ? `${activeSeat.name}'s turn` : "Waiting";
+      $("multiBlackjackStatus").textContent = table.message || "Start a shared round when players have joined.";
+      const hands = table.hands || {};
+      $("multiBlackjackHands").innerHTML = Object.entries(seats).map(([key, seat]) => {
+        const hand = hands[key];
+        const animated = table.handAnimateIndexes?.[key] || [];
+        const cardHtml = hand?.cards?.length
+          ? hand.cards.map((card, index) => renderPlayingCard(card, false, animated.includes(index), false, Math.max(0, animated.indexOf(index)) * 800)).join("")
+          : `<span class="sync-pill">Waiting for round</span>`;
+        const total = hand?.cards?.length ? handValue(hand.cards) : 0;
+        const status = hand?.result || (hand?.stood ? "Stand" : key === table.activeSeatKey ? "Active" : table.phase === "waiting" ? "Waiting" : "Queued");
+        return `<div class="list-row ${key === table.activeSeatKey ? "active-room-hand" : ""}">
+          <span class="medal ${medalClass(seat.playerName || seat.name)}">${playerSymbol(seat.playerName || seat.name)}</span>
+          <div>
+            <strong>${escapeHtml(seat.name)}</strong>
+            <div class="playing-card-row compact">${cardHtml}</div>
+            <div style="color:var(--muted);font-size:.82rem;">Total ${total} - ${escapeHtml(status)}${hand?.delta ? ` - ${signedMoney(hand.delta)}` : ""}</div>
+          </div>
+        </div>`;
+      }).join("") || `<div class="blackjack-status">No players seated.</div>`;
+      const currentKey = currentProfileKey();
+      const isActive = table.phase === "player" && table.activeSeatKey === currentKey;
+      const canStart = isRoomHost(room) && !["player", "dealer"].includes(table.phase) && Object.keys(seats).length > 0;
+      document.querySelectorAll('[data-action="multi-blackjack-deal"]').forEach((button) => button.disabled = !canStart);
+      document.querySelectorAll('[data-action="multi-blackjack-hit"]').forEach((button) => button.disabled = !isActive);
+      document.querySelectorAll('[data-action="multi-blackjack-stand"]').forEach((button) => button.disabled = !isActive);
+      const myHand = table.hands?.[currentProfileKey()];
+      if (table.phase === "done" && myHand?.result) {
+        const resultKey = `${room.id}:${table.roundId || 0}:${myHand.result}:${myHand.delta}`;
+        if (resultKey !== lastRoomResultToastKey) {
+          lastRoomResultToastKey = resultKey;
+          const dealerTotal = handValue(table.dealerHand);
+          const total = handValue(myHand.cards || []);
+          const title = Number(myHand.delta || 0) > 0
+            ? `${currentDisplayName()} wins: ${total}`
+            : Number(myHand.delta || 0) < 0
+              ? `Dealer wins: ${dealerTotal}`
+              : `Push: ${dealerTotal}`;
+          setTimeout(() => resultToast(title, signedMoney(myHand.delta || 0)), 80);
+        }
       }
     }
 
@@ -762,7 +844,13 @@
       const hands = blackjackHands();
       const hideDealerHole = soloBlackjack.dealerHand.length > 1 && !soloBlackjack.revealDealer && (soloBlackjack.phase === "playing" || soloBlackjack.phase === "dealing");
       $("dealerHand").innerHTML = soloBlackjack.dealerHand.length
-        ? soloBlackjack.dealerHand.map((card, index) => renderPlayingCard(card, index === 1 && hideDealerHole, soloBlackjack.animateCards)).join("")
+        ? soloBlackjack.dealerHand.map((card, index) => renderPlayingCard(
+          card,
+          index === 1 && hideDealerHole,
+          soloBlackjack.dealerAnimateIndexes?.includes(index),
+          soloBlackjack.dealerFlipIndexes?.includes(index),
+          Math.max(0, soloBlackjack.dealerAnimateIndexes?.indexOf(index) || 0) * 800
+        )).join("")
         : `<div class="sync-pill">No dealer hand</div>`;
       $("playerHand").innerHTML = hands.length
         ? hands.map((hand, index) => renderBlackjackHand(hand, index)).join("")
@@ -778,6 +866,9 @@
       const phase = soloBlackjack.phase;
       const playing = phase === "playing";
       const locked = phase === "playing" || phase === "dealing";
+      const hand = activeBlackjackHand();
+      const canSplit = playing && hand?.cards?.length === 2 && hand.cards[0]?.rank === hand.cards[1]?.rank && soloBlackjack.splits < 3 && blackjackHands().length < 4;
+      const canDouble = playing && hand?.cards?.length === 2;
       const set = (action, disabled) => {
         document.querySelectorAll(`[data-action="${action}"]`).forEach((button) => button.disabled = disabled);
       };
@@ -785,8 +876,8 @@
       set("solo-blackjack-reset", locked);
       set("solo-blackjack-hit", !playing);
       set("solo-blackjack-stand", !playing);
-      set("solo-blackjack-split", !playing);
-      set("solo-blackjack-double", !playing);
+      set("solo-blackjack-split", !canSplit);
+      set("solo-blackjack-double", !canDouble);
     }
 
     function blackjackHands() {
@@ -801,7 +892,8 @@
 
     function renderBlackjackHand(hand, index) {
       const active = soloBlackjack.phase === "playing" && index === soloBlackjack.activeHand;
-      const cards = hand.cards.map((card) => renderPlayingCard(card, false, soloBlackjack.animateCards)).join("");
+      const animated = soloBlackjack.playerAnimateIndexes?.[index] || [];
+      const cards = hand.cards.map((card, cardIndex) => renderPlayingCard(card, false, animated.includes(cardIndex), false, Math.max(0, animated.indexOf(cardIndex)) * 800)).join("");
       const flags = [
         active ? "Active" : "",
         hand.doubled ? "Double" : "",
@@ -814,11 +906,12 @@
       </div>`;
     }
 
-    function renderPlayingCard(card, hidden = false, animate = false) {
-      const animationClass = animate ? "dealt-card" : "";
-      if (hidden) return `<span class="playing-card hidden-card ${animationClass}">?</span>`;
+    function renderPlayingCard(card, hidden = false, animate = false, flip = false, delayMs = 0) {
+      const animationClass = [animate ? "dealt-card" : "", flip ? "flip-card" : ""].filter(Boolean).join(" ");
+      const style = animate && delayMs ? ` style="--deal-delay:${delayMs}ms"` : "";
+      if (hidden) return `<span class="playing-card hidden-card ${animationClass}"${style}>?</span>`;
       const red = card.suit === "♥" || card.suit === "♦";
-      return `<span class="playing-card ${animationClass} ${red ? "red" : ""}">${escapeHtml(card.rank)}${escapeHtml(card.suit)}</span>`;
+      return `<span class="playing-card ${animationClass} ${red ? "red" : ""}"${style}>${escapeHtml(card.rank)}${escapeHtml(card.suit)}</span>`;
     }
 
     function renderBlackjackRooms() {
@@ -831,7 +924,7 @@
     }
 
     function renderRoomRow(room) {
-      const seats = Object.values(room.seats || {}).map((seat) => `${seat.name} (${seat.role})`).join(", ") || "No seats yet";
+      const seats = Object.values(room.seats || {}).map((seat) => seat.name).join(", ") || "No seats yet";
       return `<div class="list-row"><span class="medal">&#9827;</span><div><strong>${escapeHtml(room.name)}</strong><div style="color:var(--muted);font-size:.82rem;">${escapeHtml(seats)}</div></div><button class="mini-btn" type="button" data-room-id="${escapeAttr(room.id)}" data-action="join-blackjack-room">Join</button></div>`;
     }
 
@@ -904,7 +997,9 @@
       soloBlackjack.splits = 0;
       soloBlackjack.dealerHand = [drawCard(soloBlackjack), drawCard(soloBlackjack)];
       soloBlackjack.revealDealer = false;
-      soloBlackjack.animateCards = true;
+      soloBlackjack.dealerAnimateIndexes = [0, 1];
+      soloBlackjack.dealerFlipIndexes = [];
+      soloBlackjack.playerAnimateIndexes = {0: [0, 1]};
       soloBlackjack.message = `Dealing ${money(bet)} hand...`;
       render();
       const playerTotal = handValue(activeBlackjackHand().cards);
@@ -914,11 +1009,11 @@
           settleSoloBlackjack();
         } else {
           soloBlackjack.phase = "playing";
-          soloBlackjack.animateCards = false;
+          clearBlackjackAnimations();
           soloBlackjack.message = `Bet ${money(bet)}. Hit, stand, split a pair, or double down.`;
           render();
         }
-      }, 3400);
+      }, 1900);
     }
 
     function hitSoloBlackjack() {
@@ -926,6 +1021,9 @@
       const hand = activeBlackjackHand();
       if (!hand) return;
       hand.cards.push(drawCard(soloBlackjack));
+      soloBlackjack.playerAnimateIndexes = {[soloBlackjack.activeHand]: [hand.cards.length - 1]};
+      soloBlackjack.dealerAnimateIndexes = [];
+      soloBlackjack.dealerFlipIndexes = [];
       if (handValue(hand.cards) > 21) {
         hand.stood = true;
         hand.result = "Bust";
@@ -957,6 +1055,10 @@
       const newHand = {cards: [splitCard, drawCard(soloBlackjack)], bet: hand.bet, doubled: false, stood: false, result: ""};
       soloBlackjack.playerHands.splice(soloBlackjack.activeHand + 1, 0, newHand);
       soloBlackjack.splits += 1;
+      soloBlackjack.playerAnimateIndexes = {
+        [soloBlackjack.activeHand]: [1],
+        [soloBlackjack.activeHand + 1]: [1]
+      };
       soloBlackjack.message = `Pair split. Playing hand ${soloBlackjack.activeHand + 1} of ${blackjackHands().length}.`;
       render();
     }
@@ -970,6 +1072,7 @@
       hand.bet *= 2;
       hand.doubled = true;
       hand.cards.push(drawCard(soloBlackjack));
+      soloBlackjack.playerAnimateIndexes = {[soloBlackjack.activeHand]: [hand.cards.length - 1]};
       hand.stood = true;
       if (handValue(hand.cards) > 21) hand.result = "Bust";
       soloBlackjack.message = `Hand ${soloBlackjack.activeHand + 1} doubled down.`;
@@ -995,17 +1098,32 @@
     function revealDealerAndSettle() {
       soloBlackjack.phase = "dealing";
       soloBlackjack.revealDealer = true;
-      soloBlackjack.animateCards = true;
-      while (handValue(soloBlackjack.dealerHand) < 17) {
-        soloBlackjack.dealerHand.push(drawCard(soloBlackjack));
-      }
+      soloBlackjack.dealerAnimateIndexes = [];
+      soloBlackjack.dealerFlipIndexes = [1];
+      soloBlackjack.playerAnimateIndexes = {};
       soloBlackjack.message = "Dealer reveals and draws to 17.";
       render();
-      const delay = Math.max(900, soloBlackjack.dealerHand.length * 800 + 250);
       setTimeout(() => {
-        soloBlackjack.animateCards = false;
-        settleSoloBlackjack();
-      }, delay);
+        const animatedIndexes = [];
+        while (handValue(soloBlackjack.dealerHand) < 17) {
+          soloBlackjack.dealerHand.push(drawCard(soloBlackjack));
+          animatedIndexes.push(soloBlackjack.dealerHand.length - 1);
+        }
+        soloBlackjack.dealerFlipIndexes = [];
+        soloBlackjack.dealerAnimateIndexes = animatedIndexes;
+        render();
+        setTimeout(() => {
+          clearBlackjackAnimations();
+          settleSoloBlackjack();
+        }, Math.max(850, animatedIndexes.length * 800 + 120));
+      }, 500);
+    }
+
+    function clearBlackjackAnimations() {
+      soloBlackjack.animateCards = false;
+      soloBlackjack.dealerAnimateIndexes = [];
+      soloBlackjack.dealerFlipIndexes = [];
+      soloBlackjack.playerAnimateIndexes = {};
     }
 
     function totalBlackjackExposure() {
@@ -1021,7 +1139,7 @@
       while (hands.some((hand) => handValue(hand.cards) <= 21) && handValue(soloBlackjack.dealerHand) < 17) {
         soloBlackjack.dealerHand.push(drawCard(soloBlackjack));
       }
-      soloBlackjack.animateCards = false;
+      clearBlackjackAnimations();
       const dealerTotal = handValue(soloBlackjack.dealerHand);
       let totalDelta = 0;
       let wins = 0;
@@ -1055,8 +1173,6 @@
           if (hand.cards.length >= 6 && playerTotal <= 21) unlockAchievement("blackjack-six-card-miracle", player.name);
         }
       });
-      if (wins > 0) toast(`${player.name} won ${wins} blackjack hand${wins === 1 ? "" : "s"} and gained XP.`);
-      if (!wins && !losses && pushes) toast(`Push. Your ${money(totalBlackjackExposure())} bet was returned.`);
       adjustPlayerBankroll(player, totalDelta);
       if (totalDelta !== 0) applyMoneyResult(player, totalDelta, "solo blackjack");
       state.gameStats.blackjack.played = Number(state.gameStats.blackjack.played || 0) + hands.length;
@@ -1065,6 +1181,17 @@
       soloBlackjack.message = `Dealer ${dealerTotal}. ${wins} win, ${losses} loss, ${pushes} push. Net ${signedMoney(totalDelta)}.`;
       log(`${player.name} played solo blackjack: ${soloBlackjack.message}`);
       save();
+      const firstHand = hands[0];
+      const playerTotal = firstHand ? handValue(firstHand.cards) : 0;
+      const natural = firstHand?.cards?.length === 2 && playerTotal === 21;
+      const resultTitle = hands.length > 1
+        ? `${player.name} results: ${wins} win, ${losses} loss`
+        : totalDelta > 0
+          ? `${player.name} wins: ${natural ? "Blackjack" : playerTotal}`
+          : totalDelta < 0
+            ? `Dealer wins: ${dealerTotal}`
+            : `Push: ${dealerTotal}`;
+      resultToast(resultTitle, signedMoney(totalDelta));
     }
 
     function currentProfileKey() {
@@ -1088,8 +1215,7 @@
 
     function openBlackjackRoomDialog() {
       els.roomName.value = `${currentProfile().displayName || currentPlayer()?.name || "Family"} Blackjack`;
-      els.roomRole.value = "player";
-      els.roomMessage.textContent = "Create a live room for family blackjack.";
+      els.roomMessage.textContent = "Create a live room. Everyone joins as a player against the computer dealer.";
       els.blackjackRoomDialog.showModal();
     }
 
@@ -1109,8 +1235,10 @@
         hostKey: currentProfileKey(),
         closedReason: "",
         createdAt: Date.now(),
+        maxPlayers: 4,
+        table: createEmptyMultiplayerBlackjackTable(),
         seats: {
-          [currentProfileKey()]: currentSeat(els.roomRole.value)
+          [currentProfileKey()]: currentSeat("player")
         }
       };
       log(`${currentSeat().name} opened blackjack room ${name}.`);
@@ -1127,16 +1255,16 @@
       if (!currentPlayer()) return toast("Link your profile to a player before joining a room.");
       const room = state.onlineRooms[roomId];
       if (!room || room.status !== "open") return toast("That room is no longer open.");
-      const occupiedDealer = Object.values(room.seats || {}).some((seat) => seat.role === "dealer");
-      const preferredRole = occupiedDealer ? "player" : "dealer";
       room.seats = room.seats || {};
-      room.seats[currentProfileKey()] = currentSeat(preferredRole);
+      if (!room.seats[currentProfileKey()] && Object.keys(room.seats).length >= 4) return toast("That blackjack room is full.");
+      room.seats[currentProfileKey()] = currentSeat("player");
+      room.table = room.table || createEmptyMultiplayerBlackjackTable();
       log(`${currentSeat().name} joined blackjack room ${room.name}.`);
       activeRoomId = roomId;
       activeOnlineGame = "blackjack";
       activeView = "online";
       save();
-      toast(`Joined ${room.name} as ${preferredRole}.`);
+      toast(`Joined ${room.name}.`);
     }
 
     function openPokerRoomDialog() {
@@ -1196,6 +1324,162 @@
       activeView = "online";
       save();
       toast(`Joined ${room.name}.`);
+    }
+
+    function startMultiplayerBlackjackRound() {
+      const room = activeRoom();
+      if (!room || room.game !== "blackjack") return;
+      if (!isRoomHost(room)) return toast("Only the host can start the shared round.");
+      const bet = Math.max(1, Number($("multiBjBetAmount").value || 0));
+      const seats = room.seats || {};
+      const entries = Object.entries(seats);
+      if (!entries.length) return toast("No players are seated.");
+      const brokeSeat = entries.find(([, seat]) => {
+        const player = playerByName(seat.playerName);
+        return !player || stackValue(player.chips) < bet;
+      });
+      if (brokeSeat) return toast(`${brokeSeat[1].name} needs enough linked bankroll for ${money(bet)}.`);
+      const table = createEmptyMultiplayerBlackjackTable();
+      table.deck = createDeck();
+      table.bet = bet;
+      table.roundId = Date.now();
+      table.phase = "player";
+      table.activeSeatKey = entries[0][0];
+      table.dealerHand = [drawCard(table), drawCard(table)];
+      table.dealerAnimateIndexes = [0, 1];
+      table.hands = {};
+      table.handAnimateIndexes = {};
+      entries.forEach(([key]) => {
+        table.hands[key] = {cards: [drawCard(table), drawCard(table)], stood: false, result: "", delta: 0};
+        table.handAnimateIndexes[key] = [0, 1];
+      });
+      table.message = `Round started. ${seats[table.activeSeatKey].name} acts first.`;
+      room.table = table;
+      save();
+      setTimeout(() => {
+        const latest = state.onlineRooms[room.id];
+        if (!latest?.table || latest.table.phase !== "player") return;
+        latest.table.dealerAnimateIndexes = [];
+        latest.table.handAnimateIndexes = {};
+        save();
+      }, 1900);
+    }
+
+    function hitMultiplayerBlackjack() {
+      const room = activeRoom();
+      const table = room?.table;
+      const key = currentProfileKey();
+      if (!room || !table || table.phase !== "player" || table.activeSeatKey !== key) return toast("It is not your turn.");
+      const hand = table.hands?.[key];
+      if (!hand) return;
+      hand.cards.push(drawCard(table));
+      table.handAnimateIndexes = {[key]: [hand.cards.length - 1]};
+      table.dealerAnimateIndexes = [];
+      table.dealerFlipIndexes = [];
+      if (handValue(hand.cards) > 21) {
+        hand.stood = true;
+        hand.result = "Bust";
+        advanceMultiplayerBlackjack(room);
+      } else {
+        table.message = `${room.seats[key].name} drew a card.`;
+      }
+      save();
+    }
+
+    function standMultiplayerBlackjack() {
+      const room = activeRoom();
+      const table = room?.table;
+      const key = currentProfileKey();
+      if (!room || !table || table.phase !== "player" || table.activeSeatKey !== key) return toast("It is not your turn.");
+      const hand = table.hands?.[key];
+      if (hand) hand.stood = true;
+      advanceMultiplayerBlackjack(room);
+      save();
+    }
+
+    function advanceMultiplayerBlackjack(room) {
+      const table = room.table;
+      const entries = Object.keys(room.seats || {});
+      const currentIndex = entries.indexOf(table.activeSeatKey);
+      const next = entries.slice(currentIndex + 1).find((key) => {
+        const hand = table.hands?.[key];
+        return hand && !hand.stood && handValue(hand.cards) <= 21;
+      });
+      if (next) {
+        table.activeSeatKey = next;
+        table.handAnimateIndexes = {};
+        table.message = `${room.seats[next].name}'s turn.`;
+        return;
+      }
+      revealMultiplayerDealer(room);
+    }
+
+    function revealMultiplayerDealer(room) {
+      const table = room.table;
+      table.phase = "dealer";
+      table.revealDealer = true;
+      table.dealerFlipIndexes = [1];
+      table.dealerAnimateIndexes = [];
+      table.handAnimateIndexes = {};
+      table.message = "Dealer reveals and draws to 17.";
+      save();
+      setTimeout(() => {
+        const latest = state.onlineRooms[room.id];
+        if (!latest?.table || latest.table.phase !== "dealer") return;
+        const latestTable = latest.table;
+        const animated = [];
+        while (handValue(latestTable.dealerHand) < 17) {
+          latestTable.dealerHand.push(drawCard(latestTable));
+          animated.push(latestTable.dealerHand.length - 1);
+        }
+        latestTable.dealerFlipIndexes = [];
+        latestTable.dealerAnimateIndexes = animated;
+        save();
+        setTimeout(() => settleMultiplayerBlackjack(latest), Math.max(850, animated.length * 800 + 120));
+      }, 500);
+    }
+
+    function settleMultiplayerBlackjack(room) {
+      const table = room.table;
+      if (!table || table.phase === "done") return;
+      table.phase = "done";
+      table.revealDealer = true;
+      table.dealerAnimateIndexes = [];
+      table.dealerFlipIndexes = [];
+      table.handAnimateIndexes = {};
+      const dealerTotal = handValue(table.dealerHand);
+      let winners = 0;
+      Object.entries(table.hands || {}).forEach(([key, hand]) => {
+        const seat = room.seats?.[key];
+        const player = seat?.playerName ? playerByName(seat.playerName) : null;
+        const total = handValue(hand.cards);
+        let delta = 0;
+        if (total > 21) {
+          delta = -table.bet;
+          hand.result = "Bust";
+        } else if (dealerTotal > 21 || total > dealerTotal) {
+          delta = table.bet;
+          hand.result = "Win";
+          winners += 1;
+        } else if (total === dealerTotal) {
+          hand.result = "Push";
+        } else {
+          delta = -table.bet;
+          hand.result = "Loss";
+        }
+        hand.delta = delta;
+        if (player) {
+          adjustPlayerBankroll(player, delta);
+          if (delta !== 0) applyMoneyResult(player, delta, `online blackjack room ${room.name}`);
+          if (delta > 0) addXP(player.name, blackjackXP["Win Hand"], "Online Blackjack: Win Hand", {persist: false, toast: false});
+        }
+      });
+      state.gameStats.blackjack.played = Number(state.gameStats.blackjack.played || 0) + Object.keys(table.hands || {}).length;
+      state.gameStats.blackjack.wins = Number(state.gameStats.blackjack.wins || 0) + winners;
+      state.gameStats.blackjack.profit = Number(state.gameStats.blackjack.profit || 0) + Object.values(table.hands || {}).reduce((sum, hand) => sum + Number(hand.delta || 0), 0);
+      table.message = `Dealer ${dealerTotal}. Round settled for ${Object.keys(table.hands || {}).length} player(s).`;
+      log(`${room.name} blackjack round settled. ${table.message}`);
+      save();
     }
 
     function closeActiveRoom() {
@@ -1522,8 +1806,34 @@
       }
       if (action === "open-online-blackjack") {
         activeView = "online";
+        els.blackjackModeDialog.showModal();
+        render();
+        return;
+      }
+      if (action === "choose-blackjack-mode") {
+        els.blackjackModeDialog.showModal();
+        return;
+      }
+      if (action === "close-blackjack-mode") {
+        els.blackjackModeDialog.close();
+        return;
+      }
+      if (action === "open-blackjack-solo") {
+        activeView = "online";
         activeOnlineGame = "blackjack";
+        activeRoomId = "";
         blackjackMode = "solo";
+        if (els.blackjackModeDialog.open) els.blackjackModeDialog.close();
+        render();
+        setTimeout(() => $("blackjackOnlineArea")?.scrollIntoView({behavior: "smooth", block: "start"}), 60);
+        return;
+      }
+      if (action === "open-blackjack-multi") {
+        activeView = "online";
+        activeOnlineGame = "blackjack";
+        activeRoomId = "";
+        blackjackMode = "multi";
+        if (els.blackjackModeDialog.open) els.blackjackModeDialog.close();
         render();
         setTimeout(() => $("blackjackOnlineArea")?.scrollIntoView({behavior: "smooth", block: "start"}), 60);
         return;
@@ -1533,6 +1843,14 @@
         activeOnlineGame = "poker";
         render();
         setTimeout(() => $("pokerOnlineArea")?.scrollIntoView({behavior: "smooth", block: "start"}), 60);
+        return;
+      }
+      if (action === "back-online-games") {
+        activeView = "online";
+        activeOnlineGame = "";
+        activeRoomId = "";
+        render();
+        window.scrollTo({top: 0, behavior: "smooth"});
         return;
       }
       if (action === "solo-blackjack-deal") {
@@ -1591,6 +1909,18 @@
         joinBlackjackRoom(target?.dataset.roomId || "");
         return;
       }
+      if (action === "multi-blackjack-deal") {
+        startMultiplayerBlackjackRound();
+        return;
+      }
+      if (action === "multi-blackjack-hit") {
+        hitMultiplayerBlackjack();
+        return;
+      }
+      if (action === "multi-blackjack-stand") {
+        standMultiplayerBlackjack();
+        return;
+      }
       if (action === "open-poker-room-modal") {
         openPokerRoomDialog();
         return;
@@ -1618,6 +1948,16 @@
       }
       if (action === "leave-active-room") {
         leaveActiveRoom();
+        return;
+      }
+      if (action === "clear-all-rooms") {
+        if (!isDarrenAdmin()) return toast("Only Darren can clear rooms.");
+        state.onlineRooms = {};
+        activeRoomId = "";
+        activeOnlineGame = "";
+        log("All online rooms were cleared by Darren.");
+        save();
+        toast("All online rooms cleared.");
         return;
       }
       if (action === "open-poker-guide") {
@@ -1970,6 +2310,14 @@
       toast.timer = setTimeout(() => els.toast.classList.remove("show"), 3200);
     }
 
+    function resultToast(title, delta) {
+      const deltaClass = String(delta).startsWith("-") ? "loss" : "money";
+      els.toast.innerHTML = `<strong>${escapeHtml(title)}</strong><span class="result-delta ${deltaClass}">${escapeHtml(delta)}</span>`;
+      els.toast.classList.add("show");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => els.toast.classList.remove("show"), 4200);
+    }
+
     function firebaseConfigured() {
       return firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("PASTE_");
     }
@@ -2218,6 +2566,9 @@
     });
     els.blackjackRoomDialog.addEventListener("click", (event) => {
       if (event.target === els.blackjackRoomDialog) closeBlackjackRoomDialog();
+    });
+    els.blackjackModeDialog.addEventListener("click", (event) => {
+      if (event.target === els.blackjackModeDialog) els.blackjackModeDialog.close();
     });
     els.blackjackGuideDialog.addEventListener("click", (event) => {
       if (event.target === els.blackjackGuideDialog) closeBlackjackGuide();
