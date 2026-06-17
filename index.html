@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Virtual Casino | Family Card RPG</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260616-6" />
+  <link rel="stylesheet" href="css/styles.css?v=20260616-7" />
 </head>
 <body class="auth-checking">
   <div id="appLoader" class="app-loader" role="status" aria-live="polite">
@@ -165,6 +165,7 @@
             <button class="primary-btn" type="button" data-action="manual-xp">Add XP</button>
             <button class="ghost-btn" type="button" data-action="manual-level">Set Level / Stars</button>
             <button class="ghost-btn" type="button" data-action="grant-bankroll">Grant Bankroll</button>
+            <button class="ghost-btn" type="button" data-action="reset-daily-wheel">Reset Daily Wheel</button>
           </div>
         </article>
         <article class="panel panel-pad" style="margin-top:18px;">
@@ -298,15 +299,37 @@
               <strong>Slots</strong>
               <small>Solo 9-line machine with wilds, scatters, and jackpot hits.</small>
             </button>
+            <button class="online-game-tile" type="button" disabled>
+              <span class="tile-icon cards-icon" aria-hidden="true"><span>R</span><span>36</span></span>
+              <strong>Roulette</strong>
+              <small>Coming soon: red/black, odd/even, columns, dozens, and numbers.</small>
+            </button>
+            <button class="online-game-tile" type="button" disabled>
+              <span class="tile-icon cards-icon" aria-hidden="true"><span>7</span><span>11</span></span>
+              <strong>Craps</strong>
+              <small>Coming soon: pass line, don't pass, field, and hardways.</small>
+            </button>
           </div>
+        </article>
+
+        <article id="dailyRewardsPanel" class="panel panel-pad" style="margin-top:18px;">
+          <div class="section-title"><span>&#9733; Daily Rewards</span></div>
+          <div id="dailyChallengeBoard" class="leaderboard-list"></div>
+          <div class="action-grid" style="margin-top:12px;">
+            <button class="primary-btn" type="button" data-action="claim-daily-challenge">Claim Daily $150</button>
+            <button class="ghost-btn" type="button" data-action="spin-lucky-wheel">Spin Lucky Wheel</button>
+            <button class="ghost-btn" type="button" data-action="scratch-daily-card">Scratch Daily Card</button>
+          </div>
+          <div id="dailyRewardHistory" class="history-list" style="margin-top:14px;"></div>
         </article>
 
         <div id="slotsOnlineArea" class="online-area" hidden>
           <article class="panel panel-pad">
             <div class="section-title">
-              <span>&#127922; Crown Line Slots</span>
+              <span id="slotsTitle">&#127922; Crown Line Slots</span>
               <span>
                 <button class="mini-btn tiny-btn" type="button" data-action="back-online-games">Games</button>
+                <button class="mini-btn tiny-btn" type="button" data-action="choose-slot-machine">Switch</button>
               </span>
             </div>
             <div id="slotsBankroll" class="rule-strip"></div>
@@ -336,7 +359,7 @@
               <button class="ghost-btn" type="button" data-action="slots-reset">Clear Machine</button>
             </div>
             <div class="slot-paytable">
-              <div><strong>9 paylines</strong><span>Total wager is bet per line x 9.</span></div>
+              <div><strong id="slotLineText">9 paylines</strong><span>Total wager is bet per line x active lines.</span></div>
               <div><strong>Wild</strong><span>Substitutes for regular symbols.</span></div>
               <div><strong>Scatter</strong><span>3+ stars pay bonus from total wager.</span></div>
               <div><strong>Jackpot</strong><span>5 crowns pays 1000x line bet.</span></div>
@@ -499,6 +522,24 @@
           <div class="section-title"><span>&#9824; Your Bankroll</span></div>
           <div id="currentPlayerStats" class="leaderboard-list"></div>
         </article>
+        <article class="panel panel-pad" style="margin-top:18px;">
+          <div class="section-title"><span>&#9818; Banking</span></div>
+          <div class="form-grid">
+            <div><label for="bankingAmount">Amount</label><input id="bankingAmount" type="number" inputmode="numeric" placeholder="ex: 1000" /></div>
+          </div>
+          <div class="action-grid">
+            <button class="primary-btn" type="button" data-action="bank-deposit">Deposit To Bank</button>
+            <button class="ghost-btn" type="button" data-action="bank-withdraw">Withdraw From Bank</button>
+          </div>
+        </article>
+        <article class="panel panel-pad" style="margin-top:18px;">
+          <div class="section-title"><span>&#8644; Bankroll Transfer</span></div>
+          <div class="form-grid">
+            <div><label for="transferToPlayer">Send To</label><select id="transferToPlayer"></select></div>
+            <div><label for="transferAmount">Amount</label><input id="transferAmount" type="number" inputmode="numeric" placeholder="ex: 100" /></div>
+          </div>
+          <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="bankroll-transfer">Transfer Bankroll</button>
+        </article>
         <article class="panel panel-pad">
           <div class="section-title"><span>&#9878; Bank & Loans</span></div>
           <div class="form-grid">
@@ -656,6 +697,21 @@
     </form>
   </dialog>
 
+  <dialog id="slotMachineDialog" class="profile-dialog">
+    <form method="dialog" class="profile-card">
+      <div class="section-title">
+        <span>Choose Slot Machine</span>
+        <button class="mini-btn" type="button" data-action="close-slot-machine">Close</button>
+      </div>
+      <div class="guide-grid">
+        <button class="online-game-tile slots-tile" type="button" data-slot-machine="crownLine"><strong>Crown Line Slots</strong><small>9-line casino machine with wilds and scatters.</small></button>
+        <button class="online-game-tile slots-tile" type="button" data-slot-machine="lucky7s"><strong>Lucky 7s Classic</strong><small>Fast 1-line Vegas style jackpot machine.</small></button>
+        <button class="online-game-tile slots-tile" type="button" data-slot-machine="treasureVault"><strong>Treasure Vault</strong><small>Progressive mini, major, and grand jackpots.</small></button>
+        <button class="online-game-tile slots-tile" type="button" data-slot-machine="familyFortune"><strong>Family Fortune</strong><small>Family symbols, wilds, scatters, and bonus messages.</small></button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="blackjackModeDialog" class="profile-dialog">
     <form method="dialog" class="profile-card">
       <div class="section-title">
@@ -738,6 +794,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=20260616-6"></script>
+  <script type="module" src="js/app.js?v=20260616-7"></script>
 </body>
 </html>
