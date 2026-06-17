@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Virtual Casino | Family Card RPG</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260616-8" />
+  <link rel="stylesheet" href="css/styles.css?v=20260617-1" />
 </head>
 <body class="auth-checking">
   <div id="appLoader" class="app-loader" role="status" aria-live="polite">
@@ -134,6 +134,10 @@
       </section>
 
       <section id="playersView" class="view">
+        <article class="panel panel-pad">
+          <div class="section-title"><span>&#9818; All Players</span></div>
+          <div id="allPlayersDetailedBoard" class="all-player-grid"></div>
+        </article>
         <article class="panel panel-pad">
           <div class="section-title"><span>&#9819; Leaderboard</span></div>
           <div id="leaderboard" class="leaderboard-list"></div>
@@ -316,10 +320,10 @@
               <strong>Roulette</strong>
               <small>Coming soon: red/black, odd/even, columns, dozens, and numbers.</small>
             </button>
-            <button class="online-game-tile" type="button" disabled>
+            <button class="online-game-tile" type="button" data-action="open-online-craps">
               <span class="tile-icon cards-icon" aria-hidden="true"><span>7</span><span>11</span></span>
               <strong>Craps</strong>
-              <small>Coming soon: pass line, don't pass, field, and hardways.</small>
+              <small>Solo dice table with pass line, field, and hardways.</small>
             </button>
           </div>
         </article>
@@ -363,6 +367,46 @@
               <div><strong>Wild</strong><span>Substitutes for regular symbols.</span></div>
               <div><strong>Scatter</strong><span>3+ stars pay bonus from total wager.</span></div>
               <div><strong>Jackpot</strong><span>5 crowns pays 1000x line bet.</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div id="crapsOnlineArea" class="online-area" hidden>
+          <article class="panel panel-pad">
+            <div class="section-title">
+              <span>&#127922; Craps Table</span>
+              <span>
+                <button class="mini-btn tiny-btn" type="button" data-action="back-online-games">Games</button>
+                <button class="mini-btn tiny-btn" type="button" data-action="open-craps-guide">Guide</button>
+              </span>
+            </div>
+            <div id="crapsBankroll" class="rule-strip"></div>
+            <div class="form-grid">
+              <div>
+                <label for="crapsBetType">Bet Type</label>
+                <select id="crapsBetType">
+                  <option value="pass">Pass Line</option>
+                  <option value="dont">Don't Pass</option>
+                  <option value="field">Field</option>
+                  <option value="hard4">Hard 4</option>
+                  <option value="hard6">Hard 6</option>
+                  <option value="hard8">Hard 8</option>
+                  <option value="hard10">Hard 10</option>
+                </select>
+              </div>
+              <div>
+                <label for="crapsBetAmount">Bet Amount</label>
+                <input id="crapsBetAmount" type="number" inputmode="numeric" min="1" value="5" />
+              </div>
+            </div>
+            <div class="craps-table">
+              <div class="dice-row" id="crapsDice"><span>?</span><span>?</span></div>
+              <div class="craps-point"><span>Point</span><strong id="crapsPoint">Off</strong></div>
+              <div id="crapsStatus" class="blackjack-status">Place a bet and roll the come-out.</div>
+            </div>
+            <div class="action-grid">
+              <button class="primary-btn" type="button" data-action="craps-roll">Roll Dice</button>
+              <button class="ghost-btn" type="button" data-action="craps-reset">Reset Table</button>
             </div>
           </article>
         </div>
@@ -496,7 +540,11 @@
           <article class="panel panel-pad game-room-panel">
             <div class="section-title">
               <span id="pokerRoomTitle">&#9824; Hold'em Room</span>
-              <span id="pokerRoomHostBadge" class="sync-pill"></span>
+              <span>
+                <button class="mini-btn tiny-btn" type="button" data-action="back-online-games">Games</button>
+                <button class="mini-btn tiny-btn" type="button" data-action="open-poker-guide">Hands</button>
+                <span id="pokerRoomHostBadge" class="sync-pill"></span>
+              </span>
             </div>
             <div class="rule-strip" id="pokerRoomRules"></div>
             <div id="pokerRoomPlayers" class="room-player-grid"></div>
@@ -514,8 +562,15 @@
                 <div id="pokerPlayerHands" class="leaderboard-list"></div>
               </div>
             </div>
+            <div class="form-grid">
+              <div><label for="pokerRaiseAmount">Raise Amount</label><input id="pokerRaiseAmount" type="number" inputmode="numeric" min="1" value="10" /></div>
+            </div>
             <div class="action-grid">
-              <button class="primary-btn" type="button" data-action="poker-deal-hand">Deal Hold'em Hand</button>
+              <button class="primary-btn" type="button" data-action="poker-deal-hand">Deal New Hand</button>
+              <button class="ghost-btn" type="button" data-action="poker-check">Check</button>
+              <button class="ghost-btn" type="button" data-action="poker-call">Call</button>
+              <button class="ghost-btn" type="button" data-action="poker-raise">Raise</button>
+              <button class="ghost-btn" type="button" data-action="poker-fold">Fold</button>
               <button class="ghost-btn" type="button" data-action="leave-active-room">Leave Session</button>
               <button id="closePokerRoomBtn" class="primary-btn danger-btn" type="button" data-action="close-active-room">Close Room</button>
             </div>
@@ -584,7 +639,10 @@
 
       <section id="historyView" class="view">
         <article class="panel panel-pad">
-          <div class="section-title"><span>Session History</span></div>
+          <div class="section-title">
+            <span>Session History</span>
+            <label class="inline-control" for="historyLimit">Show <select id="historyLimit"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="999">All</option></select></label>
+          </div>
           <div id="historyBoard" class="history-list"></div>
         </article>
       </section>
@@ -592,18 +650,8 @@
       <section id="changelogView" class="view">
         <article class="panel panel-pad">
           <div class="section-title"><span>&#9997; Changelog</span></div>
-          <div class="leaderboard-list">
-            <div class="list-row"><span class="medal">13</span><div><strong>Current build</strong><div>Moved Dailies into their own tab, added animated Lucky Wheel, added Blackjack ready checks, stabilized poker rooms, and refreshed mobile navigation.</div></div></div>
-            <div class="list-row"><span class="medal">12</span><div><strong>55db307</strong><div>Added banking, daily casino rewards, more slot machines, and reward systems.</div></div></div>
-            <div class="list-row"><span class="medal">11</span><div><strong>2dd6027</strong><div>Hardened realtime online room syncing and room cleanup.</div></div></div>
-            <div class="list-row"><span class="medal">10</span><div><strong>ef5ad3c</strong><div>Added solo slots and natural Blackjack 3:2 payouts.</div></div></div>
-            <div class="list-row"><span class="medal">9</span><div><strong>074b414</strong><div>Made online rooms realtime synced.</div></div></div>
-            <div class="list-row"><span class="medal">8</span><div><strong>3b155f7</strong><div>Fixed multiplayer Blackjack room sync.</div></div></div>
-            <div class="list-row"><span class="medal">7</span><div><strong>617f4a1</strong><div>Fixed live asset caching and startup behavior.</div></div></div>
-            <div class="list-row"><span class="medal">6</span><div><strong>59cf767</strong><div>Built dedicated Blackjack online rooms.</div></div></div>
-            <div class="list-row"><span class="medal">5</span><div><strong>e741c21</strong><div>Fixed Blackjack dealer reveal timing.</div></div></div>
-            <div class="list-row"><span class="medal">4</span><div><strong>832051c</strong><div>Fixed room admin and settlement flows.</div></div></div>
-          </div>
+          <div id="versionTimeline" class="version-timeline"></div>
+          <nav id="versionPagination" class="pagination-row" aria-label="Version history pagination"></nav>
         </article>
       </section>
 
@@ -623,7 +671,6 @@
     <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online</span></button>
     <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank</span></button>
     <button class="nav-btn admin-link" data-view="admin"><span>&#9881;</span><span>Admin</span></button>
-    <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Achievements</span></button>
   </nav>
 
   <div id="toast" class="toast"></div>
@@ -752,8 +799,6 @@
       <div class="wheel-stage">
         <div class="wheel-pointer"></div>
         <div id="luckyWheel" class="lucky-wheel">
-          <span>$10</span><span>25 XP</span><span>$100</span><span>250 XP</span>
-          <span>$500</span><span>50 XP</span><span>$1000</span><span>JACKPOT</span>
         </div>
       </div>
       <div id="wheelResult" class="blackjack-status">Spin once per day.</div>
@@ -770,6 +815,21 @@
       <div class="action-grid">
         <button class="primary-btn" type="button" data-action="open-blackjack-solo">Play Solo</button>
         <button class="ghost-btn" type="button" data-action="open-blackjack-multi">Multiplayer Rooms</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="crapsGuideDialog" class="profile-dialog">
+    <form method="dialog" class="profile-card">
+      <div class="section-title">
+        <span>Craps Quick Guide</span>
+        <button class="mini-btn" type="button" data-action="close-craps-guide">Close</button>
+      </div>
+      <div class="guide-grid">
+        <div><strong>Pass Line</strong><p>Come-out 7 or 11 wins. 2, 3, or 12 loses. Any other number becomes the point, and you win by rolling that point before a 7.</p></div>
+        <div><strong>Don't Pass</strong><p>Almost the opposite: 2 or 3 wins, 7 or 11 loses, 12 pushes. After a point, 7 wins before the point.</p></div>
+        <div><strong>Field</strong><p>One-roll bet. 3, 4, 9, 10, 11 pay even money. 2 pays double. 12 pays triple.</p></div>
+        <div><strong>Hardways</strong><p>Hard 4, 6, 8, or 10 win when rolled as doubles before an easy version or 7 appears.</p></div>
       </div>
     </form>
   </dialog>
@@ -836,6 +896,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=20260616-8"></script>
+  <script type="module" src="js/app.js?v=20260617-1"></script>
 </body>
 </html>

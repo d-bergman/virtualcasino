@@ -17,6 +17,23 @@
     const pokerHandXP = {"High Card":5,"One Pair":10,"Two Pair":20,"Three of a Kind":35,"Straight":50,"Flush":75,"Full House":100,"Four of a Kind":200,"Straight Flush":500,"Royal Flush":1000};
     const blackjackXP = {"Win Hand":10,"Natural Blackjack":50,"Five Card Charlie":50,"Win Session":100,"Biggest Blackjack Win":50};
     const unoXP = {"Win Round":50,"Win Session":200,"Successful Draw 4 Challenge":100,"Uno Denied":50,"Mercy Elimination":100};
+    const crapsXP = {"First Roll":10,"Pass Line Win":20,"Field Hit":15,"Hardway Hit":35,"Point Made":50};
+    const LUCKY_WHEEL_REWARDS = [
+      {label:"$10", type:"money", value:10, weight:22},
+      {label:"10 XP", type:"xp", value:10, weight:20},
+      {label:"$25", type:"money", value:25, weight:20},
+      {label:"25 XP", type:"xp", value:25, weight:18},
+      {label:"$50", type:"money", value:50, weight:17},
+      {label:"50 XP", type:"xp", value:50, weight:14},
+      {label:"$100", type:"money", value:100, weight:12},
+      {label:"$250", type:"money", value:250, weight:7},
+      {label:"250 XP", type:"xp", value:250, weight:5},
+      {label:"$500", type:"money", value:500, weight:3},
+      {label:"500 XP", type:"xp", value:500, weight:2},
+      {label:"$1000", type:"money", value:1000, weight:1},
+      {label:"1000 XP", type:"xp", value:1000, weight:1},
+      {label:"JACKPOT", type:"money", value:5000, weight:0.2, golden:true}
+    ];
     const levels = [{level:1,xp:0},{level:2,xp:100},{level:3,xp:250},{level:4,xp:450},{level:5,xp:700},{level:6,xp:1000},{level:7,xp:1400},{level:8,xp:1900},{level:9,xp:2500},{level:10,xp:3200},{level:11,xp:4100},{level:12,xp:5200},{level:13,xp:6500}];
     const standard = {white:10,red:10,blue:8,green:5,black:2};
     const blank = {white:0,red:0,blue:0,green:0,black:0};
@@ -118,6 +135,16 @@
       ["daily-first-clear","Daily Grinder","Complete a daily challenge","Common","Dailies","daily"],
       ["daily-wheel-spin","Wheel Spinner","Spin the Lucky Wheel","Common","Dailies","daily"],
       ["daily-scratch-card","Scratch Luck","Use the daily scratch-off","Common","Dailies","daily"],
+      ["craps-first-roll","Dice Rookie","Roll your first craps hand","Common","Craps","craps"],
+      ["craps-pass-line","Pass Line Winner","Win a Pass Line bet","Common","Craps","craps"],
+      ["craps-field-day","Field Day","Win a Field bet","Common","Craps","craps"],
+      ["craps-point-maker","Point Maker","Establish and make a point","Uncommon","Craps","craps"],
+      ["craps-hardway","Hardway Hero","Win a hardway bet","Rare","Craps","craps"],
+      ["craps-seven-out","Seven Out Survivor","Play through a seven-out","Common","Craps","craps"],
+      ["craps-hot-dice","Hot Dice","Win three craps bets","Rare","Craps","craps"],
+      ["craps-table-profit","Table Profit","Win $100+ from craps","Rare","Craps","craps"],
+      ["craps-comeback","Dice Comeback","Win craps while under $50 bankroll","Epic","Craps","craps"],
+      ["craps-high-roller","Craps High Roller","Place a $100+ craps bet","Epic","Craps","craps"],
       ["hidden-royal-road","The Royal Road","Get a Royal Flush","Mythic","Hidden","hidden",true],
       ["hidden-impossible-odds","Impossible Odds","Recover from zero chips and finish positive","Mythic","Hidden","hidden",true],
       ["hidden-phoenix","Phoenix","Bust, borrow money, and finish profitable","Mythic","Hidden","hidden",true],
@@ -166,12 +193,38 @@
         deck: [],
         community: [],
         hands: {},
+        folded: {},
+        bets: {},
+        committed: {},
+        acted: {},
         phase: "waiting",
         dealerButton: "",
+        dealerIndex: 0,
+        smallBlindKey: "",
+        bigBlindKey: "",
+        activeSeatKey: "",
+        currentBet: 0,
+        minRaise: 0,
         pot: 0,
+        winnerKey: "",
+        winningHand: "",
+        handNumber: 0,
         message: "Waiting for players to sit down.",
         animateCommunityIndexes: [],
         handAnimateIndexes: {}
+      };
+    }
+
+    function createEmptyCrapsGame() {
+      return {
+        phase: "comeout",
+        point: 0,
+        message: "Place a bet and roll the come-out.",
+        lastRoll: [],
+        lastTotal: 0,
+        betType: "pass",
+        betAmount: 5,
+        wins: 0
       };
     }
 
@@ -240,8 +293,13 @@
     let pendingDeletePlayer = "";
     let blackjackMode = "solo";
     let lastRoomResultToastKey = "";
+    let activityHistoryLimit = 10;
+    let changelogEntries = [];
+    let changelogPage = 1;
+    const changelogRowsPerPage = 5;
     let soloBlackjack = createEmptyBlackjackGame();
     let slotMachine = createEmptySlotMachine();
+    let crapsGame = createEmptyCrapsGame();
     let localProfile = JSON.parse(localStorage.getItem("virtualCasinoProfileV1") || "null") || {
       email: "local@test",
       displayName: "Champion",
@@ -292,6 +350,7 @@
       pokerRoomMessage: $("pokerRoomMessage"),
       pokerGuideDialog: $("pokerGuideDialog"),
       luckyWheelDialog: $("luckyWheelDialog"),
+      crapsGuideDialog: $("crapsGuideDialog"),
       linkProfileDialog: $("linkProfileDialog")
     };
 
@@ -325,7 +384,7 @@
           gamesPlayed: Number(player.gamesPlayed || 0)
         };
       });
-      data.version = 8;
+      data.version = 9;
       data.updatedAt = data.updatedAt || Date.now();
       data.pokerSessionActive = Boolean(data.pokerSessionActive);
       data.biggestPot = data.biggestPot || {player:"", value:0};
@@ -359,6 +418,7 @@
       data.gameStats.blackjack = {...{played:0,wins:0,profit:0,biggest:0}, ...(data.gameStats.blackjack || {})};
       data.gameStats.uno = {...{played:0,wins:0,profit:0,biggest:0}, ...(data.gameStats.uno || {})};
       data.gameStats.slots = {...{played:0,wins:0,profit:0,biggest:0}, ...(data.gameStats.slots || {})};
+      data.gameStats.craps = {...{played:0,wins:0,profit:0,biggest:0}, ...(data.gameStats.craps || {})};
       data.daily = data.daily && typeof data.daily === "object" && !Array.isArray(data.daily) ? data.daily : {};
       data.daily.challenges = data.daily.challenges && typeof data.daily.challenges === "object" && !Array.isArray(data.daily.challenges) ? data.daily.challenges : {};
       data.daily.wheel = data.daily.wheel && typeof data.daily.wheel === "object" && !Array.isArray(data.daily.wheel) ? data.daily.wheel : {};
@@ -717,6 +777,7 @@
       $("familyPrestige").textContent = state.players.reduce((sum, p) => sum + Number(p.stars || 0), 0) || 1;
 
       $("crewGrid").innerHTML = ranked.slice(0, 3).map(renderPlayerCard).join("");
+      $("allPlayersDetailedBoard").innerHTML = state.players.map(renderDetailedPlayerCard).join("");
       $("leaderboard").innerHTML = ranked.map((p, i) => renderLeaderboardRow(p, i)).join("");
       $("allPlayersBoard").innerHTML = state.players.map((p) => renderPlayerSummaryRow(p)).join("");
       $("playerAdminBoard").innerHTML = state.players.map((p) => renderAdminPlayerRow(p)).join("");
@@ -728,7 +789,7 @@
         renderListRow("&#9888;", "Players In Debt", "", state.players.filter((p) => p.bankDebt > 0).length)
       ].join("");
       $("recentActivity").innerHTML = (state.log.length ? state.log : ["No activity yet."]).slice(0, 5).map((item, index) => renderListRow(index + 1, item, "", "")).join("");
-      $("historyBoard").innerHTML = (state.log.length ? state.log : ["No session history yet."]).map((item, index) => renderListRow(index + 1, item, "", "")).join("");
+      renderHistoryBoard();
       const unlocked = unlockedAchievementRows();
       $("recentAchievements").innerHTML = unlocked.length
         ? unlocked.slice(0, 3).map((item) => renderAchievementRow(item.definition, item.unlock)).join("")
@@ -744,6 +805,7 @@
       $("blackjackOnlineArea").hidden = activeOnlineGame !== "blackjack" || Boolean(room);
       $("pokerOnlineArea").hidden = activeOnlineGame !== "poker" || Boolean(room);
       $("slotsOnlineArea").hidden = activeOnlineGame !== "slots" || Boolean(room);
+      $("crapsOnlineArea").hidden = activeOnlineGame !== "craps" || Boolean(room);
       $("blackjackRoomArea").hidden = !(room && room.game === "blackjack");
       $("pokerRoomArea").hidden = !(room && room.game === "poker");
       $("blackjackSoloPanel").classList.toggle("active", blackjackMode === "solo");
@@ -756,9 +818,107 @@
       renderPokerRooms();
       renderActiveRoom();
       renderSlots();
+      renderCraps();
       renderDailyRewards();
+      renderLuckyWheel();
       renderSessionOverview();
+      renderChangelog();
       maybePromptProfileLink();
+    }
+
+    function renderHistoryBoard() {
+      const items = state.log.length ? state.log : ["No session history yet."];
+      const visible = items.slice(0, activityHistoryLimit);
+      $("historyBoard").innerHTML = visible.map((item, index) => renderListRow(index + 1, item, "", "")).join("");
+      const select = $("historyLimit");
+      if (select) select.value = String(activityHistoryLimit);
+    }
+
+    function renderChangelog() {
+      const totalPages = Math.max(1, Math.ceil(changelogEntries.length / changelogRowsPerPage));
+      changelogPage = Math.min(Math.max(1, changelogPage), totalPages);
+      const start = (changelogPage - 1) * changelogRowsPerPage;
+      const visible = changelogEntries.slice(start, start + changelogRowsPerPage);
+      $("versionTimeline").innerHTML = visible.length ? visible.map((entry, index) => `
+        <details class="changelog-entry" ${changelogPage === 1 && index === 0 ? "open" : ""}>
+          <summary>
+            <time>${escapeHtml(entry.date)}</time>
+            <span><strong>${escapeHtml(entry.version)}</strong><em>${escapeHtml(entry.title)}</em></span>
+            <span class="chevron">&#9662;</span>
+          </summary>
+          <div class="changelog-body">${markdownToHtml(entry.body)}</div>
+        </details>
+      `).join("") : renderListRow("&#9997;", "No changelog loaded", "changelog.md could not be loaded yet.", "");
+      $("versionPagination").innerHTML = changelogEntries.length > changelogRowsPerPage ? `
+        <button class="mini-btn" type="button" data-action="changelog-page" data-page="${Math.max(1, changelogPage - 1)}" ${changelogPage === 1 ? "disabled" : ""}>Prev</button>
+        <span class="sync-pill">Page ${changelogPage} / ${totalPages}</span>
+        <button class="mini-btn" type="button" data-action="changelog-page" data-page="${Math.min(totalPages, changelogPage + 1)}" ${changelogPage === totalPages ? "disabled" : ""}>Next</button>
+      ` : "";
+    }
+
+    async function loadChangelog() {
+      try {
+        const response = await fetch("changelog.md", {cache:"no-store"});
+        if (!response.ok) throw new Error(`Unable to load changelog.md (${response.status})`);
+        changelogEntries = parseChangelog(await response.text());
+      } catch (error) {
+        console.warn("Changelog load failed.", error);
+        changelogEntries = [];
+      }
+      renderChangelog();
+    }
+
+    function parseChangelog(markdown) {
+      const entries = [];
+      let current = null;
+      markdown.split(/\r?\n/).forEach((line) => {
+        const heading = line.match(/^##\s+(V[\d.]+)\s+-\s+(.+?)\s+-\s+(.+)$/i);
+        if (heading) {
+          if (current) entries.push(current);
+          current = {version:heading[1], date:heading[2], title:heading[3], body:""};
+        } else if (current) {
+          current.body += `${line}\n`;
+        }
+      });
+      if (current) entries.push(current);
+      return entries;
+    }
+
+    function markdownToHtml(markdown) {
+      const lines = markdown.trim().split(/\r?\n/);
+      let html = "";
+      let inList = false;
+      lines.forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          if (inList) {
+            html += "</ul>";
+            inList = false;
+          }
+          return;
+        }
+        if (trimmed.startsWith("### ")) {
+          if (inList) {
+            html += "</ul>";
+            inList = false;
+          }
+          html += `<h4>${escapeHtml(trimmed.slice(4))}</h4>`;
+        } else if (trimmed.startsWith("- ")) {
+          if (!inList) {
+            html += "<ul>";
+            inList = true;
+          }
+          html += `<li>${escapeHtml(trimmed.slice(2))}</li>`;
+        } else {
+          if (inList) {
+            html += "</ul>";
+            inList = false;
+          }
+          html += `<p>${escapeHtml(trimmed)}</p>`;
+        }
+      });
+      if (inList) html += "</ul>";
+      return html;
     }
 
     function renderPlayerCard(player, index) {
@@ -798,6 +958,27 @@
         <div><strong>${escapeHtml(displayNameForPlayer(player.name))}</strong><div style="color:var(--muted);font-size:.82rem;">Player record: ${escapeHtml(player.name)}</div></div>
         <button class="mini-btn danger-mini" type="button" data-player-name="${escapeAttr(player.name)}" data-action="delete-player" ${protectedPlayer ? "disabled" : ""}>Delete</button>
       </div>`;
+    }
+
+    function renderDetailedPlayerCard(player) {
+      const bankroll = stackValue(player.chips);
+      const level = levelFromXP(player.xp);
+      const achievements = achievementCompletionText(player.name);
+      const debtClass = player.bankDebt > 0 ? "loss" : "";
+      return `<article class="all-player-card">
+        <div class="all-player-hero">
+          <span class="medal ${medalClass(player.name)}">${playerSymbol(player.name)}</span>
+          <div><strong>${escapeHtml(displayNameForPlayer(player.name))}</strong><span>Level ${level} / Prestige ${player.stars || 0}</span></div>
+        </div>
+        <div class="all-player-stats">
+          <div><span>Bankroll</span><strong class="${player.bankDebt > 0 ? "loss" : "money"}">${money(bankroll)}</strong></div>
+          <div><span>Safe Bank</span><strong>${money(player.bankBalance || 0)}</strong></div>
+          <div><span>Lifetime P/L</span><strong class="${player.lifetime >= 0 ? "money" : "loss"}">${signedMoney(player.lifetime)}</strong></div>
+          <div><span>Bank Debt</span><strong class="${debtClass}">${money(player.bankDebt || 0)}</strong></div>
+          <div><span>Achievements</span><strong>${achievements}</strong></div>
+          <div><span>XP</span><strong>${Number(player.xp || 0).toLocaleString()}</strong></div>
+        </div>
+      </article>`;
     }
 
     function renderLeaderboardRow(player, index) {
@@ -886,7 +1067,7 @@
     }
 
     function todayKey() {
-      return new Date().toISOString().slice(0, 10);
+      return centralDailyKey();
     }
 
     function dailyRecord(playerName = currentPlayer()?.name || "") {
@@ -925,17 +1106,76 @@
       $("dailyRewardHistory").innerHTML = "";
     }
 
+    function renderLuckyWheel() {
+      const wheel = $("luckyWheel");
+      if (!wheel) return;
+      const segment = 360 / LUCKY_WHEEL_REWARDS.length;
+      wheel.style.setProperty("--wheel-segments", LUCKY_WHEEL_REWARDS.length);
+      wheel.style.background = `conic-gradient(${LUCKY_WHEEL_REWARDS.map((reward, index) => {
+        const start = index * segment;
+        const end = (index + 1) * segment;
+        const color = reward.golden ? "#d49a12" : reward.type === "money" ? (index % 2 ? "#17131e" : "#a56a10") : (index % 2 ? "#251739" : "#6d23d9");
+        return `${color} ${start}deg ${end}deg`;
+      }).join(",")})`;
+      wheel.innerHTML = LUCKY_WHEEL_REWARDS.map((reward, index) => {
+        const rotation = index * segment + segment / 2;
+        return `<span style="--wheel-label-rotation:${rotation}deg">${escapeHtml(reward.label)}</span>`;
+      }).join("");
+    }
+
     function dailyResetText() {
       const now = new Date();
-      const reset = new Date(now);
-      reset.setHours(24, 0, 0, 0);
+      const reset = nextCentralReset();
       const ms = Math.max(0, reset - now);
       const hours = Math.floor(ms / 3600000);
       const minutes = Math.floor((ms % 3600000) / 60000);
       return {
         countdown: `${hours}h ${String(minutes).padStart(2, "0")}m`,
-        unlock: reset.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})
+        unlock: `${reset.toLocaleTimeString([], {hour:"numeric", minute:"2-digit", timeZone:"America/Chicago"})} CT`
       };
+    }
+
+    function centralParts(date = new Date()) {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Chicago",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      }).formatToParts(date).reduce((acc, part) => {
+        if (part.type !== "literal") acc[part.type] = part.value;
+        return acc;
+      }, {});
+      return {
+        year: Number(parts.year),
+        month: Number(parts.month),
+        day: Number(parts.day),
+        hour: Number(parts.hour),
+        minute: Number(parts.minute)
+      };
+    }
+
+    function centralDailyKey(date = new Date()) {
+      const shifted = new Date(date.getTime() - 6 * 60 * 60 * 1000);
+      return new Intl.DateTimeFormat("en-CA", {timeZone:"America/Chicago", year:"numeric", month:"2-digit", day:"2-digit"}).format(shifted);
+    }
+
+    function centralOffsetMs(date = new Date()) {
+      const parts = centralParts(date);
+      const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+      return asUtc - date.getTime();
+    }
+
+    function nextCentralReset() {
+      const now = new Date();
+      const parts = centralParts(now);
+      let resetUtc = Date.UTC(parts.year, parts.month - 1, parts.day, 6, 0) - centralOffsetMs(now);
+      if (resetUtc <= now.getTime()) {
+        resetUtc = Date.UTC(parts.year, parts.month - 1, parts.day + 1, 6, 0) - centralOffsetMs(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+      }
+      return new Date(resetUtc);
     }
 
     function renderActiveRoom() {
@@ -958,7 +1198,8 @@
         $("pokerRoomTitle").textContent = `♠ ${room.name}`;
         $("pokerRoomHostBadge").textContent = hostText;
         $("pokerRoomPlayers").innerHTML = playersMarkup;
-        $("pokerRoomRules").innerHTML = `<span>Small blind ${money(room.smallBlind || 0)}</span><span>Big blind ${money(room.bigBlind || 0)}</span><span>Kickers decide tied ranks</span>`;
+        const table = room.table || {};
+        $("pokerRoomRules").innerHTML = `<span>Phase ${escapeHtml(table.phase || "waiting")}</span><span>Pot ${money(table.pot || 0)}</span><span>Current bet ${money(table.currentBet || 0)}</span><span>Small blind ${money(room.smallBlind || 0)}</span><span>Big blind ${money(room.bigBlind || 0)}</span>`;
         $("closePokerRoomBtn").hidden = !isRoomHost(room);
         renderPokerRoomTable(room);
       }
@@ -968,23 +1209,37 @@
       const table = room.table && typeof room.table === "object" ? room.table : createEmptyPokerTable();
       room.table = table;
       const community = Array.isArray(table.community) ? table.community : [];
+      const visibleCommunity = visiblePokerCommunity(table);
       $("pokerCommunityBoard").innerHTML = community.length
-        ? community.map((card, index) => renderPlayingCard(card, false, table.animateCommunityIndexes?.includes(index), false, Math.max(0, table.animateCommunityIndexes?.indexOf(index) || 0) * 800)).join("")
+        ? community.map((card, index) => index < visibleCommunity ? renderPlayingCard(card, false, table.animateCommunityIndexes?.includes(index), false, Math.max(0, table.animateCommunityIndexes?.indexOf(index) || 0) * 800) : `<span class="playing-card hidden-card">?</span>`).join("")
         : `<span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span>`;
       $("pokerRoomStatus").textContent = table.message || "Texas Hold'em room is open.";
       $("pokerPlayerHands").innerHTML = Object.entries(room.seats || {}).map(([key, seat]) => {
         const hand = table.hands?.[key] || [];
         const indexes = table.handAnimateIndexes?.[key] || [];
-        const cards = hand.length
-          ? hand.map((card, index) => renderPlayingCard(card, false, indexes.includes(index), false, Math.max(0, indexes.indexOf(index)) * 800)).join("")
+        const canSeeHand = key === currentProfileKey() || ["showdown","done"].includes(table.phase);
+        const folded = Boolean(table.folded?.[key]);
+        const cards = hand.length && !folded
+          ? hand.map((card, index) => renderPlayingCard(card, !canSeeHand, indexes.includes(index), false, Math.max(0, indexes.indexOf(index)) * 800)).join("")
           : `<span class="sync-pill">Waiting for deal</span>`;
+        const status = folded ? "Folded" : key === table.activeSeatKey ? "To act" : `${money(table.committed?.[key] || 0)} in pot`;
         return `<div class="list-row">
           <span class="medal ${medalClass(seat.playerName || seat.name)}">${playerSymbol(seat.playerName || seat.name)}</span>
-          <div><strong>${escapeHtml(seat.name)}</strong><div class="playing-card-row compact">${cards}</div><div style="color:var(--muted);font-size:.82rem;">${escapeHtml(seat.playerName || "Unlinked")} - ${key === room.hostKey ? "Host" : "Player"}</div></div>
+          <div><strong>${escapeHtml(seat.name)}</strong><div class="playing-card-row compact">${cards}</div><div style="color:var(--muted);font-size:.82rem;">${escapeHtml(status)} - ${escapeHtml(seat.playerName || "Unlinked")} ${key === room.hostKey ? "/ Host" : ""}</div></div>
         </div>`;
       }).join("") || `<div class="blackjack-status">No players seated.</div>`;
       const canDeal = isRoomHost(room) && Object.keys(room.seats || {}).length >= 2;
+      const myTurn = table.activeSeatKey === currentProfileKey() && ["preflop","flop","turn","river"].includes(table.phase) && !table.folded?.[currentProfileKey()];
+      const owed = Math.max(0, Number(table.currentBet || 0) - Number(table.bets?.[currentProfileKey()] || 0));
       document.querySelectorAll('[data-action="poker-deal-hand"]').forEach((button) => button.disabled = !canDeal);
+      document.querySelectorAll('[data-action="poker-check"]').forEach((button) => button.disabled = !myTurn || owed > 0);
+      document.querySelectorAll('[data-action="poker-call"]').forEach((button) => button.disabled = !myTurn || owed <= 0);
+      document.querySelectorAll('[data-action="poker-raise"]').forEach((button) => button.disabled = !myTurn);
+      document.querySelectorAll('[data-action="poker-fold"]').forEach((button) => button.disabled = !myTurn);
+    }
+
+    function visiblePokerCommunity(table) {
+      return {waiting:0, preflop:0, flop:3, turn:4, river:5, showdown:5, done:5}[table.phase] || 0;
     }
 
     function renderBlackjackRoomTable(room) {
@@ -1294,6 +1549,133 @@
       $("slotStatus").innerHTML = `${escapeHtml(slotMachine.message)}${slotMachine.lastWin ? ` <strong class="${slotMachine.lastWin >= slotMachine.lastWager ? "money" : "loss"}">Paid ${money(slotMachine.lastWin)}</strong>` : ""}`;
       document.querySelectorAll('[data-action="slots-spin"]').forEach((button) => button.disabled = slotMachine.spinning);
       document.querySelectorAll('[data-action="slots-reset"]').forEach((button) => button.disabled = slotMachine.spinning);
+    }
+
+    function renderCraps() {
+      const player = currentPlayer();
+      const bankroll = player ? stackValue(player.chips) : 0;
+      $("crapsBankroll").innerHTML = player
+        ? `<span>${escapeHtml(currentDisplayName())}</span><span>Bankroll ${money(bankroll)}</span><span>Point ${crapsGame.point || "Off"}</span>`
+        : `<span>Link your profile to play craps.</span>`;
+      $("crapsDice").innerHTML = crapsGame.lastRoll.length
+        ? crapsGame.lastRoll.map((die) => `<span>${die}</span>`).join("")
+        : `<span>?</span><span>?</span>`;
+      $("crapsPoint").textContent = crapsGame.point || "Off";
+      $("crapsStatus").textContent = crapsGame.message;
+    }
+
+    function rollCraps() {
+      const player = currentPlayer();
+      if (!player) return toast("Link your profile to a player before playing craps.");
+      const amount = Math.max(1, Math.round(Number($("crapsBetAmount").value || 0)));
+      const betType = $("crapsBetType").value;
+      if (stackValue(player.chips) < amount) return toast(`You need ${money(amount)} bankroll for that craps bet.`);
+      const roll = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
+      const total = roll[0] + roll[1];
+      crapsGame.lastRoll = roll;
+      crapsGame.lastTotal = total;
+      crapsGame.betType = betType;
+      crapsGame.betAmount = amount;
+      let net = 0;
+      let settled = true;
+      let message = `Rolled ${total}.`;
+      unlockAchievement("craps-first-roll", player.name);
+      if (amount >= 100) unlockAchievement("craps-high-roller", player.name);
+      if (betType === "field") {
+        const payout = {2:2,3:1,4:1,9:1,10:1,11:1,12:3}[total] || 0;
+        net = payout ? amount * payout : -amount;
+        message = payout ? `Field wins on ${total}.` : `Field loses on ${total}.`;
+        if (payout) unlockAchievement("craps-field-day", player.name);
+      } else if (betType.startsWith("hard")) {
+        const hardPoint = Number(betType.replace("hard", ""));
+        const hard = roll[0] === roll[1] && total === hardPoint;
+        const easy = total === hardPoint && roll[0] !== roll[1];
+        if (hard) {
+          net = amount * (hardPoint === 4 || hardPoint === 10 ? 7 : 9);
+          message = `Hard ${hardPoint} hits!`;
+          unlockAchievement("craps-hardway", player.name);
+        } else if (easy || total === 7) {
+          net = -amount;
+          message = total === 7 ? `Seven out. Hardway loses.` : `Easy ${hardPoint}. Hardway loses.`;
+        } else {
+          settled = false;
+          message = `Hard ${hardPoint} stays up after ${total}.`;
+        }
+      } else if (crapsGame.phase === "comeout") {
+        if (betType === "pass") {
+          if ([7, 11].includes(total)) {
+            net = amount;
+            message = `Pass Line wins on ${total}.`;
+            unlockAchievement("craps-pass-line", player.name);
+          } else if ([2, 3, 12].includes(total)) {
+            net = -amount;
+            message = `Pass Line craps out on ${total}.`;
+          } else {
+            crapsGame.point = total;
+            crapsGame.phase = "point";
+            settled = false;
+            message = `Point is ${total}. Roll ${total} before 7.`;
+          }
+        } else {
+          if ([2, 3].includes(total)) {
+            net = amount;
+            message = `Don't Pass wins on ${total}.`;
+          } else if ([7, 11].includes(total)) {
+            net = -amount;
+            message = `Don't Pass loses on ${total}.`;
+          } else if (total === 12) {
+            net = 0;
+            message = "Don't Pass pushes on 12.";
+          } else {
+            crapsGame.point = total;
+            crapsGame.phase = "point";
+            settled = false;
+            message = `Point is ${total}. Don't Pass wins if 7 comes first.`;
+          }
+        }
+      } else {
+        if (total === crapsGame.point) {
+          net = betType === "pass" ? amount : -amount;
+          message = betType === "pass" ? `Point made: ${total}!` : `Point made: ${total}. Don't Pass loses.`;
+          if (betType === "pass") unlockAchievement("craps-point-maker", player.name);
+          crapsGame.phase = "comeout";
+          crapsGame.point = 0;
+        } else if (total === 7) {
+          net = betType === "pass" ? -amount : amount;
+          message = betType === "pass" ? "Seven out. Pass Line loses." : "Seven out. Don't Pass wins.";
+          unlockAchievement("craps-seven-out", player.name);
+          crapsGame.phase = "comeout";
+          crapsGame.point = 0;
+        } else {
+          settled = false;
+          message = `${total}. Point remains ${crapsGame.point}.`;
+        }
+      }
+      crapsGame.message = message;
+      if (settled) {
+        adjustPlayerBankroll(player, net);
+        if (net !== 0) applyMoneyResult(player, net, "craps");
+        state.gameStats.craps.played += 1;
+        state.gameStats.craps.profit += net;
+        if (net > 0) {
+          crapsGame.wins += 1;
+          state.gameStats.craps.wins += 1;
+          state.gameStats.craps.biggest = Math.max(state.gameStats.craps.biggest || 0, net);
+          addXP(player.name, crapsXP["First Roll"], "Craps: First Roll", {persist:false, toast:false});
+          if (net >= 100) unlockAchievement("craps-table-profit", player.name);
+          if (crapsGame.wins >= 3) unlockAchievement("craps-hot-dice", player.name);
+          if (stackValue(player.chips) < 50) unlockAchievement("craps-comeback", player.name);
+        }
+        log(`${player.name} played craps: ${message} Net ${signedMoney(net)}.`);
+        resultToast("Craps Result", signedMoney(net), 5000);
+      }
+      save();
+    }
+
+    function resetCraps() {
+      crapsGame = createEmptyCrapsGame();
+      render();
+      toast("Craps table reset.");
     }
 
     function slotBetPresets(machine = currentSlotMachine()) {
@@ -1902,31 +2284,276 @@
       const room = await refreshRoomFromCloud(activeRoomId);
       if (!room || room.game !== "poker") return toast("Open a poker room first.");
       if (!isRoomHost(room)) return toast("Only the host can deal Hold'em.");
-      const entries = Object.entries(room.seats || {});
+      const entries = pokerSeatEntries(room);
       if (entries.length < 2) return toast("Hold'em needs at least 2 players.");
+      const brokeSeat = entries.find(([, seat]) => {
+        const player = playerByName(seat.playerName);
+        return !player || stackValue(player.chips) < Number(room.bigBlind || 0);
+      });
+      if (brokeSeat) return toast(`${brokeSeat[1].name} needs at least the big blind to play.`);
+      const handNumber = Number(room.pokerHandNumber || 0);
+      const dealerIndex = handNumber % entries.length;
+      const smallIndex = entries.length === 2 ? dealerIndex : (dealerIndex + 1) % entries.length;
+      const bigIndex = entries.length === 2 ? (dealerIndex + 1) % entries.length : (dealerIndex + 2) % entries.length;
+      const firstActionIndex = entries.length === 2 ? smallIndex : (bigIndex + 1) % entries.length;
       const table = createEmptyPokerTable();
       table.deck = createDeck();
-      table.phase = "showdown";
-      table.pot = Number(room.smallBlind || 0) + Number(room.bigBlind || 0);
-      table.dealerButton = entries[0][0];
+      table.phase = "preflop";
+      table.handNumber = handNumber + 1;
+      table.dealerIndex = dealerIndex;
+      table.dealerButton = entries[dealerIndex][0];
+      table.smallBlindKey = entries[smallIndex][0];
+      table.bigBlindKey = entries[bigIndex][0];
+      table.activeSeatKey = entries[firstActionIndex][0];
+      table.currentBet = Number(room.bigBlind || 0);
+      table.minRaise = Number(room.bigBlind || 0);
+      table.pot = 0;
       table.hands = {};
+      table.folded = {};
+      table.bets = {};
+      table.committed = {};
+      table.acted = {};
       table.handAnimateIndexes = {};
       entries.forEach(([key]) => {
         table.hands[key] = [drawCard(table), drawCard(table)];
         table.handAnimateIndexes[key] = [0, 1];
+        table.bets[key] = 0;
+        table.committed[key] = 0;
+        table.acted[key] = false;
       });
+      postPokerBlind(room, entries[smallIndex][0], Number(room.smallBlind || 0), table);
+      postPokerBlind(room, entries[bigIndex][0], Number(room.bigBlind || 0), table);
       table.community = [drawCard(table), drawCard(table), drawCard(table), drawCard(table), drawCard(table)];
-      table.animateCommunityIndexes = [0, 1, 2, 3, 4];
-      table.message = `Hand dealt. Pot starts at ${money(table.pot)} from blinds. Use kickers to settle ties.`;
+      table.animateCommunityIndexes = [];
+      table.message = `Preflop. Dealer: ${entries[dealerIndex][1].name}. Blinds posted ${money(room.smallBlind)} / ${money(room.bigBlind)}. ${room.seats[table.activeSeatKey].name} acts first.`;
       room.table = table;
+      room.pokerHandNumber = handNumber + 1;
       await saveRoom(room);
+      await persistSettledRoomState(room);
       setTimeout(() => {
         const latest = state.onlineRooms[room.id];
         if (!latest?.table) return;
-        latest.table.animateCommunityIndexes = [];
         latest.table.handAnimateIndexes = {};
         saveRoom(latest);
-      }, 4200);
+      }, 1900);
+    }
+
+    function pokerSeatEntries(room) {
+      const entries = Object.entries(room.seats || {}).sort((a, b) => {
+        if (a[0] === room.hostKey) return -1;
+        if (b[0] === room.hostKey) return 1;
+        return Number(a[1].joinedAt || 0) - Number(b[1].joinedAt || 0);
+      });
+      return entries;
+    }
+
+    function postPokerBlind(room, key, amount, table) {
+      const player = playerByName(room.seats?.[key]?.playerName);
+      if (!player || amount <= 0) return;
+      commitPokerChips(player, table, key, amount);
+    }
+
+    function commitPokerChips(player, table, key, amount) {
+      const value = Math.max(0, Math.round(Number(amount || 0)));
+      if (!player || value <= 0) return;
+      adjustPlayerBankroll(player, -value);
+      player.lifetime -= value;
+      table.bets[key] = Number(table.bets[key] || 0) + value;
+      table.committed[key] = Number(table.committed[key] || 0) + value;
+      table.pot += value;
+    }
+
+    async function pokerPlayerAction(kind) {
+      const room = await refreshRoomFromCloud(activeRoomId);
+      const table = room?.table;
+      const key = currentProfileKey();
+      if (!room || room.game !== "poker" || !table) return toast("Open a poker room first.");
+      if (table.activeSeatKey !== key || !["preflop","flop","turn","river"].includes(table.phase)) return toast("It is not your turn.");
+      const seat = room.seats?.[key];
+      const player = seat?.playerName ? playerByName(seat.playerName) : null;
+      if (!player) return toast("Link your profile to a player before acting.");
+      const owed = Math.max(0, Number(table.currentBet || 0) - Number(table.bets?.[key] || 0));
+      if (kind === "check") {
+        if (owed > 0) return toast(`Call ${money(owed)} or fold.`);
+        table.acted[key] = true;
+        table.message = `${seat.name} checks.`;
+      }
+      if (kind === "call") {
+        if (owed <= 0) return toast("Nothing to call. Check or raise.");
+        if (stackValue(player.chips) < owed) return toast(`You need ${money(owed)} to call.`);
+        commitPokerChips(player, table, key, owed);
+        table.acted[key] = true;
+        table.message = `${seat.name} calls ${money(owed)}.`;
+      }
+      if (kind === "raise") {
+        const raiseBy = Math.max(Number(table.minRaise || room.bigBlind || 1), Math.round(Number($("pokerRaiseAmount").value || 0)));
+        const totalNeeded = owed + raiseBy;
+        if (stackValue(player.chips) < totalNeeded) return toast(`You need ${money(totalNeeded)} to raise.`);
+        commitPokerChips(player, table, key, totalNeeded);
+        table.currentBet = table.bets[key];
+        table.minRaise = raiseBy;
+        table.acted = Object.fromEntries(Object.keys(room.seats || {}).map((seatKey) => [seatKey, false]));
+        table.acted[key] = true;
+        table.message = `${seat.name} raises to ${money(table.currentBet)}.`;
+      }
+      if (kind === "fold") {
+        table.folded[key] = true;
+        table.acted[key] = true;
+        table.message = `${seat.name} folds.`;
+      }
+      advancePokerAfterAction(room);
+      await saveRoom(room);
+      await persistSettledRoomState(room);
+    }
+
+    function advancePokerAfterAction(room) {
+      const table = room.table;
+      const active = activePokerKeys(room);
+      if (active.length === 1) {
+        awardPokerPot(room, active[0], "All others folded");
+        return;
+      }
+      const next = nextPokerActor(room);
+      if (next) {
+        table.activeSeatKey = next;
+        table.message += ` ${room.seats[next].name} to act.`;
+        return;
+      }
+      advancePokerStreet(room);
+    }
+
+    function activePokerKeys(room) {
+      return pokerSeatEntries(room).map(([key]) => key).filter((key) => !room.table?.folded?.[key]);
+    }
+
+    function nextPokerActor(room) {
+      const table = room.table;
+      const entries = pokerSeatEntries(room).map(([key]) => key);
+      const start = Math.max(0, entries.indexOf(table.activeSeatKey));
+      for (let step = 1; step <= entries.length; step += 1) {
+        const key = entries[(start + step) % entries.length];
+        if (table.folded?.[key]) continue;
+        const needsCall = Number(table.bets?.[key] || 0) < Number(table.currentBet || 0);
+        if (!table.acted?.[key] || needsCall) return key;
+      }
+      return "";
+    }
+
+    function firstPostFlopActor(room) {
+      const table = room.table;
+      const entries = pokerSeatEntries(room).map(([key]) => key);
+      for (let step = 1; step <= entries.length; step += 1) {
+        const key = entries[(Number(table.dealerIndex || 0) + step) % entries.length];
+        if (!table.folded?.[key]) return key;
+      }
+      return activePokerKeys(room)[0] || "";
+    }
+
+    function advancePokerStreet(room) {
+      const table = room.table;
+      const streets = ["preflop", "flop", "turn", "river"];
+      const index = streets.indexOf(table.phase);
+      if (index >= streets.length - 1) {
+        settlePokerShowdown(room);
+        return;
+      }
+      table.phase = streets[index + 1];
+      table.currentBet = 0;
+      table.bets = Object.fromEntries(Object.keys(room.seats || {}).map((key) => [key, 0]));
+      table.acted = Object.fromEntries(Object.keys(room.seats || {}).map((key) => [key, false]));
+      table.activeSeatKey = firstPostFlopActor(room);
+      table.animateCommunityIndexes = table.phase === "flop" ? [0, 1, 2] : table.phase === "turn" ? [3] : [4];
+      table.message = `${table.phase[0].toUpperCase()}${table.phase.slice(1)} revealed. ${room.seats[table.activeSeatKey]?.name || "Player"} to act.`;
+    }
+
+    function settlePokerShowdown(room) {
+      const table = room.table;
+      table.phase = "showdown";
+      table.activeSeatKey = "";
+      table.animateCommunityIndexes = [];
+      const contenders = activePokerKeys(room);
+      const ranked = contenders.map((key) => ({key, result: evaluatePokerHand([...(table.hands[key] || []), ...(table.community || [])])}))
+        .sort((a, b) => comparePokerScores(b.result.score, a.result.score));
+      const winner = ranked[0];
+      if (!winner) return;
+      awardPokerPot(room, winner.key, winner.result.name);
+    }
+
+    function awardPokerPot(room, winnerKey, handName) {
+      const table = room.table;
+      const seat = room.seats?.[winnerKey];
+      const player = seat?.playerName ? playerByName(seat.playerName) : null;
+      const pot = Number(table.pot || 0);
+      if (player) {
+        adjustPlayerBankroll(player, pot);
+        player.lifetime += pot;
+        addXP(player.name, pokerHandXP[handName] || pokerHandXP["High Card"], `Poker: ${handName}`, {persist:false, toast:false});
+        unlockAchievement("poker-first-victory", player.name);
+      }
+      table.phase = "done";
+      table.winnerKey = winnerKey;
+      table.winningHand = handName;
+      table.activeSeatKey = "";
+      table.message = `${seat?.name || "Player"} wins ${money(pot)} with ${handName}.`;
+      state.gameStats.poker.played = Number(state.gameStats.poker.played || 0) + 1;
+      state.gameStats.poker.wins = Number(state.gameStats.poker.wins || 0) + 1;
+      state.gameStats.poker.biggest = Math.max(Number(state.gameStats.poker.biggest || 0), pot);
+      log(`${seat?.name || "Player"} won online Hold'em pot ${money(pot)} with ${handName}.`);
+      resultToast(`${seat?.name || "Player"} wins the pot`, `${money(pot)} / ${handName}`, 5000);
+    }
+
+    function evaluatePokerHand(cards) {
+      const combos = combinations(cards, 5);
+      return combos.map(scoreFivePokerCards).sort((a, b) => comparePokerScores(b.score, a.score))[0] || {name:"High Card", score:[0]};
+    }
+
+    function combinations(items, size) {
+      const out = [];
+      const walk = (start, combo) => {
+        if (combo.length === size) {
+          out.push(combo);
+          return;
+        }
+        for (let i = start; i <= items.length - (size - combo.length); i += 1) walk(i + 1, combo.concat(items[i]));
+      };
+      walk(0, []);
+      return out;
+    }
+
+    function pokerRankValue(rank) {
+      return {A:14,K:13,Q:12,J:11,"10":10,"9":9,"8":8,"7":7,"6":6,"5":5,"4":4,"3":3,"2":2}[rank] || 0;
+    }
+
+    function scoreFivePokerCards(cards) {
+      const values = cards.map((card) => pokerRankValue(card.rank)).sort((a, b) => b - a);
+      const counts = values.reduce((acc, value) => {
+        acc[value] = Number(acc[value] || 0) + 1;
+        return acc;
+      }, {});
+      const groups = Object.entries(counts).map(([value, count]) => ({value:Number(value), count})).sort((a, b) => b.count - a.count || b.value - a.value);
+      const flush = cards.every((card) => card.suit === cards[0].suit);
+      const unique = [...new Set(values)].sort((a, b) => b - a);
+      const wheel = unique.join(",") === "14,5,4,3,2";
+      const straightHigh = wheel ? 5 : unique.length === 5 && unique[0] - unique[4] === 4 ? unique[0] : 0;
+      if (flush && straightHigh === 14) return {name:"Royal Flush", score:[9, 14]};
+      if (flush && straightHigh) return {name:"Straight Flush", score:[8, straightHigh]};
+      if (groups[0]?.count === 4) return {name:"Four of a Kind", score:[7, groups[0].value, groups[1].value]};
+      if (groups[0]?.count === 3 && groups[1]?.count === 2) return {name:"Full House", score:[6, groups[0].value, groups[1].value]};
+      if (flush) return {name:"Flush", score:[5, ...values]};
+      if (straightHigh) return {name:"Straight", score:[4, straightHigh]};
+      if (groups[0]?.count === 3) return {name:"Three of a Kind", score:[3, groups[0].value, ...groups.slice(1).map((group) => group.value).sort((a, b) => b - a)]};
+      if (groups[0]?.count === 2 && groups[1]?.count === 2) return {name:"Two Pair", score:[2, groups[0].value, groups[1].value, groups[2].value]};
+      if (groups[0]?.count === 2) return {name:"One Pair", score:[1, groups[0].value, ...groups.slice(1).map((group) => group.value).sort((a, b) => b - a)]};
+      return {name:"High Card", score:[0, ...values]};
+    }
+
+    function comparePokerScores(a, b) {
+      const length = Math.max(a.length, b.length);
+      for (let i = 0; i < length; i += 1) {
+        const diff = Number(a[i] || 0) - Number(b[i] || 0);
+        if (diff !== 0) return diff;
+      }
+      return 0;
     }
 
     async function setMultiplayerBlackjackReady() {
@@ -2607,16 +3234,10 @@
       if (!player) return toast("Link your profile to spin the wheel.");
       if (state.daily.wheel[player.name] === todayKey()) return toast("Lucky Wheel already used today.");
       $("wheelSpinButton").disabled = true;
-      const rewards = [
-        {type:"money", value:10, weight:22}, {type:"money", value:25, weight:20}, {type:"money", value:50, weight:17},
-        {type:"money", value:100, weight:12}, {type:"money", value:250, weight:7}, {type:"money", value:500, weight:3},
-        {type:"money", value:1000, weight:1}, {type:"xp", value:10, weight:20}, {type:"xp", value:25, weight:18},
-        {type:"xp", value:50, weight:14}, {type:"xp", value:250, weight:5}, {type:"xp", value:500, weight:2},
-        {type:"xp", value:1000, weight:1}, {type:"money", value:5000, weight:0.2, golden:true}
-      ];
-      const reward = weightedReward(rewards);
-      const segment = wheelSegmentForReward(reward);
-      const segmentCenter = segment * 45 + 22.5;
+      const reward = weightedReward(LUCKY_WHEEL_REWARDS);
+      const segment = LUCKY_WHEEL_REWARDS.findIndex((item) => item === reward);
+      const segmentSize = 360 / LUCKY_WHEEL_REWARDS.length;
+      const segmentCenter = segment * segmentSize + segmentSize / 2;
       const rotation = 1800 + (360 - segmentCenter) + Math.floor(Math.random() * 18) - 9;
       $("luckyWheel").style.setProperty("--wheel-rotation", `${rotation}deg`);
       $("luckyWheel").classList.add("spinning");
@@ -2640,20 +3261,6 @@
         if (els.luckyWheelDialog.open) els.luckyWheelDialog.close();
       }, 2000);
       }, 3400);
-    }
-
-    function wheelSegmentForReward(reward) {
-      if (reward.golden) return 7;
-      if (reward.type === "xp") {
-        if (reward.value >= 500) return 7;
-        if (reward.value >= 250) return 3;
-        if (reward.value >= 50) return 5;
-        return 1;
-      }
-      if (reward.value >= 1000) return 6;
-      if (reward.value >= 500) return 4;
-      if (reward.value >= 100) return 2;
-      return 0;
     }
 
     function scratchDailyCard() {
@@ -2695,6 +3302,11 @@
       }
       if (action === "close-profile") {
         closeProfileDialog();
+        return;
+      }
+      if (action === "changelog-page") {
+        changelogPage = Math.max(1, Number(target?.dataset.page || 1));
+        renderChangelog();
         return;
       }
       if (action === "save-profile") {
@@ -2758,6 +3370,14 @@
         render();
         return;
       }
+      if (action === "open-online-craps") {
+        activeView = "online";
+        activeOnlineGame = "craps";
+        activeRoomId = "";
+        render();
+        setTimeout(() => $("crapsOnlineArea")?.scrollIntoView({behavior: "smooth", block: "start"}), 60);
+        return;
+      }
       if (action === "choose-slot-machine") {
         els.slotMachineDialog?.showModal();
         return;
@@ -2810,6 +3430,14 @@
         slotMachine = createEmptySlotMachine();
         render();
         toast("Slots cleared.");
+        return;
+      }
+      if (action === "craps-roll") {
+        rollCraps();
+        return;
+      }
+      if (action === "craps-reset") {
+        resetCraps();
         return;
       }
       if (action === "claim-daily-challenge") {
@@ -2910,6 +3538,22 @@
         dealPokerHand();
         return;
       }
+      if (action === "poker-check") {
+        pokerPlayerAction("check");
+        return;
+      }
+      if (action === "poker-call") {
+        pokerPlayerAction("call");
+        return;
+      }
+      if (action === "poker-raise") {
+        pokerPlayerAction("raise");
+        return;
+      }
+      if (action === "poker-fold") {
+        pokerPlayerAction("fold");
+        return;
+      }
       if (action === "close-active-room") {
         closeActiveRoom();
         return;
@@ -2928,6 +3572,14 @@
       }
       if (action === "close-poker-guide") {
         closePokerGuide();
+        return;
+      }
+      if (action === "open-craps-guide") {
+        els.crapsGuideDialog.showModal();
+        return;
+      }
+      if (action === "close-craps-guide") {
+        els.crapsGuideDialog.close();
         return;
       }
       if (action === "dismiss-link-profile") {
@@ -3293,12 +3945,12 @@
       toast.timer = setTimeout(() => els.toast.classList.remove("show"), 3200);
     }
 
-    function resultToast(title, delta) {
+    function resultToast(title, delta, duration = 4200) {
       const deltaClass = String(delta).startsWith("-") ? "loss" : "money";
       els.toast.innerHTML = `<strong>${escapeHtml(title)}</strong><span class="result-delta ${deltaClass}">${escapeHtml(delta)}</span>`;
       els.toast.classList.add("show");
       clearTimeout(toast.timer);
-      toast.timer = setTimeout(() => els.toast.classList.remove("show"), 4200);
+      toast.timer = setTimeout(() => els.toast.classList.remove("show"), duration);
     }
 
     function firebaseConfigured() {
@@ -3593,6 +4245,9 @@
     els.pokerGuideDialog.addEventListener("click", (event) => {
       if (event.target === els.pokerGuideDialog) closePokerGuide();
     });
+    els.crapsGuideDialog?.addEventListener("click", (event) => {
+      if (event.target === els.crapsGuideDialog) els.crapsGuideDialog.close();
+    });
     els.luckyWheelDialog?.addEventListener("click", (event) => {
       if (event.target === els.luckyWheelDialog) els.luckyWheelDialog.close();
     });
@@ -3615,10 +4270,15 @@
       renderSlots();
     });
     $("slotBetAmount").addEventListener("input", renderSlots);
+    $("historyLimit")?.addEventListener("change", () => {
+      activityHistoryLimit = Number($("historyLimit").value || 10);
+      renderHistoryBoard();
+    });
     setInterval(() => {
       if (activeView === "dailies") renderDailyRewards();
     }, 30000);
     fillStaticSelects();
     render();
+    loadChangelog();
     initFirebase();
 
