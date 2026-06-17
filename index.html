@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Virtual Casino | Family Card RPG</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260616-7" />
+  <link rel="stylesheet" href="css/styles.css?v=20260616-8" />
 </head>
 <body class="auth-checking">
   <div id="appLoader" class="app-loader" role="status" aria-live="polite">
@@ -55,10 +55,11 @@
         <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online Sessions</span></button>
         <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank & Loans</span></button>
         <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Achievements</span></button>
+        <button class="nav-btn" data-view="dailies"><span>&#127919;</span><span>Dailies</span></button>
         <button class="nav-btn admin-link" data-view="admin"><span>&#9881;</span><span>Admin</span></button>
         <button class="nav-btn" data-view="history"><span>&#8635;</span><span>History</span></button>
-        <button class="nav-btn" data-view="export"><span>&#8682;</span><span>Export / Import</span></button>
         <button class="nav-btn" type="button" data-action="open-profile"><span>&#9881;</span><span>Profile</span></button>
+        <button class="nav-btn" data-view="changelog"><span>&#9997;</span><span>Changelog</span></button>
       </nav>
       <div class="luck-card"><p>Good luck, have fun, and may the best player win!</p></div>
     </aside>
@@ -191,6 +192,17 @@
           <p class="auth-message">Use this if an online room gets stuck open.</p>
           <button class="primary-btn danger-btn" style="width:100%;" type="button" data-action="clear-all-rooms">Delete All Open Rooms</button>
         </article>
+        <article class="panel panel-pad" style="margin-top:18px;">
+          <div class="section-title"><span>Export / Import</span></div>
+          <label for="saveText">Save Text</label>
+          <textarea id="saveText" style="width:100%;min-height:180px;border-radius:8px;background:rgba(255,255,255,0.06);color:var(--text);border:1px solid rgba(255,255,255,0.12);padding:12px;"></textarea>
+          <div class="action-grid">
+            <button class="primary-btn" type="button" data-action="export">Export Current Save</button>
+            <button class="ghost-btn" type="button" data-action="import">Import Save Text</button>
+            <button class="ghost-btn" type="button" data-action="seed-save">Load Attached Canada Save</button>
+            <button class="ghost-btn" type="button" data-action="reset">Reset Tracker</button>
+          </div>
+        </article>
       </section>
 
       <section id="sessionsView" class="view">
@@ -311,18 +323,6 @@
             </button>
           </div>
         </article>
-
-        <article id="dailyRewardsPanel" class="panel panel-pad" style="margin-top:18px;">
-          <div class="section-title"><span>&#9733; Daily Rewards</span></div>
-          <div id="dailyChallengeBoard" class="leaderboard-list"></div>
-          <div class="action-grid" style="margin-top:12px;">
-            <button class="primary-btn" type="button" data-action="claim-daily-challenge">Claim Daily $150</button>
-            <button class="ghost-btn" type="button" data-action="spin-lucky-wheel">Spin Lucky Wheel</button>
-            <button class="ghost-btn" type="button" data-action="scratch-daily-card">Scratch Daily Card</button>
-          </div>
-          <div id="dailyRewardHistory" class="history-list" style="margin-top:14px;"></div>
-        </article>
-
         <div id="slotsOnlineArea" class="online-area" hidden>
           <article class="panel panel-pad">
             <div class="section-title">
@@ -458,6 +458,7 @@
             </div>
             <div id="multiBlackjackStatus" class="blackjack-status">Start a shared round when players have joined.</div>
             <div class="action-grid">
+              <button class="primary-btn" type="button" data-action="multi-blackjack-ready">Ready</button>
               <button class="primary-btn" type="button" data-action="multi-blackjack-deal">Start Round</button>
               <button class="ghost-btn" type="button" data-action="multi-blackjack-hit">Hit</button>
               <button class="ghost-btn" type="button" data-action="multi-blackjack-stand">Stand</button>
@@ -502,14 +503,19 @@
             <div class="blackjack-table">
               <div class="hand-zone">
                 <div class="section-title"><span>Community Board</span><span class="sync-pill">Kickers enabled</span></div>
-                <div class="playing-card-row"><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span></div>
+                <div id="pokerCommunityBoard" class="playing-card-row"><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span></div>
               </div>
               <div class="hand-zone">
                 <div class="section-title"><span>Room Status</span><span class="sync-pill">Multiplayer only</span></div>
-                <div class="blackjack-status">Texas Hold'em room is open. Use this dedicated table while everyone joins; full betting and dealing comes next.</div>
+                <div id="pokerRoomStatus" class="blackjack-status">Texas Hold'em room is open. Use this dedicated table while everyone joins.</div>
+              </div>
+              <div class="hand-zone">
+                <div class="section-title"><span>Player Hands</span><span class="sync-pill">Host deals</span></div>
+                <div id="pokerPlayerHands" class="leaderboard-list"></div>
               </div>
             </div>
             <div class="action-grid">
+              <button class="primary-btn" type="button" data-action="poker-deal-hand">Deal Hold'em Hand</button>
               <button class="ghost-btn" type="button" data-action="leave-active-room">Leave Session</button>
               <button id="closePokerRoomBtn" class="primary-btn danger-btn" type="button" data-action="close-active-room">Close Room</button>
             </div>
@@ -563,6 +569,19 @@
         </article>
       </section>
 
+      <section id="dailiesView" class="view">
+        <article class="panel panel-pad">
+          <div class="section-title"><span>&#127919; Dailies</span></div>
+          <div id="dailyChallengeBoard" class="leaderboard-list"></div>
+          <div class="action-grid" style="margin-top:12px;">
+            <button id="claimDailyButton" class="primary-btn" type="button" data-action="claim-daily-challenge">Claim Daily $150</button>
+            <button class="ghost-btn" type="button" data-action="spin-lucky-wheel">Spin Lucky Wheel</button>
+            <button class="ghost-btn" type="button" data-action="scratch-daily-card">Scratch Daily Card</button>
+          </div>
+          <div id="dailyRewardHistory" class="history-list" style="margin-top:14px;" hidden></div>
+        </article>
+      </section>
+
       <section id="historyView" class="view">
         <article class="panel panel-pad">
           <div class="section-title"><span>Session History</span></div>
@@ -570,17 +589,28 @@
         </article>
       </section>
 
+      <section id="changelogView" class="view">
+        <article class="panel panel-pad">
+          <div class="section-title"><span>&#9997; Changelog</span></div>
+          <div class="leaderboard-list">
+            <div class="list-row"><span class="medal">13</span><div><strong>Current build</strong><div>Moved Dailies into their own tab, added animated Lucky Wheel, added Blackjack ready checks, stabilized poker rooms, and refreshed mobile navigation.</div></div></div>
+            <div class="list-row"><span class="medal">12</span><div><strong>55db307</strong><div>Added banking, daily casino rewards, more slot machines, and reward systems.</div></div></div>
+            <div class="list-row"><span class="medal">11</span><div><strong>2dd6027</strong><div>Hardened realtime online room syncing and room cleanup.</div></div></div>
+            <div class="list-row"><span class="medal">10</span><div><strong>ef5ad3c</strong><div>Added solo slots and natural Blackjack 3:2 payouts.</div></div></div>
+            <div class="list-row"><span class="medal">9</span><div><strong>074b414</strong><div>Made online rooms realtime synced.</div></div></div>
+            <div class="list-row"><span class="medal">8</span><div><strong>3b155f7</strong><div>Fixed multiplayer Blackjack room sync.</div></div></div>
+            <div class="list-row"><span class="medal">7</span><div><strong>617f4a1</strong><div>Fixed live asset caching and startup behavior.</div></div></div>
+            <div class="list-row"><span class="medal">6</span><div><strong>59cf767</strong><div>Built dedicated Blackjack online rooms.</div></div></div>
+            <div class="list-row"><span class="medal">5</span><div><strong>e741c21</strong><div>Fixed Blackjack dealer reveal timing.</div></div></div>
+            <div class="list-row"><span class="medal">4</span><div><strong>832051c</strong><div>Fixed room admin and settlement flows.</div></div></div>
+          </div>
+        </article>
+      </section>
+
       <section id="exportView" class="view">
         <article class="panel panel-pad">
-          <div class="section-title"><span>Export / Import</span></div>
-          <label for="saveText">Save Text</label>
-          <textarea id="saveText" style="width:100%;min-height:180px;border-radius:8px;background:rgba(255,255,255,0.06);color:var(--text);border:1px solid rgba(255,255,255,0.12);padding:12px;"></textarea>
-          <div class="action-grid">
-            <button class="primary-btn" type="button" data-action="export">Export Current Save</button>
-            <button class="ghost-btn" type="button" data-action="import">Import Save Text</button>
-            <button class="ghost-btn" type="button" data-action="seed-save">Load Attached Canada Save</button>
-            <button class="ghost-btn" type="button" data-action="reset">Reset Tracker</button>
-          </div>
+          <div class="section-title"><span>Admin Only</span></div>
+          <p class="auth-message">Export and import tools moved to Admin.</p>
         </article>
       </section>
     </main>
@@ -591,9 +621,9 @@
     <button class="nav-btn" data-view="players"><span>&#9818;</span><span>Players</span></button>
     <button class="nav-btn" data-view="sessions"><span>&#9824;</span><span>Local</span></button>
     <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online</span></button>
+    <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank</span></button>
     <button class="nav-btn admin-link" data-view="admin"><span>&#9881;</span><span>Admin</span></button>
-    <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Stars</span></button>
-    <button class="nav-btn" data-view="export"><span>&#8943;</span><span>More</span></button>
+    <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Achievements</span></button>
   </nav>
 
   <div id="toast" class="toast"></div>
@@ -609,10 +639,11 @@
       <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online Sessions</span></button>
       <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank & Loans</span></button>
       <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Achievements</span></button>
+      <button class="nav-btn" data-view="dailies"><span>&#127919;</span><span>Dailies</span></button>
       <button class="nav-btn admin-link" data-view="admin"><span>&#9881;</span><span>Admin</span></button>
       <button class="nav-btn" data-view="history"><span>&#8635;</span><span>History</span></button>
-      <button class="nav-btn" data-view="export"><span>&#8682;</span><span>Export / Import</span></button>
       <button class="nav-btn" type="button" data-action="open-profile"><span>&#9881;</span><span>Profile Settings</span></button>
+      <button class="nav-btn" data-view="changelog"><span>&#9997;</span><span>Changelog</span></button>
     </div>
   </div>
   <dialog id="linkProfileDialog" class="profile-dialog">
@@ -712,6 +743,24 @@
     </form>
   </dialog>
 
+  <dialog id="luckyWheelDialog" class="profile-dialog">
+    <form method="dialog" class="profile-card">
+      <div class="section-title">
+        <span>Lucky Wheel</span>
+        <button class="mini-btn" type="button" data-action="close-lucky-wheel">Close</button>
+      </div>
+      <div class="wheel-stage">
+        <div class="wheel-pointer"></div>
+        <div id="luckyWheel" class="lucky-wheel">
+          <span>$10</span><span>25 XP</span><span>$100</span><span>250 XP</span>
+          <span>$500</span><span>50 XP</span><span>$1000</span><span>JACKPOT</span>
+        </div>
+      </div>
+      <div id="wheelResult" class="blackjack-status">Spin once per day.</div>
+      <button id="wheelSpinButton" class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="confirm-lucky-wheel">Spin Wheel</button>
+    </form>
+  </dialog>
+
   <dialog id="blackjackModeDialog" class="profile-dialog">
     <form method="dialog" class="profile-card">
       <div class="section-title">
@@ -759,13 +808,6 @@
           <label for="pokerBigBlind">Big Blind</label>
           <input id="pokerBigBlind" type="number" inputmode="numeric" min="2" value="10" />
         </div>
-        <div>
-          <label for="pokerSeatRole">Your Seat</label>
-          <select id="pokerSeatRole">
-            <option value="player">Player</option>
-            <option value="dealer">Dealer / Host</option>
-          </select>
-        </div>
       </div>
       <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="create-poker-room">Create Room</button>
       <div id="pokerRoomMessage" class="auth-message"></div>
@@ -794,6 +836,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=20260616-7"></script>
+  <script type="module" src="js/app.js?v=20260616-8"></script>
 </body>
 </html>

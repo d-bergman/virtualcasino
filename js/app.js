@@ -99,6 +99,9 @@
       ["wealth-high-roller","High Roller","Reach $2,500 bankroll","Epic","Wealth","wealth"],
       ["wealth-tycoon","Tycoon","Reach $5,000 bankroll","Legendary","Wealth","wealth"],
       ["wealth-casino-king","Casino King","Reach $10,000 bankroll","Mythic","Wealth","wealth"],
+      ["bank-first-deposit","First Deposit","Deposit bankroll into the bank","Common","Banking","banking"],
+      ["bank-safe-stack","Safe Stack","Keep $10,000 in safe bank","Rare","Banking","banking"],
+      ["bankroll-transfer","Generous Banker","Transfer bankroll to another player","Common","Banking","banking"],
       ["debt-borrower","Borrower","Take first loan","Common","Debt","debt"],
       ["debt-deep","Deep in Debt","Owe $500+","Rare","Debt","debt"],
       ["debt-recovery","Financial Recovery","Pay off all debt","Rare","Debt","debt"],
@@ -112,6 +115,9 @@
       ["rivalry-marathon-night","Marathon Night","Play all three games in a single session","Epic","Family Rivalry","rivalry"],
       ["rivalry-house-favorite","House Favorite","Reach #1 in total XP","Rare","Family Rivalry","rivalry"],
       ["rivalry-legend","Legend of the Casino","Unlock 50 achievements","Mythic","Family Rivalry","rivalry"],
+      ["daily-first-clear","Daily Grinder","Complete a daily challenge","Common","Dailies","daily"],
+      ["daily-wheel-spin","Wheel Spinner","Spin the Lucky Wheel","Common","Dailies","daily"],
+      ["daily-scratch-card","Scratch Luck","Use the daily scratch-off","Common","Dailies","daily"],
       ["hidden-royal-road","The Royal Road","Get a Royal Flush","Mythic","Hidden","hidden",true],
       ["hidden-impossible-odds","Impossible Odds","Recover from zero chips and finish positive","Mythic","Hidden","hidden",true],
       ["hidden-phoenix","Phoenix","Bust, borrow money, and finish profitable","Mythic","Hidden","hidden",true],
@@ -152,6 +158,20 @@
         dealerFlipIndexes: [],
         handAnimateIndexes: {},
         message: "Start a shared round when players have joined."
+      };
+    }
+
+    function createEmptyPokerTable() {
+      return {
+        deck: [],
+        community: [],
+        hands: {},
+        phase: "waiting",
+        dealerButton: "",
+        pot: 0,
+        message: "Waiting for players to sit down.",
+        animateCommunityIndexes: [],
+        handAnimateIndexes: {}
       };
     }
 
@@ -213,6 +233,8 @@
     let activeOnlineGame = "";
     let activeRoomId = "";
     let lastClosedRoomId = "";
+    let roomNoticePrimed = false;
+    let seenOpenRoomIds = new Set();
     let linkPromptDismissed = sessionStorage.getItem("virtualCasinoLinkPromptDismissed") === "1";
     let relinkUnlocked = false;
     let pendingDeletePlayer = "";
@@ -267,9 +289,9 @@
       pokerRoomName: $("pokerRoomName"),
       pokerSmallBlind: $("pokerSmallBlind"),
       pokerBigBlind: $("pokerBigBlind"),
-      pokerSeatRole: $("pokerSeatRole"),
       pokerRoomMessage: $("pokerRoomMessage"),
       pokerGuideDialog: $("pokerGuideDialog"),
+      luckyWheelDialog: $("luckyWheelDialog"),
       linkProfileDialog: $("linkProfileDialog")
     };
 
@@ -303,7 +325,7 @@
           gamesPlayed: Number(player.gamesPlayed || 0)
         };
       });
-      data.version = 7;
+      data.version = 8;
       data.updatedAt = data.updatedAt || Date.now();
       data.pokerSessionActive = Boolean(data.pokerSessionActive);
       data.biggestPot = data.biggestPot || {player:"", value:0};
@@ -611,12 +633,29 @@
       const before = JSON.stringify(state.onlineRooms || {});
       const after = JSON.stringify(nextRooms);
       if (before === after) return false;
+      announceNewRooms(nextRooms);
       state.onlineRooms = nextRooms;
       localStorage.setItem(localKey, JSON.stringify(state));
       setSync("Room sync live", true);
       handleActiveRoomClosure();
       render();
       return true;
+    }
+
+    function announceNewRooms(nextRooms) {
+      const openRooms = Object.values(nextRooms || {}).filter((room) => room?.status === "open");
+      if (!roomNoticePrimed) {
+        seenOpenRoomIds = new Set(openRooms.map((room) => room.id));
+        roomNoticePrimed = true;
+        return;
+      }
+      openRooms.forEach((room) => {
+        if (seenOpenRoomIds.has(room.id)) return;
+        seenOpenRoomIds.add(room.id);
+        const gameName = room.game === "poker" ? "Texas Hold'em" : room.game === "blackjack" ? "Blackjack" : room.game || "Game";
+        toast(`${gameName} room opened: ${room.name}`);
+      });
+      Object.keys(nextRooms || {}).forEach((id) => seenOpenRoomIds.add(id));
     }
 
     function startRoomPoller() {
@@ -864,21 +903,39 @@
       if (!player) {
         $("dailyChallengeBoard").innerHTML = renderListRow("&#9733;", "Link profile for daily rewards", "Daily challenge, wheel, and scratch card unlock after linking.", "");
         $("dailyRewardHistory").innerHTML = "";
+        const claimButton = $("claimDailyButton");
+        if (claimButton) claimButton.disabled = true;
         return;
       }
       const record = dailyRecord(player.name);
       const wheelDone = state.daily.wheel[player.name] === todayKey();
       const scratchDone = state.daily.scratch[player.name] === todayKey();
       const complete = record.blackjackWins >= 5 && record.slotSpins >= 5 && record.xpEarned >= 200;
+      const reset = dailyResetText();
       $("dailyChallengeBoard").innerHTML = [
         renderListRow("&#9827;", "Win 5 Blackjack Hands", "Daily Challenge", `${Math.min(record.blackjackWins, 5)} / 5`),
         renderListRow("&#127922;", "Spin Slots 5 Times", "Daily Challenge", `${Math.min(record.slotSpins, 5)} / 5`),
         renderListRow("XP", "Earn 200 XP", "Daily Challenge", `${Math.min(record.xpEarned, 200)} / 200`),
         renderListRow("&#9819;", "Claim Reward", complete ? "Reward ready: $150 bankroll" : "Complete all tasks", record.claimed ? "Claimed" : complete ? "Ready" : "Locked"),
-        renderListRow("&#127919;", "Lucky Wheel", "Once per day", wheelDone ? "Used today" : "Ready"),
-        renderListRow("&#9635;", "Daily Scratch-Off", "Once per day", scratchDone ? "Used today" : "Ready")
+        renderListRow("&#127919;", "Lucky Wheel", "Once per day", wheelDone ? `Ready in ${reset.countdown} / ${reset.unlock}` : "Ready"),
+        renderListRow("&#9635;", "Daily Scratch-Off", "Once per day", scratchDone ? `Ready in ${reset.countdown} / ${reset.unlock}` : "Ready")
       ].join("");
-      $("dailyRewardHistory").innerHTML = (state.daily.wheelHistory || []).slice(0, 5).map((item, index) => renderListRow(index + 1, item, "", "")).join("");
+      const claimButton = $("claimDailyButton");
+      if (claimButton) claimButton.disabled = !complete || record.claimed;
+      $("dailyRewardHistory").innerHTML = "";
+    }
+
+    function dailyResetText() {
+      const now = new Date();
+      const reset = new Date(now);
+      reset.setHours(24, 0, 0, 0);
+      const ms = Math.max(0, reset - now);
+      const hours = Math.floor(ms / 3600000);
+      const minutes = Math.floor((ms % 3600000) / 60000);
+      return {
+        countdown: `${hours}h ${String(minutes).padStart(2, "0")}m`,
+        unlock: reset.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})
+      };
     }
 
     function renderActiveRoom() {
@@ -887,7 +944,7 @@
       const playersMarkup = Object.values(room.seats || {}).map((seat) => `
         <div class="room-player-card">
           <span class="medal ${medalClass("Spade")}">♠</span>
-          <div><strong>${escapeHtml(seat.name)}</strong><div>${escapeHtml(seat.playerName || "Unlinked")} - Player</div></div>
+          <div><strong>${escapeHtml(seat.name)}</strong><div>${escapeHtml(seat.playerName || "Unlinked")} - Player${room.game === "blackjack" ? ` / ${seat.ready ? `Ready ${money(seat.readyBet || 0)}` : "Not ready"}` : ""}</div></div>
         </div>`).join("") || `<div class="blackjack-status">No players seated.</div>`;
       const hostText = isRoomHost(room) ? "You are host" : "Host controlled";
       if (room.game === "blackjack") {
@@ -903,7 +960,31 @@
         $("pokerRoomPlayers").innerHTML = playersMarkup;
         $("pokerRoomRules").innerHTML = `<span>Small blind ${money(room.smallBlind || 0)}</span><span>Big blind ${money(room.bigBlind || 0)}</span><span>Kickers decide tied ranks</span>`;
         $("closePokerRoomBtn").hidden = !isRoomHost(room);
+        renderPokerRoomTable(room);
       }
+    }
+
+    function renderPokerRoomTable(room) {
+      const table = room.table && typeof room.table === "object" ? room.table : createEmptyPokerTable();
+      room.table = table;
+      const community = Array.isArray(table.community) ? table.community : [];
+      $("pokerCommunityBoard").innerHTML = community.length
+        ? community.map((card, index) => renderPlayingCard(card, false, table.animateCommunityIndexes?.includes(index), false, Math.max(0, table.animateCommunityIndexes?.indexOf(index) || 0) * 800)).join("")
+        : `<span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span>`;
+      $("pokerRoomStatus").textContent = table.message || "Texas Hold'em room is open.";
+      $("pokerPlayerHands").innerHTML = Object.entries(room.seats || {}).map(([key, seat]) => {
+        const hand = table.hands?.[key] || [];
+        const indexes = table.handAnimateIndexes?.[key] || [];
+        const cards = hand.length
+          ? hand.map((card, index) => renderPlayingCard(card, false, indexes.includes(index), false, Math.max(0, indexes.indexOf(index)) * 800)).join("")
+          : `<span class="sync-pill">Waiting for deal</span>`;
+        return `<div class="list-row">
+          <span class="medal ${medalClass(seat.playerName || seat.name)}">${playerSymbol(seat.playerName || seat.name)}</span>
+          <div><strong>${escapeHtml(seat.name)}</strong><div class="playing-card-row compact">${cards}</div><div style="color:var(--muted);font-size:.82rem;">${escapeHtml(seat.playerName || "Unlinked")} - ${key === room.hostKey ? "Host" : "Player"}</div></div>
+        </div>`;
+      }).join("") || `<div class="blackjack-status">No players seated.</div>`;
+      const canDeal = isRoomHost(room) && Object.keys(room.seats || {}).length >= 2;
+      document.querySelectorAll('[data-action="poker-deal-hand"]').forEach((button) => button.disabled = !canDeal);
     }
 
     function renderBlackjackRoomTable(room) {
@@ -959,7 +1040,10 @@
       const activeHand = isActive ? activeMultiSeatHand(table.hands?.[currentKey]) : null;
       const canSplit = Boolean(activeHand && activeHand.cards.length === 2 && activeHand.cards[0]?.rank === activeHand.cards[1]?.rank && Number(table.hands?.[currentKey]?.splits || 0) < 3 && multiSeatHands(table.hands?.[currentKey]).length < 4);
       const canDouble = Boolean(activeHand && activeHand.cards.length === 2);
-      const canStart = isRoomHost(room) && !["player", "dealer"].includes(table.phase) && Object.keys(seats).length > 0;
+      const readyEntries = Object.values(seats).filter((seat) => seat.ready && Number(seat.readyBet || 0) > 0);
+      const canReady = !["player", "dealer"].includes(table.phase) && Boolean(seats[currentKey]);
+      const canStart = isRoomHost(room) && !["player", "dealer"].includes(table.phase) && Object.keys(seats).length > 0 && readyEntries.length === Object.keys(seats).length;
+      document.querySelectorAll('[data-action="multi-blackjack-ready"]').forEach((button) => button.disabled = !canReady);
       document.querySelectorAll('[data-action="multi-blackjack-deal"]').forEach((button) => button.disabled = !canStart);
       document.querySelectorAll('[data-action="multi-blackjack-hit"]').forEach((button) => button.disabled = !isActive);
       document.querySelectorAll('[data-action="multi-blackjack-stand"]').forEach((button) => button.disabled = !isActive);
@@ -1193,8 +1277,9 @@
 
     function renderSlots() {
       const player = currentPlayer();
-      const lineBet = selectedSlotLineBet();
       const machine = currentSlotMachine();
+      syncSlotBetPresets(machine);
+      const lineBet = selectedSlotLineBet();
       const totalWager = lineBet * machine.lines.length;
       $("slotsTitle").innerHTML = `&#127922; ${escapeHtml(machine.name)}`;
       $("slotLineText").textContent = `${machine.lines.length} payline${machine.lines.length === 1 ? "" : "s"}`;
@@ -1209,6 +1294,27 @@
       $("slotStatus").innerHTML = `${escapeHtml(slotMachine.message)}${slotMachine.lastWin ? ` <strong class="${slotMachine.lastWin >= slotMachine.lastWager ? "money" : "loss"}">Paid ${money(slotMachine.lastWin)}</strong>` : ""}`;
       document.querySelectorAll('[data-action="slots-spin"]').forEach((button) => button.disabled = slotMachine.spinning);
       document.querySelectorAll('[data-action="slots-reset"]').forEach((button) => button.disabled = slotMachine.spinning);
+    }
+
+    function slotBetPresets(machine = currentSlotMachine()) {
+      const presets = {
+        crownLine: [1, 2, 5, 10, 25],
+        lucky7s: [5, 10, 25, 50, 100],
+        treasureVault: [10, 25, 50, 100, 250],
+        familyFortune: [1, 5, 10, 20, 50]
+      };
+      return presets[slotMachine.machine] || presets.crownLine;
+    }
+
+    function syncSlotBetPresets(machine = currentSlotMachine()) {
+      const select = $("slotBetPreset");
+      if (!select) return;
+      const current = select.value;
+      const options = slotBetPresets(machine);
+      const label = machine.lines.length === 1 ? "1 line" : `${machine.lines.length} lines`;
+      const nextHtml = [`<option value="">Select preset</option>`, ...options.map((amount) => `<option value="${amount}">${money(amount)} x ${label}</option>`)].join("");
+      if (select.innerHTML !== nextHtml) select.innerHTML = nextHtml;
+      select.value = options.includes(Number(current)) ? current : "";
     }
 
     function renderSlotSymbol(symbolId) {
@@ -1670,6 +1776,8 @@
         name: profile.displayName || player?.name || "Player",
         playerName: player?.name || profile.playerName || "",
         role,
+        ready: false,
+        readyBet: 0,
         joinedAt: Date.now()
       };
     }
@@ -1733,7 +1841,6 @@
       els.pokerRoomName.value = `${currentProfile().displayName || currentPlayer()?.name || "Family"} Hold'em`;
       els.pokerSmallBlind.value = "5";
       els.pokerBigBlind.value = "10";
-      els.pokerSeatRole.value = "player";
       els.pokerRoomMessage.textContent = "Create a Texas Hold'em multiplayer room.";
       els.pokerRoomDialog.showModal();
     }
@@ -1742,13 +1849,13 @@
       els.pokerRoomDialog.close();
     }
 
-    function createPokerRoom() {
+    async function createPokerRoom() {
       if (!currentPlayer()) return toast("Link your profile to a player before creating a room.");
       const name = els.pokerRoomName.value.trim() || "Family Hold'em";
       const smallBlind = Math.max(1, Number(els.pokerSmallBlind.value || 0));
       const bigBlind = Math.max(smallBlind * 2, Number(els.pokerBigBlind.value || 0));
       const id = `poker-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      state.onlineRooms[id] = {
+      const room = {
         id,
         game: "poker",
         variant: "texas-holdem",
@@ -1761,49 +1868,103 @@
         kickerRules: true,
         xpAuto: true,
         createdAt: Date.now(),
+        table: createEmptyPokerTable(),
         seats: {
-          [currentProfileKey()]: currentSeat(els.pokerSeatRole.value)
+          [currentProfileKey()]: currentSeat("player")
         }
       };
+      state.onlineRooms[id] = room;
       log(`${currentSeat().name} opened Hold'em room ${name} with ${money(smallBlind)} / ${money(bigBlind)} blinds.`);
       closePokerRoomDialog();
       activeOnlineGame = "poker";
       activeRoomId = id;
       activeView = "online";
-      save();
+      await saveRoom(room);
       toast(`Poker room created: ${name}`);
     }
 
-    function joinPokerRoom(roomId) {
+    async function joinPokerRoom(roomId) {
       if (!currentPlayer()) return toast("Link your profile to a player before joining a room.");
-      const room = state.onlineRooms[roomId];
+      const room = await refreshRoomFromCloud(roomId);
       if (!room || room.status !== "open") return toast("That poker room is no longer open.");
       room.seats = room.seats || {};
       room.seats[currentProfileKey()] = currentSeat("player");
+      room.table = room.table || createEmptyPokerTable();
       log(`${currentSeat().name} joined Hold'em room ${room.name}.`);
       activeRoomId = roomId;
       activeOnlineGame = "poker";
       activeView = "online";
-      save();
+      await saveRoom(room);
       toast(`Joined ${room.name}.`);
+    }
+
+    async function dealPokerHand() {
+      const room = await refreshRoomFromCloud(activeRoomId);
+      if (!room || room.game !== "poker") return toast("Open a poker room first.");
+      if (!isRoomHost(room)) return toast("Only the host can deal Hold'em.");
+      const entries = Object.entries(room.seats || {});
+      if (entries.length < 2) return toast("Hold'em needs at least 2 players.");
+      const table = createEmptyPokerTable();
+      table.deck = createDeck();
+      table.phase = "showdown";
+      table.pot = Number(room.smallBlind || 0) + Number(room.bigBlind || 0);
+      table.dealerButton = entries[0][0];
+      table.hands = {};
+      table.handAnimateIndexes = {};
+      entries.forEach(([key]) => {
+        table.hands[key] = [drawCard(table), drawCard(table)];
+        table.handAnimateIndexes[key] = [0, 1];
+      });
+      table.community = [drawCard(table), drawCard(table), drawCard(table), drawCard(table), drawCard(table)];
+      table.animateCommunityIndexes = [0, 1, 2, 3, 4];
+      table.message = `Hand dealt. Pot starts at ${money(table.pot)} from blinds. Use kickers to settle ties.`;
+      room.table = table;
+      await saveRoom(room);
+      setTimeout(() => {
+        const latest = state.onlineRooms[room.id];
+        if (!latest?.table) return;
+        latest.table.animateCommunityIndexes = [];
+        latest.table.handAnimateIndexes = {};
+        saveRoom(latest);
+      }, 4200);
+    }
+
+    async function setMultiplayerBlackjackReady() {
+      const room = await refreshRoomFromCloud(activeRoomId);
+      if (!room || room.game !== "blackjack") return toast("Join a blackjack room first.");
+      const key = currentProfileKey();
+      const seat = room.seats?.[key];
+      if (!seat) return toast("You are not seated in this room.");
+      const table = normalizeBlackjackRoomTable(room.table);
+      if (["player", "dealer"].includes(table.phase)) return toast("Finish the current round first.");
+      const bet = Math.max(1, Math.round(Number($("multiBjBetAmount").value || 0)));
+      const player = seat.playerName ? playerByName(seat.playerName) : null;
+      if (!player || stackValue(player.chips) < bet) return toast(`You need ${money(bet)} bankroll to ready up.`);
+      seat.ready = true;
+      seat.readyBet = bet;
+      room.table = table;
+      table.message = `${seat.name} is ready for ${money(bet)}.`;
+      await saveRoom(room);
+      toast(`Ready for ${money(bet)}.`);
     }
 
     async function startMultiplayerBlackjackRound() {
       const room = await refreshRoomFromCloud(activeRoomId);
       if (!room || room.game !== "blackjack") return;
       if (!isRoomHost(room)) return toast("Only the host can start the shared round.");
-      const bet = Math.max(1, Number($("multiBjBetAmount").value || 0));
       const seats = room.seats || {};
       const entries = Object.entries(seats);
       if (!entries.length) return toast("No players are seated.");
+      const notReady = entries.find(([, seat]) => !seat.ready || Number(seat.readyBet || 0) <= 0);
+      if (notReady) return toast(`${notReady[1].name} needs to ready up first.`);
       const brokeSeat = entries.find(([, seat]) => {
         const player = playerByName(seat.playerName);
-        return !player || stackValue(player.chips) < bet;
+        return !player || stackValue(player.chips) < Number(seat.readyBet || 0);
       });
-      if (brokeSeat) return toast(`${brokeSeat[1].name} needs enough linked bankroll for ${money(bet)}.`);
+      if (brokeSeat) return toast(`${brokeSeat[1].name} needs enough linked bankroll for ${money(brokeSeat[1].readyBet || 0)}.`);
       const table = createEmptyMultiplayerBlackjackTable();
       table.deck = createDeck();
-      table.bet = bet;
+      table.bet = Math.max(...entries.map(([, seat]) => Number(seat.readyBet || 0)));
       table.roundId = Date.now();
       table.phase = "player";
       table.activeSeatKey = entries[0][0];
@@ -1811,14 +1972,16 @@
       table.dealerAnimateIndexes = [0, 1];
       table.hands = {};
       table.handAnimateIndexes = {};
-      entries.forEach(([key]) => {
+      entries.forEach(([key, seat]) => {
+        const seatBet = Number(seat.readyBet || table.bet);
         table.hands[key] = {
-          playerHands: [{cards: [drawCard(table), drawCard(table)], bet, stood: false, result: "", delta: 0, doubled: false, fromSplit: false}],
+          playerHands: [{cards: [drawCard(table), drawCard(table)], bet: seatBet, stood: false, result: "", delta: 0, doubled: false, fromSplit: false}],
           activeHand: 0,
           splits: 0,
           delta: 0
         };
         table.handAnimateIndexes[key] = {"0": [0, 1]};
+        seat.ready = false;
       });
       table.message = `Round started. ${seats[table.activeSeatKey].name} acts first.`;
       room.table = table;
@@ -2059,7 +2222,7 @@
       toast("Room closed. Players were disconnected.");
     }
 
-    function leaveActiveRoom() {
+    async function leaveActiveRoom() {
       const room = activeRoom();
       if (!room) return;
       const key = currentProfileKey();
@@ -2071,7 +2234,7 @@
       log(`${currentSeat().name} left ${room.name}.`);
       activeRoomId = "";
       activeOnlineGame = room.game;
-      save();
+      await saveRoom(room);
       toast("You left the session.");
     }
 
@@ -2126,6 +2289,8 @@
       if (stackValue(player.chips) < amount) return toast("Not enough on-hand bankroll to deposit.");
       adjustPlayerBankroll(player, -amount);
       player.bankBalance = Number(player.bankBalance || 0) + amount;
+      unlockAchievement("bank-first-deposit", player.name);
+      if (player.bankBalance >= 10000) unlockAchievement("bank-safe-stack", player.name);
       $("bankingAmount").value = "";
       log(`${player.name} deposited ${money(amount)} into the bank.`);
       save();
@@ -2155,11 +2320,17 @@
       if (amount <= 0) return toast("Enter a transfer amount.");
       if (stackValue(from.chips) < amount) return toast("Not enough on-hand bankroll. Withdraw from bank first if needed.");
       adjustPlayerBankroll(from, -amount);
-      adjustPlayerBankroll(to, amount);
+      const debtPay = Math.min(Number(to.bankDebt || 0), amount);
+      to.bankDebt -= debtPay;
+      state.counters.debtRepaid += debtPay;
+      const remainder = amount - debtPay;
+      if (remainder > 0) adjustPlayerBankroll(to, remainder);
       $("transferAmount").value = "";
-      log(`${from.name} transferred ${money(amount)} bankroll to ${to.name}.`);
+      unlockAchievement("bankroll-transfer", from.name);
+      if (debtPay > 0) unlockAchievement("debt-recovery", to.name);
+      log(`${from.name} transferred ${money(amount)} to ${to.name}. Paid debt ${money(debtPay)}, bankroll added ${money(remainder)}.`);
       save();
-      toast(`Transferred ${money(amount)} to ${displayNameForPlayer(to.name)}.`);
+      toast(`Transferred ${money(amount)}. Debt paid ${money(debtPay)}, bankroll added ${money(remainder)}.`);
     }
 
     function settleLocalBlackjack() {
@@ -2413,6 +2584,7 @@
       if (record.claimed) return toast("Daily challenge already claimed.");
       if (record.blackjackWins < 5 || record.slotSpins < 5 || record.xpEarned < 200) return toast("Finish all daily challenge tasks first.");
       record.claimed = true;
+      unlockAchievement("daily-first-clear", player.name);
       grantDailyMoney(player, 150, "daily challenge reward");
       log(`${player.name} claimed the daily challenge for $150.`);
       save();
@@ -2423,6 +2595,18 @@
       const player = currentPlayer();
       if (!player) return toast("Link your profile to spin the wheel.");
       if (state.daily.wheel[player.name] === todayKey()) return toast("Lucky Wheel already used today.");
+      $("wheelResult").textContent = "Spin once per day.";
+      $("wheelSpinButton").disabled = false;
+      $("luckyWheel").classList.remove("spinning");
+      $("luckyWheel").style.setProperty("--wheel-rotation", "0deg");
+      els.luckyWheelDialog.showModal();
+    }
+
+    function awardLuckyWheel() {
+      const player = currentPlayer();
+      if (!player) return toast("Link your profile to spin the wheel.");
+      if (state.daily.wheel[player.name] === todayKey()) return toast("Lucky Wheel already used today.");
+      $("wheelSpinButton").disabled = true;
       const rewards = [
         {type:"money", value:10, weight:22}, {type:"money", value:25, weight:20}, {type:"money", value:50, weight:17},
         {type:"money", value:100, weight:12}, {type:"money", value:250, weight:7}, {type:"money", value:500, weight:3},
@@ -2431,19 +2615,45 @@
         {type:"xp", value:1000, weight:1}, {type:"money", value:5000, weight:0.2, golden:true}
       ];
       const reward = weightedReward(rewards);
+      const segment = wheelSegmentForReward(reward);
+      const segmentCenter = segment * 45 + 22.5;
+      const rotation = 1800 + (360 - segmentCenter) + Math.floor(Math.random() * 18) - 9;
+      $("luckyWheel").style.setProperty("--wheel-rotation", `${rotation}deg`);
+      $("luckyWheel").classList.add("spinning");
+      $("wheelResult").textContent = "Wheel spinning...";
+      setTimeout(() => {
       state.daily.wheel[player.name] = todayKey();
+      unlockAchievement("daily-wheel-spin", player.name);
       if (reward.type === "money") {
         grantDailyMoney(player, reward.value, "lucky wheel reward");
       } else {
         addXP(player.name, reward.value, "Lucky Wheel", {persist:false, toast:false});
-        trackDailyProgress(player.name, "xpEarned", reward.value);
       }
       const text = `${player.name} spun Lucky Wheel: ${reward.type === "money" ? money(reward.value) : `${reward.value} XP`}${reward.golden ? " GOLDEN JACKPOT" : ""}`;
       state.daily.wheelHistory.unshift(text);
       state.daily.wheelHistory = state.daily.wheelHistory.slice(0, 12);
       log(text);
       save();
+      $("wheelResult").textContent = `${reward.golden ? "Golden Jackpot" : "Reward"}: ${reward.type === "money" ? money(reward.value) : `${reward.value} XP`}`;
       resultToast(reward.golden ? "Golden Wheel Jackpot!" : "Lucky Wheel Reward", reward.type === "money" ? `+$${reward.value}` : `+${reward.value} XP`);
+      setTimeout(() => {
+        if (els.luckyWheelDialog.open) els.luckyWheelDialog.close();
+      }, 2000);
+      }, 3400);
+    }
+
+    function wheelSegmentForReward(reward) {
+      if (reward.golden) return 7;
+      if (reward.type === "xp") {
+        if (reward.value >= 500) return 7;
+        if (reward.value >= 250) return 3;
+        if (reward.value >= 50) return 5;
+        return 1;
+      }
+      if (reward.value >= 1000) return 6;
+      if (reward.value >= 500) return 4;
+      if (reward.value >= 100) return 2;
+      return 0;
     }
 
     function scratchDailyCard() {
@@ -2454,6 +2664,7 @@
         {value:0, weight:45}, {value:25, weight:25}, {value:50, weight:16}, {value:100, weight:10}, {value:250, weight:4}
       ]);
       state.daily.scratch[player.name] = todayKey();
+      unlockAchievement("daily-scratch-card", player.name);
       if (reward.value > 0) grantDailyMoney(player, reward.value, "daily scratch reward");
       const text = `${player.name} scratched daily card: ${reward.value > 0 ? money(reward.value) : "Nothing"}.`;
       state.daily.wheelHistory.unshift(text);
@@ -2609,6 +2820,14 @@
         spinLuckyWheel();
         return;
       }
+      if (action === "confirm-lucky-wheel") {
+        awardLuckyWheel();
+        return;
+      }
+      if (action === "close-lucky-wheel") {
+        if (els.luckyWheelDialog.open) els.luckyWheelDialog.close();
+        return;
+      }
       if (action === "scratch-daily-card") {
         scratchDailyCard();
         return;
@@ -2646,6 +2865,10 @@
         startMultiplayerBlackjackRound();
         return;
       }
+      if (action === "multi-blackjack-ready") {
+        setMultiplayerBlackjackReady();
+        return;
+      }
       if (action === "multi-blackjack-hit") {
         hitMultiplayerBlackjack();
         return;
@@ -2681,6 +2904,10 @@
       }
       if (action === "join-poker-room") {
         joinPokerRoom(target?.dataset.roomId || "");
+        return;
+      }
+      if (action === "poker-deal-hand") {
+        dealPokerHand();
         return;
       }
       if (action === "close-active-room") {
@@ -3366,6 +3593,9 @@
     els.pokerGuideDialog.addEventListener("click", (event) => {
       if (event.target === els.pokerGuideDialog) closePokerGuide();
     });
+    els.luckyWheelDialog?.addEventListener("click", (event) => {
+      if (event.target === els.luckyWheelDialog) els.luckyWheelDialog.close();
+    });
     els.profilePlayerName.addEventListener("change", () => {
       if (els.profilePlayerName.value) els.profileDisplayName.value = els.profilePlayerName.value;
     });
@@ -3385,6 +3615,9 @@
       renderSlots();
     });
     $("slotBetAmount").addEventListener("input", renderSlots);
+    setInterval(() => {
+      if (activeView === "dailies") renderDailyRewards();
+    }, 30000);
     fillStaticSelects();
     render();
     initFirebase();
