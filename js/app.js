@@ -12,6 +12,7 @@
     const firebaseDisabled = new URLSearchParams(window.location.search).has("nofirebase");
     const databasePath = "virtualCasino/familyCardRpg";
     const localKey = "virtualCasinoFamilyCardRpgV1";
+    const activeRoomStorageKey = "virtualCasinoActiveRoomV1";
     const attachedSaveText = "eyJwbGF5ZXJzIjpbeyJuYW1lIjoiRGFycmVuIiwieHAiOjM0MCwic3RhcnMiOjAsImNoaXBzIjp7IndoaXRlIjoyMywicmVkIjozMSwiYmx1ZSI6MjcsImdyZWVuIjoxOCwiYmxhY2siOjEwfSwibGlmZXRpbWUiOjc3MCwic2Vzc2lvblN0YXJ0IjoxODk4LCJiYW5rcm9sbCI6NzcwLCJzZXNzaW9uQnV5SW4iOjE4OTh9LHsibmFtZSI6IkJodW1pa2EiLCJ4cCI6MCwic3RhcnMiOjAsImNoaXBzIjp7IndoaXRlIjowLCJyZWQiOjAsImJsdWUiOjAsImdyZWVuIjowLCJibGFjayI6MH0sImxpZmV0aW1lIjotMzgwLCJzZXNzaW9uU3RhcnQiOjAsImJhbmtyb2xsIjotMzgwLCJzZXNzaW9uQnV5SW4iOjB9LHsibmFtZSI6Ik1haXRyaSIsInhwIjozMDUsInN0YXJzIjowLCJjaGlwcyI6eyJ3aGl0ZSI6MjIsInJlZCI6MTksImJsdWUiOjMsImdyZWVuIjo2LCJibGFjayI6MH0sImxpZmV0aW1lIjotMzkwLCJzZXNzaW9uU3RhcnQiOjI5NywiYmFua3JvbGwiOi0zOTAsInNlc3Npb25CdXlJbiI6Mjk3fV0sImJpZ2dlc3RQb3QiOnsicGxheWVyIjoiIiwidmFsdWUiOjB9LCJsb2ciOlsiUG9rZXIgc2Vzc2lvbiBlbmRlZC4gU2Vzc2lvbiByZXN1bHRzIGFkZGVkIHRvIGxpZmV0aW1lLiIsIkJodW1pa2EgY2hpcCBjb3VudCBzYXZlZDogJDAiLCJEYXJyZW4gY2hpcCBjb3VudCBzYXZlZDogJDE4OTgiLCJNYWl0cmkgY2hpcCBjb3VudCBzYXZlZDogJDI5NyIsIk1haXRyaSArMjAgWFAg4oCUIFBva2VyOiBUd28gUGFpciIsIkRhcnJlbiArMTAgWFAg4oCUIFBva2VyOiBPbmUgUGFpciIsIk1haXRyaSArNTAgWFAg4oCUIFBva2VyOiBTdHJhaWdodCIsIk1haXRyaSArMTAwIFhQIOKAlCBQb2tlcjogRnVsbCBIb3VzZSIsIkRhcnJlbiArMzUgWFAg4oCUIFBva2VyOiBUaHJlZSBvZiBhIEtpbmQiLCJNYWl0cmkgKzUwIFhQIOKAlCBQb2tlcjogU3RyYWlnaHQiXSwicG9rZXJTZXNzaW9uQWN0aXZlIjpmYWxzZSwidmVyc2lvbiI6NH0=";
 
     const pokerHandXP = {"High Card":5,"One Pair":10,"Two Pair":20,"Three of a Kind":35,"Straight":50,"Flush":75,"Full House":100,"Four of a Kind":200,"Straight Flush":500,"Royal Flush":1000};
@@ -193,6 +194,7 @@
         deck: [],
         community: [],
         hands: {},
+        stacks: {},
         folded: {},
         bets: {},
         committed: {},
@@ -209,6 +211,8 @@
         winnerKey: "",
         winningHand: "",
         handNumber: 0,
+        lastAggressorKey: "",
+        actionLog: [],
         message: "Waiting for players to sit down.",
         animateCommunityIndexes: [],
         handAnimateIndexes: {}
@@ -281,10 +285,13 @@
     let cloudWriteTimer = null;
     let localTestSignedIn = false;
     let activeAchievementTab = "unlocked";
+    let achievementCategory = "all";
+    let achievementSearch = "";
+    let achievementSort = "unlocked";
     let achievementCheckTimer = null;
     let roomPollTimer = null;
     let activeOnlineGame = "";
-    let activeRoomId = "";
+    let activeRoomId = localStorage.getItem(activeRoomStorageKey) || "";
     let lastClosedRoomId = "";
     let roomNoticePrimed = false;
     let seenOpenRoomIds = new Set();
@@ -294,6 +301,8 @@
     let blackjackMode = "solo";
     let lastRoomResultToastKey = "";
     let activityHistoryLimit = 10;
+    let historyFilter = "all";
+    let historySearch = "";
     let changelogEntries = [];
     let changelogPage = 1;
     const changelogRowsPerPage = 5;
@@ -347,6 +356,9 @@
       pokerRoomName: $("pokerRoomName"),
       pokerSmallBlind: $("pokerSmallBlind"),
       pokerBigBlind: $("pokerBigBlind"),
+      pokerBuyIn: $("pokerBuyIn"),
+      pokerMaxPlayers: $("pokerMaxPlayers"),
+      pokerBuyInPreview: $("pokerBuyInPreview"),
       pokerRoomMessage: $("pokerRoomMessage"),
       pokerGuideDialog: $("pokerGuideDialog"),
       luckyWheelDialog: $("luckyWheelDialog"),
@@ -372,23 +384,28 @@
       data.players = data.players.map((player) => {
         const chips = {...blank, ...(player.chips || {})};
         const lifetime = Number.isFinite(Number(player.lifetime)) ? Number(player.lifetime) : Number(player.bankroll || 0);
+        const name = String(player.name || "Player").trim();
         return {
-          name: String(player.name || "Player").trim(),
+          id: player.id || `player-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || Math.random().toString(36).slice(2, 9)}`,
+          name,
           xp: Number(player.xp || 0),
           stars: Number(player.stars || 0),
           chips,
+          bankroll: Number.isFinite(Number(player.bankroll)) ? Number(player.bankroll) : stackValue(chips),
           lifetime,
           bankBalance: Number(player.bankBalance || 0),
           bankDebt: Number(player.bankDebt || 0),
           sessionBuyIn: Number(player.sessionBuyIn || player.sessionStart || 0),
-          gamesPlayed: Number(player.gamesPlayed || 0)
+          gamesPlayed: Number(player.gamesPlayed || 0),
+          favoriteAchievements: Array.isArray(player.favoriteAchievements) ? player.favoriteAchievements.slice(0, 3) : []
         };
       });
-      data.version = 9;
+      data.version = 10;
       data.updatedAt = data.updatedAt || Date.now();
       data.pokerSessionActive = Boolean(data.pokerSessionActive);
       data.biggestPot = data.biggestPot || {player:"", value:0};
       data.log = Array.isArray(data.log) ? data.log.slice(0, 30) : [];
+      data.history = Array.isArray(data.history) ? data.history.map(normalizeHistoryItem).slice(0, 250) : data.log.map((item, index) => normalizeHistoryItem(item, index));
       data.unlockedAchievements = data.unlockedAchievements && !Array.isArray(data.unlockedAchievements) ? data.unlockedAchievements : {};
       if (Array.isArray(data.achievements)) {
         data.achievements.forEach((item) => {
@@ -408,6 +425,24 @@
       data.counters.unoWins = Number(data.counters.unoWins || 0);
       data.counters.gamesWithXpToday = data.counters.gamesWithXpToday || {};
       data.onlineRooms = data.onlineRooms && typeof data.onlineRooms === "object" && !Array.isArray(data.onlineRooms) ? data.onlineRooms : {};
+      Object.values(data.onlineRooms).forEach((room) => {
+        if (!room || typeof room !== "object") return;
+        room.seats = room.seats && typeof room.seats === "object" ? room.seats : {};
+        Object.values(room.seats).forEach((seat, index) => {
+          const linked = playerByNameFromList(data.players, seat.playerName);
+          seat.playerId = seat.playerId || linked?.id || "";
+          seat.seatNumber = Number(seat.seatNumber || index + 1);
+          if (room.game === "poker") {
+            seat.buyIn = Number(seat.buyIn || room.buyIn || 465);
+            seat.stack = Number(seat.stack ?? seat.buyIn);
+          }
+        });
+        if (room.game === "poker") {
+          room.maxPlayers = Math.min(8, Math.max(2, Number(room.maxPlayers || 8)));
+          room.buyIn = Math.max(465, Number(room.buyIn || 465));
+          room.handHistory = Array.isArray(room.handHistory) ? room.handHistory.slice(0, 50) : [];
+        }
+      });
       data.linkages = data.linkages && typeof data.linkages === "object" && !Array.isArray(data.linkages) ? data.linkages : {};
       data.gameStats = data.gameStats || {
         poker: {played: 42, wins: 0, profit: 235, biggest: 1250},
@@ -433,8 +468,24 @@
       return data;
     }
 
+    function playerByNameFromList(players, name) {
+      return players.find((player) => player.name === name);
+    }
+
     function stackValue(chips) {
       return Number(chips.white || 0) + Number(chips.red || 0) * 5 + Number(chips.blue || 0) * 10 + Number(chips.green || 0) * 25 + Number(chips.black || 0) * 100;
+    }
+
+    function bankrollValue(player) {
+      if (!player) return 0;
+      return Number.isFinite(Number(player.bankroll)) ? Number(player.bankroll) : stackValue(player.chips || blank);
+    }
+
+    function setPlayerBankroll(player, amount) {
+      const value = Math.max(0, Math.round(Number(amount || 0)));
+      player.bankroll = value;
+      player.chips = chipSetup(value);
+      return value;
     }
 
     function money(value) {
@@ -502,11 +553,15 @@
     }
 
     function netBankroll(player) {
-      return stackValue(player.chips) - Number(player.bankDebt || 0);
+      return bankrollValue(player) + Number(player.bankBalance || 0) - Number(player.bankDebt || 0);
     }
 
     function playerByName(name) {
       return state.players.find((player) => player.name === name);
+    }
+
+    function playerById(id) {
+      return state.players.find((player) => player.id === id);
     }
 
     function currentProfile() {
@@ -560,6 +615,54 @@
       state.log = state.log.slice(0, 30);
     }
 
+    function normalizeHistoryItem(item, index = 0) {
+      if (item && typeof item === "object" && !Array.isArray(item)) {
+        return {
+          id: item.id || `event-${item.createdAt || Date.now()}-${index}`,
+          type: item.type || "system",
+          category: item.category || "System",
+          player: item.player || "",
+          title: item.title || "Activity",
+          description: item.description || "",
+          amount: item.amount ?? null,
+          amountKind: item.amountKind || "",
+          details: item.details && typeof item.details === "object" ? item.details : {},
+          createdAt: Number(item.createdAt || Date.now())
+        };
+      }
+      const description = String(item || "Activity");
+      const lower = description.toLowerCase();
+      const category = lower.includes("slot") ? "Slots"
+        : lower.includes("poker") || lower.includes("hold'em") ? "Poker"
+        : lower.includes("blackjack") ? "Blackjack"
+        : lower.includes("bank") || lower.includes("loan") || lower.includes("debt") ? "Bank"
+        : lower.includes("achievement") ? "Achievements"
+        : lower.includes("wheel") || lower.includes("scratch") || lower.includes("daily") ? "Dailies"
+        : lower.includes("craps") ? "Craps"
+        : "System";
+      return {
+        id:`legacy-${Date.now()}-${index}`,
+        type:"legacy",
+        category,
+        player:"",
+        title:category === "System" ? "Activity" : `${category} Activity`,
+        description,
+        amount:null,
+        amountKind:"",
+        details:{},
+        createdAt:Date.now() - index
+      };
+    }
+
+    function addHistoryEvent(event, {legacyLog = false} = {}) {
+      const normalized = normalizeHistoryItem({...event, id:event.id || `event-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, createdAt:event.createdAt || Date.now()});
+      state.history = Array.isArray(state.history) ? state.history : [];
+      state.history.unshift(normalized);
+      state.history = state.history.slice(0, 250);
+      if (legacyLog) log(normalized.description);
+      return normalized;
+    }
+
     function unlockAchievement(id, player = "", source = "tracker") {
       const linkedPlayer = currentPlayer();
       if (!linkedPlayer) return false;
@@ -568,9 +671,24 @@
       const owner = player || linkedPlayer.name;
       if (owner !== linkedPlayer.name) return false;
       state.unlockedAchievements[id] = {at: Date.now(), player: owner, source};
-      log(`Achievement unlocked: ${definition.name} by ${owner}`);
-      toast(`Achievement unlocked: ${definition.name}`);
+      const rewardXP = achievementRewardXP(definition.rarity);
+      linkedPlayer.xp += rewardXP;
+      addHistoryEvent({
+        type:"achievement-unlocked",
+        category:"Achievements",
+        player:owner,
+        title:"Achievement Unlocked",
+        description:`${owner} unlocked ${definition.name}.`,
+        amount:rewardXP,
+        amountKind:"xp",
+        details:{achievementId:id, rarity:definition.rarity, requirement:definition.requirement}
+      });
+      achievementToast(definition, rewardXP);
       return true;
+    }
+
+    function achievementRewardXP(rarity) {
+      return {Common:10, Uncommon:25, Rare:50, Epic:100, Legendary:250, Mythic:500}[rarity] || 10;
     }
 
     function save({cloud = true} = {}) {
@@ -739,7 +857,7 @@
       if (!element) return;
       const current = element.value;
       const linked = currentPlayer();
-      const restrictedLoan = ["borrowPlayer", "bankBorrowPlayer"].includes(id) && linked && !isDarrenAdmin();
+      const restrictedLoan = id === "borrowPlayer" && linked && !isDarrenAdmin();
       const players = restrictedLoan ? [linked] : state.players;
       element.innerHTML = players.map((p) => `<option value="${escapeAttr(p.name)}">${escapeHtml(displayNameForPlayer(p.name))}</option>`).join("");
       if (current && state.players.some((p) => p.name === current)) element.value = current;
@@ -762,7 +880,7 @@
       document.querySelectorAll("[data-game]").forEach((button) => button.classList.toggle("active", button.dataset.game === activeGame));
       document.querySelectorAll("[data-achievement-tab]").forEach((button) => button.classList.toggle("active", button.dataset.achievementTab === activeAchievementTab));
       document.querySelectorAll("[data-blackjack-mode]").forEach((button) => button.classList.toggle("active", button.dataset.blackjackMode === blackjackMode));
-      ["borrowPlayer","bankBorrowPlayer","manualPlayer","buyinPlayer","chipPlayer","handPlayer","potPlayer","blackjackPlayer","unoPlayer","blackjackMoneyPlayer","localBjPlayer","transferToPlayer"].forEach(fillSelect);
+      ["borrowPlayer","manualPlayer","buyinPlayer","chipPlayer","handPlayer","potPlayer","blackjackPlayer","unoPlayer","blackjackMoneyPlayer","localBjPlayer","transferToPlayer"].forEach(fillSelect);
       fillSelect("profilePlayerName");
 
       const ranked = rankedPlayers();
@@ -779,10 +897,8 @@
       $("crewGrid").innerHTML = ranked.slice(0, 3).map(renderPlayerCard).join("");
       $("allPlayersDetailedBoard").innerHTML = state.players.map(renderDetailedPlayerCard).join("");
       $("leaderboard").innerHTML = ranked.map((p, i) => renderLeaderboardRow(p, i)).join("");
-      $("allPlayersBoard").innerHTML = state.players.map((p) => renderPlayerSummaryRow(p)).join("");
       $("playerAdminBoard").innerHTML = state.players.map((p) => renderAdminPlayerRow(p)).join("");
       document.querySelectorAll(".admin-link").forEach((item) => item.hidden = !isDarrenAdmin());
-      $("debtBoard").innerHTML = ranked.map((p) => renderDebtRow(p)).join("");
       renderLinkageAdminBoard();
       $("bankStatus").innerHTML = [
         renderListRow("&#9878;", "Total Loans Outstanding", "", money(state.players.reduce((sum, p) => sum + p.bankDebt, 0))),
@@ -795,7 +911,7 @@
         ? unlocked.slice(0, 3).map((item) => renderAchievementRow(item.definition, item.unlock)).join("")
         : renderListRow("&#9733;", "No achievements unlocked yet", "Complete tracked milestones to unlock achievements.", "");
       renderAchievementBoards();
-      renderCurrentPlayerStats();
+      renderBankDashboard();
       renderBlackjackBankroll();
       $("gameGrid").innerHTML = ["poker","blackjack","uno"].map(renderGameCard).join("");
       document.querySelectorAll("[data-game-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.gamePanel === activeGame));
@@ -827,11 +943,57 @@
     }
 
     function renderHistoryBoard() {
-      const items = state.log.length ? state.log : ["No session history yet."];
+      const items = (state.history || []).map(normalizeHistoryItem).filter((item) => {
+        const categoryMatch = historyFilter === "all" || item.category.toLowerCase() === historyFilter;
+        const haystack = `${item.player} ${item.category} ${item.title} ${item.description}`.toLowerCase();
+        return categoryMatch && (!historySearch || haystack.includes(historySearch));
+      });
       const visible = items.slice(0, activityHistoryLimit);
-      $("historyBoard").innerHTML = visible.map((item, index) => renderListRow(index + 1, item, "", "")).join("");
+      $("historyBoard").innerHTML = visible.length ? visible.map(renderHistoryEvent).join("") : `<div class="blackjack-status">No activity matches these filters.</div>`;
       const select = $("historyLimit");
       if (select) select.value = String(activityHistoryLimit);
+      document.querySelectorAll("[data-history-filter]").forEach((button) => button.classList.toggle("active", button.dataset.historyFilter === historyFilter));
+    }
+
+    function renderHistoryEvent(item) {
+      const meta = historyCategoryMeta(item.category);
+      const amount = item.amount;
+      const amountClass = item.amountKind === "xp" ? "xp" : item.type.includes("achievement") ? "achievement" : Number(amount || 0) < 0 ? "loss" : Number(amount || 0) > 0 ? "win" : "";
+      const amountText = amount === null || amount === undefined ? ""
+        : item.amountKind === "xp" ? `+${Number(amount).toLocaleString()} XP`
+        : signedMoney(amount);
+      const details = Object.entries(item.details || {}).filter(([, value]) => value !== "" && value !== null && value !== undefined).slice(0, 4)
+        .map(([key, value]) => `<span><b>${escapeHtml(historyDetailLabel(key))}</b> ${typeof value === "number" && /amount|wager|payout|net|debt|buyIn|cashOut|pot/i.test(key) ? money(value) : escapeHtml(value)}</span>`).join("");
+      return `<article class="history-event history-${escapeAttr(meta.key)}">
+        <span class="history-icon">${meta.icon}</span>
+        <div>
+          <div class="history-meta">${escapeHtml(item.category)}${item.player ? ` / ${escapeHtml(item.player)}` : ""}</div>
+          <div class="history-title">${escapeHtml(item.title)}</div>
+          <div class="history-description">${escapeHtml(item.description)}</div>
+          ${details ? `<div class="history-details">${details}</div>` : ""}
+        </div>
+        <div class="history-side">
+          ${amountText ? `<span class="history-amount ${amountClass}">${escapeHtml(amountText)}</span>` : ""}
+          <time>${escapeHtml(timeAgo(item.createdAt))}</time>
+        </div>
+      </article>`;
+    }
+
+    function historyCategoryMeta(category) {
+      return {
+        Poker:{key:"poker",icon:"&#9824;"},
+        Blackjack:{key:"blackjack",icon:"&#9827;"},
+        Slots:{key:"slots",icon:"&#127920;"},
+        Craps:{key:"craps",icon:"&#127922;"},
+        Bank:{key:"bank",icon:"&#9878;"},
+        Achievements:{key:"achievements",icon:"&#127942;"},
+        Dailies:{key:"dailies",icon:"&#127873;"},
+        System:{key:"system",icon:"&#9881;"}
+      }[category] || {key:"system",icon:"&#9881;"};
+    }
+
+    function historyDetailLabel(key) {
+      return String(key).replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase());
     }
 
     function renderChangelog() {
@@ -936,7 +1098,7 @@
           <div>
             <div class="player-name"><span>${escapeHtml(displayNameForPlayer(player.name))} ${rank === 1 ? "&#9819;" : ""}</span><span>${symbol}</span></div>
             <div class="stats-list">
-              <div class="stat-line"><span>Current Bankroll</span><strong class="${bankrollClass}">${money(stackValue(player.chips))}</strong></div>
+              <div class="stat-line"><span>Current Bankroll</span><strong class="${bankrollClass}">${money(bankrollValue(player))}</strong></div>
               <div class="stat-line"><span>Lifetime P/L</span><strong class="${lifetimeClass}">${signedMoney(player.lifetime)}</strong></div>
               <div class="stat-line"><span>Bank Debt</span><strong>${money(player.bankDebt)}</strong></div>
             </div>
@@ -946,6 +1108,7 @@
               <span>&#9733; ${player.stars}</span>
             </div>
             <div class="chip-text">Achievements: ${achievementCompletionText(player.name)}</div>
+            ${achievementShowcaseMarkup(player)}
             <div class="chip-text" title="${escapeAttr(chipText(player.chips))}">Chips: ${escapeHtml(chipText(player.chips))}</div>
           </div>
         </article>`;
@@ -961,7 +1124,7 @@
     }
 
     function renderDetailedPlayerCard(player) {
-      const bankroll = stackValue(player.chips);
+      const bankroll = bankrollValue(player);
       const level = levelFromXP(player.xp);
       const achievements = achievementCompletionText(player.name);
       const debtClass = player.bankDebt > 0 ? "loss" : "";
@@ -978,17 +1141,22 @@
           <div><span>Achievements</span><strong>${achievements}</strong></div>
           <div><span>XP</span><strong>${Number(player.xp || 0).toLocaleString()}</strong></div>
         </div>
+        ${achievementShowcaseMarkup(player)}
       </article>`;
     }
 
     function renderLeaderboardRow(player, index) {
       const net = netBankroll(player);
       const debtText = player.bankDebt > 0 ? `Debt ${money(player.bankDebt)} - net ${signedMoney(net)}` : `Net ${money(net)}`;
-      return renderListRow(`#${index + 1}`, displayNameForPlayer(player.name), debtText, signedMoney(player.lifetime));
+      return `<div class="list-row leaderboard-row">
+        <span class="medal medal-crown">#${index + 1}</span>
+        <div><strong>${escapeHtml(displayNameForPlayer(player.name))}</strong><div class="list-row-sub">${escapeHtml(debtText)}</div>${achievementShowcaseMarkup(player)}</div>
+        <strong>${escapeHtml(signedMoney(player.lifetime))}</strong>
+      </div>`;
     }
 
     function renderPlayerSummaryRow(player) {
-      return renderListRow(playerSymbol(player.name), displayNameForPlayer(player.name), `Bankroll ${money(stackValue(player.chips))} / Debt ${money(player.bankDebt)}`, `Net ${signedMoney(netBankroll(player))}`);
+      return renderListRow(playerSymbol(player.name), displayNameForPlayer(player.name), `Bankroll ${money(bankrollValue(player))} / Debt ${money(player.bankDebt)}`, `Net ${signedMoney(netBankroll(player))}`);
     }
 
     function renderDebtRow(player) {
@@ -1015,54 +1183,157 @@
     function renderAchievementRow(definition, unlock) {
       const isUnlocked = Boolean(unlock);
       const concealed = shouldConcealAchievement(definition, isUnlocked);
-      const title = concealed ? `${definition.rarity} Mystery` : definition.name;
-      const requirement = concealed ? "Requirement hidden for surprise." : definition.requirement;
-      const meta = isUnlocked ? `${definition.rarity} - Unlocked ${timeAgo(unlock.at || Date.now())}` : `${definition.rarity} - ${definition.category}`;
-      const value = isUnlocked ? (unlock.player || "Unlocked") : achievementProgress(definition);
-      return renderListRow(rarityIcon(definition.rarity), title, requirement ? `${meta} - ${requirement}` : meta, value);
+      const title = concealed ? "???" : definition.name;
+      const requirement = concealed ? "Hidden Achievement. Unlock condition unknown." : definition.requirement;
+      const progress = isUnlocked ? {text:`Unlocked ${timeAgo(unlock.at || Date.now())}`, value:100} : achievementProgressData(definition);
+      const player = currentPlayer();
+      const showcased = Boolean(player?.favoriteAchievements?.includes(definition.id));
+      return `<article class="achievement-row rarity-${definition.rarity.toLowerCase()} ${isUnlocked ? "unlocked" : "locked"}">
+        <span class="achievement-rarity">${rarityIcon(definition.rarity)}</span>
+        <div class="achievement-copy">
+          <div class="achievement-title-line"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(definition.category)}</span></div>
+          <p>${escapeHtml(requirement)}</p>
+          <div class="achievement-progress"><span style="width:${progress.value}%"></span></div>
+          <small>${escapeHtml(progress.text)}</small>
+        </div>
+        <div class="achievement-row-side">
+          <span class="rarity-label">${escapeHtml(definition.rarity)}</span>
+          ${isUnlocked ? `<button class="mini-btn ${showcased ? "active" : ""}" type="button" data-action="toggle-achievement-showcase" data-achievement-id="${escapeAttr(definition.id)}">${showcased ? "Pinned" : "Showcase"}</button>` : ""}
+        </div>
+      </article>`;
     }
 
     function renderAchievementBoards() {
       const unlocked = unlockedAchievementRows();
-      const unlockedIds = new Set(unlocked.map((item) => item.definition.id));
       const linkedName = currentPlayer()?.name || "";
       const linkedUnlockedIds = new Set(Object.entries(state.unlockedAchievements || {})
         .filter(([, unlock]) => linkedName && unlock.player === linkedName)
         .map(([id]) => id));
-      const locked = ACHIEVEMENT_DEFINITIONS.filter((definition) => !linkedUnlockedIds.has(definition.id) && !shouldConcealAchievement(definition, false));
+      const matches = (definition) => {
+        const category = String(definition.category || "").toLowerCase();
+        const categoryMatch = achievementCategory === "all"
+          || category.includes(achievementCategory)
+          || (achievementCategory === "rpg" && /activity|family|debt|banking/i.test(category))
+          || (achievementCategory === "dailies" && /daily/i.test(category));
+        const searchMatch = !achievementSearch || `${definition.name} ${definition.requirement} ${definition.category}`.toLowerCase().includes(achievementSearch);
+        return categoryMatch && searchMatch;
+      };
+      const sorter = (a, b) => {
+        const definitionA = a.definition || a;
+        const definitionB = b.definition || b;
+        const unlockA = a.unlock || null;
+        const unlockB = b.unlock || null;
+        const rarityRank = {Common:1, Uncommon:2, Rare:3, Epic:4, Legendary:5, Mythic:6};
+        if (achievementSort === "newest") return Number(unlockB?.at || 0) - Number(unlockA?.at || 0);
+        if (achievementSort === "oldest") return Number(unlockA?.at || Infinity) - Number(unlockB?.at || Infinity);
+        if (achievementSort === "progress") return achievementProgressData(definitionB).value - achievementProgressData(definitionA).value;
+        if (achievementSort === "rarity") return rarityRank[definitionB.rarity] - rarityRank[definitionA.rarity];
+        if (achievementSort === "alphabetical") return definitionA.name.localeCompare(definitionB.name);
+        return 0;
+      };
+      const filteredUnlocked = unlocked.filter((item) => matches(item.definition)).sort(sorter);
+      const locked = ACHIEVEMENT_DEFINITIONS.filter((definition) => !linkedUnlockedIds.has(definition.id) && matches(definition)).sort(sorter);
+      const combined = [
+        ...filteredUnlocked.map((item) => ({...item, unlocked:true})),
+        ...locked.map((definition) => ({definition, unlock:null, unlocked:false}))
+      ];
+      if (achievementSort === "locked") combined.sort((a, b) => Number(a.unlocked) - Number(b.unlocked));
+      if (achievementSort === "unlocked") combined.sort((a, b) => Number(b.unlocked) - Number(a.unlocked) || Number(b.unlock?.at || 0) - Number(a.unlock?.at || 0));
       $("achievementUnlockedBoard").hidden = activeAchievementTab !== "unlocked";
       $("achievementLockedBoard").hidden = activeAchievementTab !== "locked";
-      $("achievementUnlockedBoard").innerHTML = unlocked.length
-        ? unlocked.map((item) => renderAchievementRow(item.definition, item.unlock)).join("")
+      $("achievementRecentBoard").hidden = activeAchievementTab !== "recent";
+      $("achievementUnlockedBoard").innerHTML = filteredUnlocked.length
+        ? filteredUnlocked.map((item) => renderAchievementRow(item.definition, item.unlock)).join("")
         : renderListRow("&#9733;", "No achievements unlocked yet", "Earn XP, record pots, issue loans, and play sessions to unlock achievements.", "");
       $("achievementLockedBoard").innerHTML = locked.length
         ? locked.map((definition) => renderAchievementRow(definition, null)).join("")
         : renderListRow("&#9733;", "Everything unlocked", "The family has cleared the board.", "");
+      $("achievementRecentBoard").innerHTML = filteredUnlocked.length
+        ? filteredUnlocked.slice(0, 12).map((item) => renderAchievementRow(item.definition, item.unlock)).join("")
+        : renderListRow("&#9733;", "No recent unlocks", "New achievements will appear here.", "");
+      renderAchievementSummary(combined);
+      document.querySelectorAll("[data-achievement-category]").forEach((button) => button.classList.toggle("active", button.dataset.achievementCategory === achievementCategory));
     }
 
     function shouldConcealAchievement(definition, isUnlocked) {
       if (isUnlocked) return false;
-      return definition.hidden || ["Rare", "Epic", "Legendary", "Mythic"].includes(definition.rarity);
+      return definition.hidden;
     }
 
-    function renderCurrentPlayerStats() {
+    function achievementShowcaseMarkup(player) {
+      const ids = Array.isArray(player?.favoriteAchievements) ? player.favoriteAchievements : [];
+      const definitions = ids.map((id) => ACHIEVEMENT_DEFINITIONS.find((item) => item.id === id)).filter(Boolean);
+      return definitions.length ? `<div class="achievement-showcase">${definitions.map((definition) => `<span title="${escapeAttr(definition.name)}">${rarityIcon(definition.rarity)} ${escapeHtml(definition.name)}</span>`).join("")}</div>` : "";
+    }
+
+    function renderAchievementSummary() {
+      const unlocked = unlockedAchievementRows().map((item) => ({...item, unlocked:true}));
+      const unlockedIds = new Set(unlocked.map((item) => item.definition.id));
+      const items = [
+        ...unlocked,
+        ...ACHIEVEMENT_DEFINITIONS.filter((definition) => !unlockedIds.has(definition.id)).map((definition) => ({definition, unlock:null, unlocked:false}))
+      ];
+      const total = ACHIEVEMENT_DEFINITIONS.length;
+      const completion = Math.round(unlocked.length / Math.max(1, total) * 100);
+      const rarityOrder = ["Common","Uncommon","Rare","Epic","Legendary","Mythic"];
+      const rarityRank = Object.fromEntries(rarityOrder.map((rarity, index) => [rarity, index]));
+      const highest = unlocked.map((item) => item.definition.rarity).sort((a, b) => rarityRank[b] - rarityRank[a])[0] || "None";
+      const recent = unlocked.sort((a, b) => Number(b.unlock?.at || 0) - Number(a.unlock?.at || 0))[0];
+      const closest = items.filter((item) => !item.unlocked).sort((a, b) => achievementProgressData(b.definition).value - achievementProgressData(a.definition).value)[0];
+      const rarityBreakdown = rarityOrder.map((rarity) => {
+        const rarityTotal = ACHIEVEMENT_DEFINITIONS.filter((definition) => definition.rarity === rarity).length;
+        const rarityUnlocked = unlocked.filter((item) => item.definition.rarity === rarity).length;
+        return `<span>${rarityIcon(rarity)} ${escapeHtml(rarity)} <b>${rarityUnlocked}/${rarityTotal}</b></span>`;
+      }).join("");
+      $("achievementSummary").innerHTML = `
+        <div class="achievement-completion"><strong>${unlocked.length} / ${total}</strong><span>Unlocked</span><b>${completion}%</b></div>
+        <div class="achievement-quick-stats">
+          <span>Highest rarity <b>${escapeHtml(highest)}</b></span>
+          <span>Recent unlock <b>${escapeHtml(recent?.definition.name || "None")}</b></span>
+          <span>Closest <b>${escapeHtml(closest?.definition.name || "All complete")} ${closest ? `${achievementProgressData(closest.definition).value}%` : ""}</b></span>
+        </div>
+        <div class="achievement-rarity-breakdown">${rarityBreakdown}</div>`;
+    }
+
+    function renderBankDashboard() {
       const player = currentPlayer();
       if (!player) {
-        $("currentPlayerStats").innerHTML = renderListRow("&#9881;", "No linked player yet", "Open Profile Settings and link this login to a player.", "");
+        $("bankSummaryGrid").innerHTML = `<div class="blackjack-status">Link your profile to use banking and loans.</div>`;
+        $("loanPlayerCard").innerHTML = `<div class="blackjack-status">No linked player.</div>`;
+        $("transferFromPlayer").textContent = "No linked player";
         return;
       }
-      $("currentPlayerStats").innerHTML = [
-        renderListRow(playerSymbol(player.name), currentDisplayName(), `Linked to ${player.name}`, money(stackValue(player.chips))),
-        renderListRow("&#9818;", "Safe Bank", "Deposited bankroll", money(player.bankBalance || 0)),
-        renderListRow("&#8597;", "Lifetime Profit / Loss", "All tracked play", signedMoney(player.lifetime)),
-        renderListRow("&#9878;", "Bank Debt", "Outstanding loans", money(player.bankDebt))
-      ].join("");
+      const bankroll = bankrollValue(player);
+      const safeBank = Number(player.bankBalance || 0);
+      const debt = Number(player.bankDebt || 0);
+      const netWorth = bankroll + safeBank - debt;
+      $("bankSummaryGrid").innerHTML = [
+        ["bankroll","&#128179;","Bankroll",money(bankroll),"Available to play"],
+        ["safe","&#9878;","Safe Bank",money(safeBank),"Locked and secure"],
+        ["lifetime","&#8599;","Lifetime Profit / Loss",signedMoney(player.lifetime),"All time net"],
+        ["debt","&#9888;","Bank Debt",money(debt),"Outstanding loans"],
+        ["worth","&#9670;","Net Worth",signedMoney(netWorth),"Bankroll + Safe Bank - Debt"]
+      ].map(([tone, icon, label, value, note]) => `<article class="bank-summary-card ${tone}"><span class="bank-summary-icon">${icon}</span><div><span>${label}</span><strong>${value}</strong><small>${note}</small></div></article>`).join("");
+      $("transferFromPlayer").innerHTML = `<strong>${escapeHtml(currentDisplayName())}</strong><span>${money(bankroll)} available</span>`;
+      const transferSelect = $("transferToPlayer");
+      const currentTransfer = transferSelect.value;
+      transferSelect.innerHTML = state.players.filter((candidate) => candidate.id !== player.id).map((candidate) => `<option value="${escapeAttr(candidate.name)}">${escapeHtml(displayNameForPlayer(candidate.name))} - ${money(bankrollValue(candidate))}</option>`).join("");
+      if ([...transferSelect.options].some((option) => option.value === currentTransfer)) transferSelect.value = currentTransfer;
+      $("loanPlayerCard").innerHTML = `<div class="loan-player-identity"><span class="medal ${medalClass(player.name)}">${playerSymbol(player.name)}</span><div><strong>${escapeHtml(currentDisplayName())}</strong><span>Bankroll ${money(bankroll)} / Debt ${money(debt)}</span></div></div><span class="debt-status ${debt > 0 ? "has-debt" : ""}">${debt > 0 ? `${money(debt)} owed` : "No debt"}</span>`;
+      const maxWorth = Math.max(1, ...state.players.map((candidate) => Math.max(0, netBankroll(candidate))));
+      $("familyWealthRanking").innerHTML = rankedPlayers().map((candidate, index) => {
+        const worth = netBankroll(candidate);
+        const width = Math.max(3, Math.round(Math.max(0, worth) / maxWorth * 100));
+        return `<div class="wealth-row"><span class="wealth-rank">${index + 1}</span><strong>${escapeHtml(displayNameForPlayer(candidate.name))}</strong><div class="wealth-bar"><span style="width:${width}%"></span></div><b>${signedMoney(worth)}</b></div>`;
+      }).join("");
+      const loanEvents = (state.history || []).filter((event) => event.category === "Bank" && /loan|debt/i.test(`${event.type} ${event.title} ${event.description}`)).slice(0, 5);
+      $("loanActivity").innerHTML = loanEvents.length ? loanEvents.map(renderHistoryEvent).join("") : `<div class="blackjack-status">No recent loan activity.</div>`;
     }
 
     function renderBlackjackBankroll() {
       const player = currentPlayer();
       $("blackjackBankroll").innerHTML = player
-        ? `<span>${escapeHtml(currentDisplayName())}</span><span>Bankroll ${money(stackValue(player.chips))}</span><span>Debt ${money(player.bankDebt)}</span>`
+        ? `<span>${escapeHtml(currentDisplayName())}</span><span>Bankroll ${money(bankrollValue(player))}</span><span>Debt ${money(player.bankDebt)}</span>`
         : `<span>Link your profile to show bankroll here.</span>`;
     }
 
@@ -1208,34 +1479,79 @@
     function renderPokerRoomTable(room) {
       const table = room.table && typeof room.table === "object" ? room.table : createEmptyPokerTable();
       room.table = table;
+      table.stacks = table.stacks && typeof table.stacks === "object" ? table.stacks : Object.fromEntries(Object.entries(room.seats || {}).map(([key, seat]) => [key, Number(seat.stack || 0)]));
       const community = Array.isArray(table.community) ? table.community : [];
       const visibleCommunity = visiblePokerCommunity(table);
       $("pokerCommunityBoard").innerHTML = community.length
         ? community.map((card, index) => index < visibleCommunity ? renderPlayingCard(card, false, table.animateCommunityIndexes?.includes(index), false, Math.max(0, table.animateCommunityIndexes?.indexOf(index) || 0) * 800) : `<span class="playing-card hidden-card">?</span>`).join("")
         : `<span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span>`;
       $("pokerRoomStatus").textContent = table.message || "Texas Hold'em room is open.";
-      $("pokerPlayerHands").innerHTML = Object.entries(room.seats || {}).map(([key, seat]) => {
-        const hand = table.hands?.[key] || [];
-        const indexes = table.handAnimateIndexes?.[key] || [];
-        const canSeeHand = key === currentProfileKey() || ["showdown","done"].includes(table.phase);
-        const folded = Boolean(table.folded?.[key]);
-        const cards = hand.length && !folded
-          ? hand.map((card, index) => renderPlayingCard(card, !canSeeHand, indexes.includes(index), false, Math.max(0, indexes.indexOf(index)) * 800)).join("")
+      const currentKey = currentProfileKey();
+      const mySeat = room.seats?.[currentKey];
+      const myHand = table.hands?.[currentKey] || [];
+      const myFolded = Boolean(table.folded?.[currentKey]);
+      $("pokerMySeatBadge").textContent = mySeat ? `Seat ${mySeat.seatNumber} / ${money(table.stacks?.[currentKey] ?? mySeat.stack ?? 0)}` : "Spectating";
+      $("pokerMyHand").innerHTML = myFolded
+        ? `<span class="sync-pill">Folded - hand hidden</span>`
+        : myHand.length
+          ? myHand.map((card, index) => renderPlayingCard(card, false, table.handAnimateIndexes?.[currentKey]?.includes(index), false, index * 800)).join("")
           : `<span class="sync-pill">Waiting for deal</span>`;
-        const status = folded ? "Folded" : key === table.activeSeatKey ? "To act" : `${money(table.committed?.[key] || 0)} in pot`;
-        return `<div class="list-row">
+      $("pokerRoomPlayers").innerHTML = pokerSeatEntries(room).map(([key, seat]) => {
+        const folded = Boolean(table.folded?.[key]);
+        const labels = [
+          key === table.dealerButton ? "Dealer" : "",
+          key === table.smallBlindKey ? "SB" : "",
+          key === table.bigBlindKey ? "BB" : "",
+          folded ? "Folded" : "",
+          key === table.activeSeatKey ? "Current Turn" : ""
+        ].filter(Boolean);
+        return `<article class="poker-seat ${key === table.activeSeatKey ? "active" : ""} ${folded ? "folded" : ""}">
           <span class="medal ${medalClass(seat.playerName || seat.name)}">${playerSymbol(seat.playerName || seat.name)}</span>
-          <div><strong>${escapeHtml(seat.name)}</strong><div class="playing-card-row compact">${cards}</div><div style="color:var(--muted);font-size:.82rem;">${escapeHtml(status)} - ${escapeHtml(seat.playerName || "Unlinked")} ${key === room.hostKey ? "/ Host" : ""}</div></div>
-        </div>`;
+          <div class="poker-seat-copy">
+            <strong>Seat ${seat.seatNumber}: ${escapeHtml(seat.name)}</strong>
+            <span>${labels.length ? escapeHtml(labels.join(" / ")) : "Waiting"}</span>
+            <small>Stack ${money(table.stacks?.[key] ?? seat.stack ?? 0)} / Street ${money(table.bets?.[key] || 0)} / Pot ${money(table.committed?.[key] || 0)}</small>
+          </div>
+          <div class="chip-visual-row compact">${renderChipVisuals(chipSetup(table.stacks?.[key] ?? seat.stack ?? 0))}</div>
+        </article>`;
       }).join("") || `<div class="blackjack-status">No players seated.</div>`;
-      const canDeal = isRoomHost(room) && Object.keys(room.seats || {}).length >= 2;
-      const myTurn = table.activeSeatKey === currentProfileKey() && ["preflop","flop","turn","river"].includes(table.phase) && !table.folded?.[currentProfileKey()];
-      const owed = Math.max(0, Number(table.currentBet || 0) - Number(table.bets?.[currentProfileKey()] || 0));
-      document.querySelectorAll('[data-action="poker-deal-hand"]').forEach((button) => button.disabled = !canDeal);
-      document.querySelectorAll('[data-action="poker-check"]').forEach((button) => button.disabled = !myTurn || owed > 0);
-      document.querySelectorAll('[data-action="poker-call"]').forEach((button) => button.disabled = !myTurn || owed <= 0);
-      document.querySelectorAll('[data-action="poker-raise"]').forEach((button) => button.disabled = !myTurn);
-      document.querySelectorAll('[data-action="poker-fold"]').forEach((button) => button.disabled = !myTurn);
+      const activePhase = ["preflop","flop","turn","river"].includes(table.phase);
+      const canDeal = isRoomHost(room) && Object.keys(room.seats || {}).length >= 2 && !activePhase;
+      const myTurn = table.activeSeatKey === currentKey && activePhase && !table.folded?.[currentKey];
+      const owed = Math.max(0, Number(table.currentBet || 0) - Number(table.bets?.[currentKey] || 0));
+      const activeSeatName = room.seats?.[table.activeSeatKey]?.name || "Waiting";
+      $("pokerTableMetrics").innerHTML = `
+        <div><span>Pot</span><strong>${money(table.pot || 0)}</strong></div>
+        <div><span>Current Bet</span><strong>${money(table.currentBet || 0)}</strong></div>
+        <div><span>Current Turn</span><strong>${escapeHtml(activeSeatName)}</strong></div>
+        <div><span>You Owe</span><strong>${money(owed)}</strong></div>`;
+      const reason = !mySeat ? "You are spectating this room."
+        : myFolded ? "You folded and are spectating until the next hand."
+        : !activePhase ? (isRoomHost(room) ? "Deal a new hand when at least two funded seats are ready." : "Waiting for the host to deal.")
+        : !myTurn ? `Waiting for ${activeSeatName} to act.`
+        : owed > 0 ? `You must call ${money(owed)}, raise, or fold.`
+        : Number(table.currentBet || 0) > 0 ? "You have matched the bet. Check or raise."
+        : "No bet is open. Check or place the first bet.";
+      $("pokerActionReason").textContent = reason;
+      const dealButton = $("pokerDealButton");
+      const checkButton = $("pokerCheckButton");
+      const callButton = $("pokerCallButton");
+      const wagerButton = $("pokerWagerButton");
+      const foldButton = $("pokerFoldButton");
+      dealButton.hidden = !canDeal;
+      dealButton.disabled = !canDeal;
+      checkButton.hidden = !(myTurn && owed === 0);
+      checkButton.disabled = !myTurn || owed > 0;
+      callButton.hidden = !(myTurn && owed > 0);
+      callButton.disabled = !myTurn || owed <= 0;
+      callButton.textContent = `Call ${money(owed)}`;
+      callButton.setAttribute("aria-label", `Call ${owed} dollars`);
+      wagerButton.hidden = !myTurn;
+      wagerButton.disabled = !myTurn;
+      wagerButton.textContent = Number(table.currentBet || 0) > 0 ? "Raise" : "Bet";
+      wagerButton.setAttribute("aria-label", Number(table.currentBet || 0) > 0 ? "Raise poker bet" : "Place poker bet");
+      foldButton.hidden = !(myTurn && owed > 0);
+      foldButton.disabled = !myTurn || owed <= 0;
     }
 
     function visiblePokerCommunity(table) {
@@ -1363,38 +1679,52 @@
     }
 
     function achievementProgress(definition) {
+      return achievementProgressData(definition).text;
+    }
+
+    function achievementProgressData(definition) {
       const totalXp = Number(currentPlayer()?.xp || 0);
-      const maxBankroll = Math.max(0, ...state.players.map((player) => stackValue(player.chips)));
-      const maxDebt = Math.max(0, ...state.players.map((player) => player.bankDebt || 0));
+      const player = currentPlayer();
+      const bankroll = Math.max(0, bankrollValue(player));
+      const debt = Math.max(0, Number(player?.bankDebt || 0));
+      const progress = (current, target, suffix = "") => ({
+        text:`${suffix === "$" ? money(Math.min(current, target)) : Math.min(current, target).toLocaleString()} / ${suffix === "$" ? money(target) : `${target.toLocaleString()}${suffix}`}`,
+        value:Math.min(100, Math.round(current / Math.max(1, target) * 100))
+      });
       const progressMap = {
-        "xp-1000": `${Math.min(totalXp, 1000)} / 1,000 XP`,
-        "xp-5000": `${Math.min(totalXp, 5000)} / 5,000 XP`,
-        "xp-10000": `${Math.min(totalXp, 10000)} / 10,000 XP`,
-        "xp-25000": `${Math.min(totalXp, 25000)} / 25,000 XP`,
-        "xp-50000": `${Math.min(totalXp, 50000)} / 50,000 XP`,
-        "wealth-first-fortune": `${money(Math.min(maxBankroll, 500))} / $500`,
-        "wealth-four-digits": `${money(Math.min(maxBankroll, 1000))} / $1,000`,
-        "wealth-high-roller": `${money(Math.min(maxBankroll, 2500))} / $2,500`,
-        "wealth-tycoon": `${money(Math.min(maxBankroll, 5000))} / $5,000`,
-        "wealth-casino-king": `${money(Math.min(maxBankroll, 10000))} / $10,000`,
-        "debt-deep": `${money(Math.min(maxDebt, 500))} / $500`,
-        "activity-dedicated-player": `${Math.min(state.counters.sessionsPlayed, 10)} / 10 sessions`,
-        "activity-regular": `${Math.min(state.counters.sessionsPlayed, 25)} / 25 sessions`,
-        "activity-addicted": `${Math.min(state.counters.sessionsPlayed, 50)} / 50 sessions`,
-        "activity-casino-resident": `${Math.min(state.counters.sessionsPlayed, 100)} / 100 sessions`
+        "xp-1000": progress(totalXp, 1000, " XP"),
+        "xp-5000": progress(totalXp, 5000, " XP"),
+        "xp-10000": progress(totalXp, 10000, " XP"),
+        "xp-25000": progress(totalXp, 25000, " XP"),
+        "xp-50000": progress(totalXp, 50000, " XP"),
+        "wealth-first-fortune": progress(bankroll, 500, "$"),
+        "wealth-four-digits": progress(bankroll, 1000, "$"),
+        "wealth-high-roller": progress(bankroll, 2500, "$"),
+        "wealth-tycoon": progress(bankroll, 5000, "$"),
+        "wealth-casino-king": progress(bankroll, 10000, "$"),
+        "debt-deep": progress(debt, 500, "$"),
+        "activity-dedicated-player": progress(state.counters.sessionsPlayed, 10, " sessions"),
+        "activity-regular": progress(state.counters.sessionsPlayed, 25, " sessions"),
+        "activity-addicted": progress(state.counters.sessionsPlayed, 50, " sessions"),
+        "activity-casino-resident": progress(state.counters.sessionsPlayed, 100, " sessions"),
+        "blackjack-dealer-down": progress(state.counters.blackjackWins, 5, " wins"),
+        "blackjack-dealer-slayer": progress(state.counters.blackjackWins, 25, " wins"),
+        "uno-card-shark": progress(state.counters.unoWins, 10, " wins"),
+        "uno-veteran": progress(state.counters.unoWins, 50, " wins"),
+        "uno-legend": progress(state.counters.unoWins, 100, " wins")
       };
-      return progressMap[definition.id] || "Locked";
+      return progressMap[definition.id] || {text:"Locked", value:0};
     }
 
     function rarityIcon(rarity) {
       return {
-        Common: "C",
-        Uncommon: "U",
-        Rare: "R",
-        Epic: "E",
-        Legendary: "L",
-        Mythic: "M"
-      }[rarity] || "Star";
+        Common: "⚪",
+        Uncommon: "🟢",
+        Rare: "🔵",
+        Epic: "🟣",
+        Legendary: "🟠",
+        Mythic: "👑"
+      }[rarity] || "⭐";
     }
 
     function renderGameCard(game) {
@@ -1539,7 +1869,7 @@
       $("slotsTitle").innerHTML = `&#127922; ${escapeHtml(machine.name)}`;
       $("slotLineText").textContent = `${machine.lines.length} payline${machine.lines.length === 1 ? "" : "s"}`;
       $("slotsBankroll").innerHTML = player
-        ? `<span>${escapeHtml(currentDisplayName())}</span><span>Bankroll ${money(stackValue(player.chips))}</span><span>Wager ${money(totalWager)} (${money(lineBet)} x ${machine.lines.length})</span>${machine.progressive ? `<span>Mini ${money(state.jackpots.treasureVault.mini)} / Major ${money(state.jackpots.treasureVault.major)} / Grand ${money(state.jackpots.treasureVault.grand)}</span>` : ""}`
+        ? `<span>${escapeHtml(currentDisplayName())}</span><span>Bankroll ${money(bankrollValue(player))}</span><span>Wager ${money(totalWager)} (${money(lineBet)} x ${machine.lines.length})</span>${machine.progressive ? `<span>Mini ${money(state.jackpots.treasureVault.mini)} / Major ${money(state.jackpots.treasureVault.major)} / Grand ${money(state.jackpots.treasureVault.grand)}</span>` : ""}`
         : `<span>Link your profile to play slots.</span>`;
       $("slotReels").innerHTML = slotMachine.reels.map((reel) => `
         <div class="slot-reel ${slotMachine.spinning ? "spinning" : ""}">
@@ -1553,7 +1883,7 @@
 
     function renderCraps() {
       const player = currentPlayer();
-      const bankroll = player ? stackValue(player.chips) : 0;
+      const bankroll = player ? bankrollValue(player) : 0;
       $("crapsBankroll").innerHTML = player
         ? `<span>${escapeHtml(currentDisplayName())}</span><span>Bankroll ${money(bankroll)}</span><span>Point ${crapsGame.point || "Off"}</span>`
         : `<span>Link your profile to play craps.</span>`;
@@ -1569,7 +1899,7 @@
       if (!player) return toast("Link your profile to a player before playing craps.");
       const amount = Math.max(1, Math.round(Number($("crapsBetAmount").value || 0)));
       const betType = $("crapsBetType").value;
-      if (stackValue(player.chips) < amount) return toast(`You need ${money(amount)} bankroll for that craps bet.`);
+      if (bankrollValue(player) < amount) return toast(`You need ${money(amount)} bankroll for that craps bet.`);
       const roll = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
       const total = roll[0] + roll[1];
       crapsGame.lastRoll = roll;
@@ -1654,7 +1984,7 @@
       crapsGame.message = message;
       if (settled) {
         adjustPlayerBankroll(player, net);
-        if (net !== 0) applyMoneyResult(player, net, "craps");
+        if (net !== 0) applyMoneyResult(player, net, "craps", {silent:true, bankrollAlreadyAdjusted:true});
         state.gameStats.craps.played += 1;
         state.gameStats.craps.profit += net;
         if (net > 0) {
@@ -1664,9 +1994,17 @@
           addXP(player.name, crapsXP["First Roll"], "Craps: First Roll", {persist:false, toast:false});
           if (net >= 100) unlockAchievement("craps-table-profit", player.name);
           if (crapsGame.wins >= 3) unlockAchievement("craps-hot-dice", player.name);
-          if (stackValue(player.chips) < 50) unlockAchievement("craps-comeback", player.name);
+          if (bankrollValue(player) < 50) unlockAchievement("craps-comeback", player.name);
         }
-        log(`${player.name} played craps: ${message} Net ${signedMoney(net)}.`);
+        addHistoryEvent({
+          type:net > 0 ? "craps-win" : net < 0 ? "craps-loss" : "craps-push",
+          category:"Craps",
+          player:player.name,
+          title:net > 0 ? "Craps Win" : net < 0 ? "Craps Loss" : "Craps Push",
+          description:`${player.name} ${message}`,
+          amount:net,
+          details:{bet:amount, betType, roll:total}
+        });
         resultToast("Craps Result", signedMoney(net), 5000);
       }
       save();
@@ -1813,7 +2151,7 @@
       if (slotMachine.spinning) return;
       if (!player) return toast("Link your profile to a player before playing slots.");
       if (lineBet <= 0) return toast("Enter a bet per line or choose a preset.");
-      if (stackValue(player.chips) < wager) return toast(`You need ${money(wager)} for 9 active lines.`);
+      if (bankrollValue(player) < wager) return toast(`You need ${money(wager)} for 9 active lines.`);
       slotMachine.spinning = true;
       slotMachine.lastWin = 0;
       slotMachine.lastWager = wager;
@@ -1850,13 +2188,21 @@
         ? `${result.wins.length} winning line${result.wins.length === 1 ? "" : "s"}. Net ${signedMoney(net)}.`
         : `No winning lines. Net ${signedMoney(net)}.`;
       adjustPlayerBankroll(player, net);
-      if (net !== 0) applyMoneyResult(player, net, "slots");
+      if (net !== 0) applyMoneyResult(player, net, "slots", {silent:true, bankrollAlreadyAdjusted:true});
       state.gameStats.slots.played = Number(state.gameStats.slots.played || 0) + 1;
       trackDailyProgress(player.name, "slotSpins", 1);
       if (result.totalWin > wager) state.gameStats.slots.wins = Number(state.gameStats.slots.wins || 0) + 1;
       state.gameStats.slots.profit = Number(state.gameStats.slots.profit || 0) + net;
       state.gameStats.slots.biggest = Math.max(Number(state.gameStats.slots.biggest || 0), result.totalWin);
-      log(`${player.name} spun slots for ${money(wager)} and paid ${money(result.totalWin)} (${signedMoney(net)} net).`);
+      addHistoryEvent({
+        type:net > 0 ? "slots-win" : "slots-loss",
+        category:"Slots",
+        player:player.name,
+        title:net > 0 ? "Slots Win" : "Slots Loss",
+        description:net > 0 ? `${player.name} won ${money(result.totalWin)} from a ${money(wager)} spin.` : `${player.name} spun ${money(wager)} and won ${money(result.totalWin)}.`,
+        amount:net,
+        details:{wager, payout:result.totalWin, net}
+      });
       unlockAchievement("slots-first-spin", player.name);
       if (result.totalWin > 0) unlockAchievement("slots-first-win", player.name);
       if (slotMachine.jackpot) unlockAchievement("slots-jackpot-hunter", player.name);
@@ -1924,7 +2270,7 @@
       if (soloBlackjack.phase === "playing" || soloBlackjack.phase === "dealing") return toast("Finish the current blackjack hand first.");
       if (!player) return toast("Link your profile to a player before playing blackjack.");
       if (bet <= 0) return toast("Enter a bet or choose a standard bet.");
-      if (stackValue(player.chips) < bet) return toast("Not enough bankroll for that bet.");
+      if (bankrollValue(player) < bet) return toast("Not enough bankroll for that bet.");
       soloBlackjack = createEmptyBlackjackGame();
       soloBlackjack.deck = createDeck();
       soloBlackjack.bet = bet;
@@ -1986,7 +2332,7 @@
       const player = currentPlayer();
       if (!hand || hand.cards.length !== 2 || hand.cards[0].rank !== hand.cards[1].rank) return toast("Split is only available on matching pairs.");
       if (soloBlackjack.splits >= 3 || blackjackHands().length >= 4) return toast("Split limit reached: four hands maximum.");
-      if (stackValue(player.chips) < totalBlackjackExposure() + hand.bet) return toast("Not enough bankroll to cover the split.");
+      if (bankrollValue(player) < totalBlackjackExposure() + hand.bet) return toast("Not enough bankroll to cover the split.");
       unlockAchievement("blackjack-perfect-pair", player.name);
       const splitCard = hand.cards.pop();
       hand.fromSplit = true;
@@ -2007,7 +2353,7 @@
       const hand = activeBlackjackHand();
       const player = currentPlayer();
       if (!hand || hand.cards.length !== 2) return toast("Double down is only available on your first two cards.");
-      if (stackValue(player.chips) < totalBlackjackExposure() + hand.bet) return toast("Not enough bankroll to double down.");
+      if (bankrollValue(player) < totalBlackjackExposure() + hand.bet) return toast("Not enough bankroll to double down.");
       hand.bet *= 2;
       hand.doubled = true;
       hand.cards.push(drawCard(soloBlackjack));
@@ -2123,12 +2469,20 @@
         }
       });
       adjustPlayerBankroll(player, totalDelta);
-      if (totalDelta !== 0) applyMoneyResult(player, totalDelta, "solo blackjack");
+      if (totalDelta !== 0) applyMoneyResult(player, totalDelta, "solo blackjack", {silent:true, bankrollAlreadyAdjusted:true});
       state.gameStats.blackjack.played = Number(state.gameStats.blackjack.played || 0) + hands.length;
       state.gameStats.blackjack.wins = Number(state.gameStats.blackjack.wins || 0) + wins;
       state.gameStats.blackjack.profit = Number(state.gameStats.blackjack.profit || 0) + totalDelta;
       soloBlackjack.message = `Dealer ${dealerTotal}. ${wins} win, ${losses} loss, ${pushes} push. Net ${signedMoney(totalDelta)}.`;
-      log(`${player.name} played solo blackjack: ${soloBlackjack.message}`);
+      addHistoryEvent({
+        type:totalDelta > 0 ? "blackjack-win" : totalDelta < 0 ? "blackjack-loss" : "blackjack-push",
+        category:"Blackjack",
+        player:player.name,
+        title:totalDelta > 0 ? "Blackjack Win" : totalDelta < 0 ? "Blackjack Loss" : "Blackjack Push",
+        description:`${player.name} played solo blackjack. ${soloBlackjack.message}`,
+        amount:totalDelta,
+        details:{dealer:dealerTotal, wins, losses, pushes}
+      });
       save();
       const firstHand = hands[0];
       const playerTotal = firstHand ? handValue(firstHand.cards) : 0;
@@ -2156,6 +2510,7 @@
       const player = currentPlayer();
       return {
         name: profile.displayName || player?.name || "Player",
+        playerId: player?.id || "",
         playerName: player?.name || profile.playerName || "",
         role,
         ready: false,
@@ -2223,8 +2578,41 @@
       els.pokerRoomName.value = `${currentProfile().displayName || currentPlayer()?.name || "Family"} Hold'em`;
       els.pokerSmallBlind.value = "5";
       els.pokerBigBlind.value = "10";
+      els.pokerBuyIn.value = "465";
+      els.pokerMaxPlayers.value = "8";
+      renderPokerBuyInPreview();
       els.pokerRoomMessage.textContent = "Create a Texas Hold'em multiplayer room.";
       els.pokerRoomDialog.showModal();
+    }
+
+    function recommendedPokerChips(amount) {
+      const value = Math.max(465, Math.round(Number(amount || 465)));
+      if (value === 465) {
+        const chips = {white:10, red:10, blue:8, green:5, black:2};
+        return {chips, text:chipText(chips)};
+      }
+      const chips = {white:10, red:10, blue:8, green:5, black:2};
+      let remaining = value - 465;
+      [["black",100],["green",25],["blue",10],["red",5],["white",1]].forEach(([color, denomination]) => {
+        const count = Math.floor(remaining / denomination);
+        chips[color] += count;
+        remaining -= count * denomination;
+      });
+      return {chips, text: chipText(chips)};
+    }
+
+    function renderPokerBuyInPreview() {
+      if (!els.pokerBuyInPreview) return;
+      const amount = Math.max(465, Math.round(Number(els.pokerBuyIn?.value || 465)));
+      const recommendation = recommendedPokerChips(amount);
+      els.pokerBuyInPreview.innerHTML = `<strong>${money(amount)} recommended stack</strong><span>${escapeHtml(recommendation.text)}</span><div class="chip-visual-row">${renderChipVisuals(recommendation.chips)}</div>`;
+    }
+
+    function renderChipVisuals(chips) {
+      return Object.entries({white:1,red:5,blue:10,green:25,black:100}).map(([color, value]) => {
+        const count = Number(chips[color] || 0);
+        return count ? `<span class="chip-visual chip-${color}" title="${count} x ${money(value)}"><b>${count}</b><small>${money(value)}</small></span>` : "";
+      }).join("");
     }
 
     function closePokerRoomDialog() {
@@ -2236,7 +2624,12 @@
       const name = els.pokerRoomName.value.trim() || "Family Hold'em";
       const smallBlind = Math.max(1, Number(els.pokerSmallBlind.value || 0));
       const bigBlind = Math.max(smallBlind * 2, Number(els.pokerBigBlind.value || 0));
+      const buyIn = Math.max(465, Math.round(Number(els.pokerBuyIn.value || 465)));
+      const maxPlayers = Math.min(8, Math.max(2, Number(els.pokerMaxPlayers.value || 8)));
+      const hostPlayer = currentPlayer();
+      if (bankrollValue(hostPlayer) < buyIn) return toast(`You need ${money(buyIn)} bankroll for this buy-in.`);
       const id = `poker-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const hostSeat = {...currentSeat("player"), seatNumber:1, buyIn, stack:buyIn, joinedAt:Date.now()};
       const room = {
         id,
         game: "poker",
@@ -2247,21 +2640,35 @@
         closedReason: "",
         smallBlind,
         bigBlind,
+        buyIn,
+        maxPlayers,
         kickerRules: true,
         xpAuto: true,
         createdAt: Date.now(),
         table: createEmptyPokerTable(),
+        handHistory: [],
         seats: {
-          [currentProfileKey()]: currentSeat("player")
+          [currentProfileKey()]: hostSeat
         }
       };
+      adjustPlayerBankroll(hostPlayer, -buyIn);
       state.onlineRooms[id] = room;
-      log(`${currentSeat().name} opened Hold'em room ${name} with ${money(smallBlind)} / ${money(bigBlind)} blinds.`);
+      addHistoryEvent({
+        type:"poker-buyin",
+        category:"Poker",
+        player:hostPlayer.name,
+        title:"Poker Buy-In",
+        description:`${hostSeat.name} opened ${name} and bought in for ${money(buyIn)}.`,
+        amount:-buyIn,
+        details:{roomId:id, smallBlind, bigBlind, buyIn}
+      });
       closePokerRoomDialog();
       activeOnlineGame = "poker";
       activeRoomId = id;
+      localStorage.setItem(activeRoomStorageKey, id);
       activeView = "online";
       await saveRoom(room);
+      await persistSettledRoomState(room);
       toast(`Poker room created: ${name}`);
     }
 
@@ -2270,13 +2677,40 @@
       const room = await refreshRoomFromCloud(roomId);
       if (!room || room.status !== "open") return toast("That poker room is no longer open.");
       room.seats = room.seats || {};
-      room.seats[currentProfileKey()] = currentSeat("player");
+      const key = currentProfileKey();
+      if (room.seats[key]) {
+        activeRoomId = roomId;
+        activeOnlineGame = "poker";
+        activeView = "online";
+        localStorage.setItem(activeRoomStorageKey, roomId);
+        render();
+        return;
+      }
+      if (Object.keys(room.seats).length >= Number(room.maxPlayers || 8)) return toast("That poker room is full.");
+      const player = currentPlayer();
+      const buyIn = Math.max(465, Number(room.buyIn || 465));
+      if (bankrollValue(player) < buyIn) return toast(`You need ${money(buyIn)} bankroll to join this table.`);
+      const usedSeats = new Set(Object.values(room.seats).map((seat) => Number(seat.seatNumber || 0)));
+      let seatNumber = 1;
+      while (usedSeats.has(seatNumber)) seatNumber += 1;
+      room.seats[key] = {...currentSeat("player"), seatNumber, buyIn, stack:buyIn, joinedAt:Date.now()};
+      adjustPlayerBankroll(player, -buyIn);
       room.table = room.table || createEmptyPokerTable();
-      log(`${currentSeat().name} joined Hold'em room ${room.name}.`);
+      addHistoryEvent({
+        type:"poker-buyin",
+        category:"Poker",
+        player:player.name,
+        title:"Poker Buy-In",
+        description:`${currentSeat().name} joined ${room.name} for ${money(buyIn)}.`,
+        amount:-buyIn,
+        details:{roomId, buyIn, seatNumber}
+      });
       activeRoomId = roomId;
+      localStorage.setItem(activeRoomStorageKey, roomId);
       activeOnlineGame = "poker";
       activeView = "online";
       await saveRoom(room);
+      await persistSettledRoomState(room);
       toast(`Joined ${room.name}.`);
     }
 
@@ -2287,10 +2721,9 @@
       const entries = pokerSeatEntries(room);
       if (entries.length < 2) return toast("Hold'em needs at least 2 players.");
       const brokeSeat = entries.find(([, seat]) => {
-        const player = playerByName(seat.playerName);
-        return !player || stackValue(player.chips) < Number(room.bigBlind || 0);
+        return Number(seat.stack || 0) < Number(room.bigBlind || 0);
       });
-      if (brokeSeat) return toast(`${brokeSeat[1].name} needs at least the big blind to play.`);
+      if (brokeSeat) return toast(`${brokeSeat[1].name} needs at least the big blind in table chips.`);
       const handNumber = Number(room.pokerHandNumber || 0);
       const dealerIndex = handNumber % entries.length;
       const smallIndex = entries.length === 2 ? dealerIndex : (dealerIndex + 1) % entries.length;
@@ -2309,6 +2742,7 @@
       table.minRaise = Number(room.bigBlind || 0);
       table.pot = 0;
       table.hands = {};
+      table.stacks = {};
       table.folded = {};
       table.bets = {};
       table.committed = {};
@@ -2316,6 +2750,7 @@
       table.handAnimateIndexes = {};
       entries.forEach(([key]) => {
         table.hands[key] = [drawCard(table), drawCard(table)];
+        table.stacks[key] = Number(room.seats[key].stack || 0);
         table.handAnimateIndexes[key] = [0, 1];
         table.bets[key] = 0;
         table.committed[key] = 0;
@@ -2326,10 +2761,10 @@
       table.community = [drawCard(table), drawCard(table), drawCard(table), drawCard(table), drawCard(table)];
       table.animateCommunityIndexes = [];
       table.message = `Preflop. Dealer: ${entries[dealerIndex][1].name}. Blinds posted ${money(room.smallBlind)} / ${money(room.bigBlind)}. ${room.seats[table.activeSeatKey].name} acts first.`;
+      recordPokerAction(room, `Hand #${table.handNumber}`, `${entries[dealerIndex][1].name} is dealer. ${entries[smallIndex][1].name} posts ${money(room.smallBlind)}. ${entries[bigIndex][1].name} posts ${money(room.bigBlind)}.`);
       room.table = table;
       room.pokerHandNumber = handNumber + 1;
       await saveRoom(room);
-      await persistSettledRoomState(room);
       setTimeout(() => {
         const latest = state.onlineRooms[room.id];
         if (!latest?.table) return;
@@ -2339,25 +2774,19 @@
     }
 
     function pokerSeatEntries(room) {
-      const entries = Object.entries(room.seats || {}).sort((a, b) => {
-        if (a[0] === room.hostKey) return -1;
-        if (b[0] === room.hostKey) return 1;
-        return Number(a[1].joinedAt || 0) - Number(b[1].joinedAt || 0);
-      });
-      return entries;
+      return Object.entries(room.seats || {}).sort((a, b) => Number(a[1].seatNumber || 99) - Number(b[1].seatNumber || 99));
     }
 
     function postPokerBlind(room, key, amount, table) {
-      const player = playerByName(room.seats?.[key]?.playerName);
-      if (!player || amount <= 0) return;
-      commitPokerChips(player, table, key, amount);
+      if (!room.seats?.[key] || amount <= 0) return;
+      commitPokerChips(room, table, key, amount);
     }
 
-    function commitPokerChips(player, table, key, amount) {
+    function commitPokerChips(room, table, key, amount) {
       const value = Math.max(0, Math.round(Number(amount || 0)));
-      if (!player || value <= 0) return;
-      adjustPlayerBankroll(player, -value);
-      player.lifetime -= value;
+      if (!room.seats?.[key] || value <= 0) return;
+      table.stacks[key] = Math.max(0, Number(table.stacks?.[key] ?? room.seats[key].stack ?? 0) - value);
+      room.seats[key].stack = table.stacks[key];
       table.bets[key] = Number(table.bets[key] || 0) + value;
       table.committed[key] = Number(table.committed[key] || 0) + value;
       table.pot += value;
@@ -2370,8 +2799,6 @@
       if (!room || room.game !== "poker" || !table) return toast("Open a poker room first.");
       if (table.activeSeatKey !== key || !["preflop","flop","turn","river"].includes(table.phase)) return toast("It is not your turn.");
       const seat = room.seats?.[key];
-      const player = seat?.playerName ? playerByName(seat.playerName) : null;
-      if (!player) return toast("Link your profile to a player before acting.");
       const owed = Math.max(0, Number(table.currentBet || 0) - Number(table.bets?.[key] || 0));
       if (kind === "check") {
         if (owed > 0) return toast(`Call ${money(owed)} or fold.`);
@@ -2380,30 +2807,32 @@
       }
       if (kind === "call") {
         if (owed <= 0) return toast("Nothing to call. Check or raise.");
-        if (stackValue(player.chips) < owed) return toast(`You need ${money(owed)} to call.`);
-        commitPokerChips(player, table, key, owed);
+        if (Number(table.stacks?.[key] || 0) < owed) return toast(`You need ${money(owed)} in table chips to call.`);
+        commitPokerChips(room, table, key, owed);
         table.acted[key] = true;
         table.message = `${seat.name} calls ${money(owed)}.`;
       }
       if (kind === "raise") {
+        const openingBet = Number(table.currentBet || 0) === 0;
         const raiseBy = Math.max(Number(table.minRaise || room.bigBlind || 1), Math.round(Number($("pokerRaiseAmount").value || 0)));
         const totalNeeded = owed + raiseBy;
-        if (stackValue(player.chips) < totalNeeded) return toast(`You need ${money(totalNeeded)} to raise.`);
-        commitPokerChips(player, table, key, totalNeeded);
+        if (Number(table.stacks?.[key] || 0) < totalNeeded) return toast(`You need ${money(totalNeeded)} in table chips to raise.`);
+        commitPokerChips(room, table, key, totalNeeded);
         table.currentBet = table.bets[key];
         table.minRaise = raiseBy;
+        table.lastAggressorKey = key;
         table.acted = Object.fromEntries(Object.keys(room.seats || {}).map((seatKey) => [seatKey, false]));
         table.acted[key] = true;
-        table.message = `${seat.name} raises to ${money(table.currentBet)}.`;
+        table.message = openingBet ? `${seat.name} bets ${money(table.currentBet)}.` : `${seat.name} raises to ${money(table.currentBet)}.`;
       }
       if (kind === "fold") {
         table.folded[key] = true;
         table.acted[key] = true;
         table.message = `${seat.name} folds.`;
       }
+      recordPokerAction(room, table.phase, table.message);
       advancePokerAfterAction(room);
       await saveRoom(room);
-      await persistSettledRoomState(room);
     }
 
     function advancePokerAfterAction(room) {
@@ -2459,6 +2888,8 @@
       }
       table.phase = streets[index + 1];
       table.currentBet = 0;
+      table.minRaise = Number(room.bigBlind || 1);
+      table.lastAggressorKey = "";
       table.bets = Object.fromEntries(Object.keys(room.seats || {}).map((key) => [key, 0]));
       table.acted = Object.fromEntries(Object.keys(room.seats || {}).map((key) => [key, false]));
       table.activeSeatKey = firstPostFlopActor(room);
@@ -2484,9 +2915,11 @@
       const seat = room.seats?.[winnerKey];
       const player = seat?.playerName ? playerByName(seat.playerName) : null;
       const pot = Number(table.pot || 0);
+      if (seat) {
+        seat.stack = Number(seat.stack || 0) + pot;
+        table.stacks[winnerKey] = seat.stack;
+      }
       if (player) {
-        adjustPlayerBankroll(player, pot);
-        player.lifetime += pot;
         addXP(player.name, pokerHandXP[handName] || pokerHandXP["High Card"], `Poker: ${handName}`, {persist:false, toast:false});
         unlockAchievement("poker-first-victory", player.name);
       }
@@ -2498,8 +2931,37 @@
       state.gameStats.poker.played = Number(state.gameStats.poker.played || 0) + 1;
       state.gameStats.poker.wins = Number(state.gameStats.poker.wins || 0) + 1;
       state.gameStats.poker.biggest = Math.max(Number(state.gameStats.poker.biggest || 0), pot);
-      log(`${seat?.name || "Player"} won online Hold'em pot ${money(pot)} with ${handName}.`);
+      recordPokerAction(room, "showdown", `${seat?.name || "Player"} wins ${money(pot)} with ${handName}.`);
+      room.handHistory = Array.isArray(room.handHistory) ? room.handHistory : [];
+      room.handHistory.unshift({
+        handNumber:table.handNumber,
+        dealerKey:table.dealerButton,
+        smallBlindKey:table.smallBlindKey,
+        bigBlindKey:table.bigBlindKey,
+        winnerKey,
+        winningHand:handName,
+        pot,
+        actions:[...(table.actionLog || [])],
+        completedAt:Date.now()
+      });
+      room.handHistory = room.handHistory.slice(0, 50);
+      addHistoryEvent({
+        type:"poker-pot",
+        category:"Poker",
+        player:seat?.playerName || seat?.name || "",
+        title:"Poker Pot",
+        description:`${seat?.name || "Player"} won a ${money(pot)} pot with ${handName}.`,
+        amount:pot,
+        details:{roomId:room.id, handNumber:table.handNumber, winningHand:handName}
+      });
       resultToast(`${seat?.name || "Player"} wins the pot`, `${money(pot)} / ${handName}`, 5000);
+    }
+
+    function recordPokerAction(room, street, description) {
+      const table = room.table;
+      table.actionLog = Array.isArray(table.actionLog) ? table.actionLog : [];
+      table.actionLog.push({street, description, at:Date.now()});
+      table.actionLog = table.actionLog.slice(-100);
     }
 
     function evaluatePokerHand(cards) {
@@ -2566,7 +3028,7 @@
       if (["player", "dealer"].includes(table.phase)) return toast("Finish the current round first.");
       const bet = Math.max(1, Math.round(Number($("multiBjBetAmount").value || 0)));
       const player = seat.playerName ? playerByName(seat.playerName) : null;
-      if (!player || stackValue(player.chips) < bet) return toast(`You need ${money(bet)} bankroll to ready up.`);
+      if (!player || bankrollValue(player) < bet) return toast(`You need ${money(bet)} bankroll to ready up.`);
       seat.ready = true;
       seat.readyBet = bet;
       room.table = table;
@@ -2586,7 +3048,7 @@
       if (notReady) return toast(`${notReady[1].name} needs to ready up first.`);
       const brokeSeat = entries.find(([, seat]) => {
         const player = playerByName(seat.playerName);
-        return !player || stackValue(player.chips) < Number(seat.readyBet || 0);
+        return !player || bankrollValue(player) < Number(seat.readyBet || 0);
       });
       if (brokeSeat) return toast(`${brokeSeat[1].name} needs enough linked bankroll for ${money(brokeSeat[1].readyBet || 0)}.`);
       const table = createEmptyMultiplayerBlackjackTable();
@@ -2666,7 +3128,7 @@
       if (!seatHand || !hand || hand.cards.length !== 2 || hand.cards[0].rank !== hand.cards[1].rank) return toast("Split is only available on matching pairs.");
       if (Number(seatHand.splits || 0) >= 3 || multiSeatHands(seatHand).length >= 4) return toast("Split limit reached: four hands maximum.");
       const totalExposure = multiSeatHands(seatHand).reduce((sum, item) => sum + Number(item.bet || table.bet || 0), 0);
-      if (!player || stackValue(player.chips) < totalExposure + Number(hand.bet || table.bet || 0)) return toast("Not enough bankroll to cover the split.");
+      if (!player || bankrollValue(player) < totalExposure + Number(hand.bet || table.bet || 0)) return toast("Not enough bankroll to cover the split.");
       const splitCard = hand.cards.pop();
       hand.fromSplit = true;
       hand.cards.push(drawCard(table));
@@ -2688,7 +3150,7 @@
       const hand = activeMultiSeatHand(seatHand);
       if (!seatHand || !hand || hand.cards.length !== 2) return toast("Double down is only available on your first two cards.");
       const totalExposure = multiSeatHands(seatHand).reduce((sum, item) => sum + Number(item.bet || table.bet || 0), 0);
-      if (!player || stackValue(player.chips) < totalExposure + Number(hand.bet || table.bet || 0)) return toast("Not enough bankroll to double down.");
+      if (!player || bankrollValue(player) < totalExposure + Number(hand.bet || table.bet || 0)) return toast("Not enough bankroll to double down.");
       hand.bet = Number(hand.bet || table.bet || 0) * 2;
       hand.doubled = true;
       hand.cards.push(drawCard(table));
@@ -2797,7 +3259,16 @@
         hand.result = multiSeatHands(hand).map((playerHand) => playerHand.result).join(" / ");
         if (player) {
           adjustPlayerBankroll(player, seatDelta);
-          if (seatDelta !== 0) applyMoneyResult(player, seatDelta, `online blackjack room ${room.name}`);
+          if (seatDelta !== 0) applyMoneyResult(player, seatDelta, `online blackjack room ${room.name}`, {silent:true, bankrollAlreadyAdjusted:true});
+          addHistoryEvent({
+            type:seatDelta > 0 ? "blackjack-win" : seatDelta < 0 ? "blackjack-loss" : "blackjack-push",
+            category:"Blackjack",
+            player:player.name,
+            title:seatDelta > 0 ? "Multiplayer Blackjack Win" : seatDelta < 0 ? "Multiplayer Blackjack Loss" : "Multiplayer Blackjack Push",
+            description:`${player.name} finished ${room.name} with ${signedMoney(seatDelta)}.`,
+            amount:seatDelta,
+            details:{roomId:room.id}
+          });
           if (seatDelta > 0) addXP(player.name, blackjackXP["Win Hand"], "Online Blackjack: Win Hand", {persist: false, toast: false});
           multiSeatHands(hand).forEach((playerHand) => {
             if (["Win", "Blackjack"].includes(playerHand.result)) trackDailyProgress(player.name, "blackjackWins", 1);
@@ -2809,7 +3280,6 @@
       state.gameStats.blackjack.wins = Number(state.gameStats.blackjack.wins || 0) + winners;
       state.gameStats.blackjack.profit = Number(state.gameStats.blackjack.profit || 0) + Object.values(table.hands || {}).reduce((sum, hand) => sum + Number(hand.delta || 0), 0);
       table.message = `Dealer ${dealerTotal}. Round settled for ${Object.keys(table.hands || {}).length} player(s).`;
-      log(`${room.name} blackjack round settled. ${table.message}`);
       state.onlineRooms[room.id] = room;
       save({cloud: false});
       persistSettledRoomState(room);
@@ -2823,6 +3293,7 @@
         gameStats: state.gameStats,
         counters: state.counters,
         log: state.log,
+        history: state.history,
         [`onlineRooms/${room.id}`]: room,
         updatedAt: Date.now(),
         updatedAtServer: serverTimestamp(),
@@ -2838,14 +3309,26 @@
       const room = activeRoom();
       if (!room) return;
       if (!isRoomHost(room)) return toast("Only the host can close this room.");
+      if (room.game === "poker") {
+        refundOpenPokerPot(room);
+        Object.keys(room.seats || {}).forEach((key) => cashOutPokerSeat(room, key, "Host closed room"));
+      }
       room.status = "closed";
       room.closedReason = "host";
       room.closedAt = Date.now();
       room.seats = {};
-      log(`${currentSeat().name} closed ${room.name}.`);
+      addHistoryEvent({
+        type:"room-closed",
+        category:room.game === "poker" ? "Poker" : "System",
+        player:currentPlayer()?.name || "",
+        title:"Room Closed",
+        description:`${currentSeat().name} closed ${room.name}.`
+      });
       activeRoomId = "";
+      localStorage.removeItem(activeRoomStorageKey);
       activeOnlineGame = "";
       await saveRoom(room);
+      await persistSettledRoomState(room);
       toast("Room closed. Players were disconnected.");
     }
 
@@ -2857,12 +3340,62 @@
         closeActiveRoom();
         return;
       }
+      if (room.game === "poker") {
+        const table = room.table || createEmptyPokerTable();
+        if (["preflop","flop","turn","river"].includes(table.phase) && !table.folded?.[key]) {
+          table.folded[key] = true;
+          table.acted[key] = true;
+          table.message = `${room.seats[key]?.name || "Player"} leaves and folds.`;
+          recordPokerAction(room, table.phase, table.message);
+          advancePokerAfterAction(room);
+        }
+        cashOutPokerSeat(room, key, "Left poker room");
+      }
       if (room.seats) delete room.seats[key];
-      log(`${currentSeat().name} left ${room.name}.`);
       activeRoomId = "";
+      localStorage.removeItem(activeRoomStorageKey);
       activeOnlineGame = room.game;
       await saveRoom(room);
+      await persistSettledRoomState(room);
       toast("You left the session.");
+    }
+
+    function refundOpenPokerPot(room) {
+      const table = room.table;
+      if (!table || !["preflop","flop","turn","river"].includes(table.phase)) return;
+      Object.entries(table.committed || {}).forEach(([key, amount]) => {
+        if (!room.seats?.[key]) return;
+        room.seats[key].stack = Number(room.seats[key].stack || 0) + Number(amount || 0);
+      });
+      table.pot = 0;
+      table.phase = "cancelled";
+      table.activeSeatKey = "";
+      table.message = "Hand cancelled. Committed chips returned before cash-out.";
+    }
+
+    function cashOutPokerSeat(room, key, reason) {
+      const seat = room.seats?.[key];
+      if (!seat || seat.cashedOutAt) return;
+      const player = seat.playerId ? playerById(seat.playerId) : playerByName(seat.playerName);
+      const stack = Math.max(0, Number(seat.stack ?? room.table?.stacks?.[key] ?? 0));
+      const buyIn = Number(seat.buyIn || room.buyIn || 0);
+      const result = stack - buyIn;
+      if (player) {
+        adjustPlayerBankroll(player, stack);
+        player.lifetime += result;
+      }
+      seat.cashedOutAt = Date.now();
+      seat.cashOut = stack;
+      seat.sessionResult = result;
+      addHistoryEvent({
+        type:"poker-cashout",
+        category:"Poker",
+        player:seat.playerName || seat.name,
+        title:"Poker Cash-Out",
+        description:`${seat.name} cashed out ${money(stack)} from ${room.name}.`,
+        amount:result,
+        details:{roomId:room.id, buyIn, cashOut:stack, reason}
+      });
     }
 
     function handleActiveRoomClosure() {
@@ -2875,12 +3408,14 @@
           toast("Host closed session.");
         }
         activeRoomId = "";
+        localStorage.removeItem(activeRoomStorageKey);
         activeOnlineGame = "";
         activeView = "online";
         return;
       }
       if (!room.seats?.[key]) {
         activeRoomId = "";
+        localStorage.removeItem(activeRoomStorageKey);
         activeOnlineGame = room.game;
         activeView = "online";
         toast("You are no longer in that session.");
@@ -2904,36 +3439,51 @@
     }
 
     function adjustPlayerBankroll(player, delta) {
-      const total = Math.max(0, stackValue(player.chips) + Number(delta || 0));
-      player.chips = chipSetup(total);
+      return setPlayerBankroll(player, bankrollValue(player) + Number(delta || 0));
     }
 
     function depositToBank() {
       const player = currentPlayer();
-      const amount = Math.round(Number($("bankingAmount").value || 0));
+      const amount = Math.round(Number($("bankDepositAmount").value || 0));
       if (!player) return toast("Link your profile to a player before banking.");
       if (amount <= 0) return toast("Enter a deposit amount.");
-      if (stackValue(player.chips) < amount) return toast("Not enough on-hand bankroll to deposit.");
+      if (bankrollValue(player) < amount) return toast("Not enough on-hand bankroll to deposit.");
       adjustPlayerBankroll(player, -amount);
       player.bankBalance = Number(player.bankBalance || 0) + amount;
       unlockAchievement("bank-first-deposit", player.name);
       if (player.bankBalance >= 10000) unlockAchievement("bank-safe-stack", player.name);
-      $("bankingAmount").value = "";
-      log(`${player.name} deposited ${money(amount)} into the bank.`);
+      $("bankDepositAmount").value = "";
+      addHistoryEvent({
+        type:"bank-deposit",
+        category:"Bank",
+        player:player.name,
+        title:"Bank Deposit",
+        description:`${player.name} deposited ${money(amount)} into the Safe Bank.`,
+        amount,
+        details:{bankBalance:player.bankBalance}
+      });
       save();
       toast(`Deposited ${money(amount)} into safe bank.`);
     }
 
     function withdrawFromBank() {
       const player = currentPlayer();
-      const amount = Math.round(Number($("bankingAmount").value || 0));
+      const amount = Math.round(Number($("bankWithdrawAmount").value || 0));
       if (!player) return toast("Link your profile to a player before banking.");
       if (amount <= 0) return toast("Enter a withdrawal amount.");
       if (Number(player.bankBalance || 0) < amount) return toast("Not enough safe bank balance.");
       player.bankBalance -= amount;
       adjustPlayerBankroll(player, amount);
-      $("bankingAmount").value = "";
-      log(`${player.name} withdrew ${money(amount)} from the bank.`);
+      $("bankWithdrawAmount").value = "";
+      addHistoryEvent({
+        type:"bank-withdrawal",
+        category:"Bank",
+        player:player.name,
+        title:"Bank Withdrawal",
+        description:`${player.name} withdrew ${money(amount)} from the Safe Bank.`,
+        amount:-amount,
+        details:{bankBalance:player.bankBalance}
+      });
       save();
       toast(`Withdrew ${money(amount)} to bankroll.`);
     }
@@ -2945,7 +3495,7 @@
       if (!from || !to) return toast("Choose a linked sender and recipient.");
       if (from.name === to.name) return toast("Choose another player to transfer to.");
       if (amount <= 0) return toast("Enter a transfer amount.");
-      if (stackValue(from.chips) < amount) return toast("Not enough on-hand bankroll. Withdraw from bank first if needed.");
+      if (bankrollValue(from) < amount) return toast("Not enough on-hand bankroll. Withdraw from bank first if needed.");
       adjustPlayerBankroll(from, -amount);
       const debtPay = Math.min(Number(to.bankDebt || 0), amount);
       to.bankDebt -= debtPay;
@@ -2955,7 +3505,15 @@
       $("transferAmount").value = "";
       unlockAchievement("bankroll-transfer", from.name);
       if (debtPay > 0) unlockAchievement("debt-recovery", to.name);
-      log(`${from.name} transferred ${money(amount)} to ${to.name}. Paid debt ${money(debtPay)}, bankroll added ${money(remainder)}.`);
+      addHistoryEvent({
+        type:"bankroll-transfer",
+        category:"Bank",
+        player:from.name,
+        title:"Bankroll Transfer",
+        description:`${from.name} transferred ${money(amount)} to ${to.name}.`,
+        amount:-amount,
+        details:{recipient:to.name, debtPaid:debtPay, bankrollAdded:remainder}
+      });
       save();
       toast(`Transferred ${money(amount)}. Debt paid ${money(debtPay)}, bankroll added ${money(remainder)}.`);
     }
@@ -2963,7 +3521,7 @@
     function settleLocalBlackjack() {
       const player = playerByName($("localBjPlayer").value);
       if (!player) return toast("Choose a player.");
-      const start = Number($("localBjStart").value || stackValue(player.chips) || 0);
+      const start = Number($("localBjStart").value || bankrollValue(player) || 0);
       const endingChips = {
         white: Number($("localBjWhite").value || 0),
         red: Number($("localBjRed").value || 0),
@@ -2986,7 +3544,7 @@
         addXP(player.name, blackjackXP["Win Session"], "Blackjack: Win Session", {persist: false, toast: false});
       }
       ["localBjWhite","localBjRed","localBjBlue","localBjGreen","localBjBlack"].forEach((id) => $(id).value = "");
-      $("localBjPreview").textContent = `${player.name}: final ${money(endingValue)}, profit ${signedMoney(profit)}, debt paid ${money(debtPay)}, bankroll now ${money(stackValue(player.chips))}.`;
+      $("localBjPreview").textContent = `${player.name}: final ${money(endingValue)}, profit ${signedMoney(profit)}, debt paid ${money(debtPay)}, bankroll now ${money(bankrollValue(player))}.`;
       log(`${player.name} local blackjack settled: final ${money(endingValue)}, profit ${signedMoney(profit)}, debt paid ${money(debtPay)}.`);
       save();
       toast(`${player.name} local blackjack settled: ${signedMoney(profit)}.`);
@@ -3129,7 +3687,7 @@
       const topByChips = rankedPlayers()[0];
       const topByXp = [...state.players].sort((a, b) => b.xp - a.xp)[0];
       const level = levelFromXP(linkedPlayer.xp);
-      const bankroll = stackValue(linkedPlayer.chips);
+      const bankroll = bankrollValue(linkedPlayer);
       if (level >= 2) unlock("level-2");
       if (level >= 5) unlock("level-5");
       if (level >= 10) unlock("level-10");
@@ -3170,20 +3728,26 @@
       return unlockedCount;
     }
 
-    function applyMoneyResult(player, amount, reason) {
+    function applyMoneyResult(player, amount, reason, options = {}) {
       const value = Number(amount || 0);
       if (value > 0) {
         const debtPay = Math.min(player.bankDebt, value);
         player.bankDebt -= debtPay;
         state.counters.debtRepaid += debtPay;
         const remaining = value - debtPay;
+        if (options.bankrollAlreadyAdjusted) {
+          if (debtPay > 0) adjustPlayerBankroll(player, -debtPay);
+        } else if (remaining > 0) {
+          adjustPlayerBankroll(player, remaining);
+        }
         player.lifetime += remaining;
-        log(`${player.name} ${reason}: +$${value}. Paid bank $${debtPay}. Lifetime gained $${remaining}.`);
+        if (!options.silent) log(`${player.name} ${reason}: +$${value}. Paid bank $${debtPay}. Lifetime gained $${remaining}.`);
       } else if (value < 0) {
+        if (!options.bankrollAlreadyAdjusted) adjustPlayerBankroll(player, value);
         player.lifetime += value;
-        log(`${player.name} ${reason}: -$${Math.abs(value)}.`);
+        if (!options.silent) log(`${player.name} ${reason}: -$${Math.abs(value)}.`);
       } else {
-        log(`${player.name} ${reason}: $0.`);
+        if (!options.silent) log(`${player.name} ${reason}: $0.`);
       }
     }
 
@@ -3621,17 +4185,41 @@
         toast(`${player.name} borrowed ${money(amount)}. Chips added: ${chipText(chips)}.`);
       }
       if (action === "bank-borrow") {
-        const player = playerByName($("bankBorrowPlayer").value);
+        const player = currentPlayer();
         const amount = Number($("bankBorrowAmount").value || 0);
         if (!player || amount <= 0) return toast("Enter a loan amount.");
         const chips = chipSetup(amount);
         player.bankDebt += amount;
-        player.chips = addChips(player.chips, chips);
+        adjustPlayerBankroll(player, amount);
         state.counters.loansTaken += 1;
         unlockAchievement("debt-borrower", player.name);
-        log(`${player.name} borrowed $${amount} from the bank.`);
+        addHistoryEvent({
+          type:"bank-loan",
+          category:"Bank",
+          player:player.name,
+          title:"Bank Loan",
+          description:`${player.name} borrowed ${money(amount)} from the bank.`,
+          amount,
+          details:{debt:player.bankDebt, chips:chipText(chips)}
+        });
         save();
         toast(`${player.name} borrowed ${money(amount)}. Chips added: ${chipText(chips)}.`);
+      }
+      if (action === "toggle-achievement-showcase") {
+        const player = currentPlayer();
+        const id = target?.dataset.achievementId || "";
+        if (!player || !id || !state.unlockedAchievements?.[id]) return toast("Only unlocked achievements can be showcased.");
+        player.favoriteAchievements = Array.isArray(player.favoriteAchievements) ? player.favoriteAchievements : [];
+        if (player.favoriteAchievements.includes(id)) {
+          player.favoriteAchievements = player.favoriteAchievements.filter((item) => item !== id);
+          toast("Achievement removed from showcase.");
+        } else {
+          if (player.favoriteAchievements.length >= 3) return toast("You can showcase up to three achievements.");
+          player.favoriteAchievements.push(id);
+          toast("Achievement added to your showcase.");
+        }
+        save();
+        return;
       }
       if (action === "bank-deposit") {
         depositToBank();
@@ -4196,11 +4784,31 @@
         activeAchievementTab = achievementTab.dataset.achievementTab;
         render();
       }
+      const achievementCategoryButton = event.target.closest("[data-achievement-category]");
+      if (achievementCategoryButton) {
+        achievementCategory = achievementCategoryButton.dataset.achievementCategory || "all";
+        renderAchievementBoards();
+      }
       const blackjackTab = event.target.closest("[data-blackjack-mode]");
       if (blackjackTab) {
         blackjackMode = blackjackTab.dataset.blackjackMode;
         activeOnlineGame = "blackjack";
         render();
+      }
+      const historyFilterButton = event.target.closest("[data-history-filter]");
+      if (historyFilterButton) {
+        historyFilter = historyFilterButton.dataset.historyFilter || "all";
+        renderHistoryBoard();
+      }
+      const bankPreset = event.target.closest("[data-bank-preset]");
+      if (bankPreset) {
+        const input = $(bankPreset.dataset.bankTarget || "");
+        const player = currentPlayer();
+        if (input && player) {
+          const preset = bankPreset.dataset.bankPreset;
+          const maximum = input.id === "bankWithdrawAmount" ? Number(player.bankBalance || 0) : bankrollValue(player);
+          input.value = ["max","all"].includes(preset) ? maximum : Number(preset || 0);
+        }
       }
       const slotButton = event.target.closest("[data-slot-machine]");
       if (slotButton) {
@@ -4274,6 +4882,19 @@
       activityHistoryLimit = Number($("historyLimit").value || 10);
       renderHistoryBoard();
     });
+    $("historySearch")?.addEventListener("input", () => {
+      historySearch = $("historySearch").value.trim().toLowerCase();
+      renderHistoryBoard();
+    });
+    $("achievementSearch")?.addEventListener("input", () => {
+      achievementSearch = $("achievementSearch").value.trim().toLowerCase();
+      renderAchievementBoards();
+    });
+    $("achievementSort")?.addEventListener("change", () => {
+      achievementSort = $("achievementSort").value || "unlocked";
+      renderAchievementBoards();
+    });
+    els.pokerBuyIn?.addEventListener("input", renderPokerBuyInPreview);
     setInterval(() => {
       if (activeView === "dailies") renderDailyRewards();
     }, 30000);
@@ -4281,4 +4902,3 @@
     render();
     loadChangelog();
     initFirebase();
-

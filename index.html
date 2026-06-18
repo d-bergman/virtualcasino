@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Virtual Casino | Family Card RPG</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260617-1" />
+  <link rel="stylesheet" href="css/styles.css?v=20260617-3" />
 </head>
 <body class="auth-checking">
   <div id="appLoader" class="app-loader" role="status" aria-live="polite">
@@ -141,10 +141,6 @@
         <article class="panel panel-pad">
           <div class="section-title"><span>&#9819; Leaderboard</span></div>
           <div id="leaderboard" class="leaderboard-list"></div>
-        </article>
-        <article class="panel panel-pad" style="margin-top:18px;">
-          <div class="section-title"><span>&#9818; All Players</span></div>
-          <div id="allPlayersBoard" class="leaderboard-list"></div>
         </article>
       </section>
 
@@ -547,30 +543,38 @@
               </span>
             </div>
             <div class="rule-strip" id="pokerRoomRules"></div>
-            <div id="pokerRoomPlayers" class="room-player-grid"></div>
-            <div class="blackjack-table">
-              <div class="hand-zone">
+            <div class="poker-room-layout">
+              <section class="poker-zone poker-turn-zone">
+                <div id="pokerTableMetrics" class="poker-metrics"></div>
+                <div id="pokerRoomStatus" class="blackjack-status" aria-live="polite">Texas Hold'em room is open. Use this dedicated table while everyone joins.</div>
+              </section>
+              <section class="poker-zone">
+                <div class="section-title"><span>My Hole Cards</span><span id="pokerMySeatBadge" class="sync-pill">Spectating</span></div>
+                <div id="pokerMyHand" class="playing-card-row"></div>
+              </section>
+              <section class="poker-zone">
                 <div class="section-title"><span>Community Board</span><span class="sync-pill">Kickers enabled</span></div>
-                <div id="pokerCommunityBoard" class="playing-card-row"><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span><span class="playing-card hidden-card dealt-card">?</span></div>
-              </div>
-              <div class="hand-zone">
-                <div class="section-title"><span>Room Status</span><span class="sync-pill">Multiplayer only</span></div>
-                <div id="pokerRoomStatus" class="blackjack-status">Texas Hold'em room is open. Use this dedicated table while everyone joins.</div>
-              </div>
-              <div class="hand-zone">
-                <div class="section-title"><span>Player Hands</span><span class="sync-pill">Host deals</span></div>
-                <div id="pokerPlayerHands" class="leaderboard-list"></div>
-              </div>
+                <div id="pokerCommunityBoard" class="playing-card-row"><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span><span class="playing-card hidden-card">?</span></div>
+              </section>
+              <section class="poker-zone">
+                <div class="section-title"><span>Seats</span><span class="sync-pill">2–8 players</span></div>
+                <div id="pokerRoomPlayers" class="poker-seat-grid"></div>
+              </section>
+              <section class="poker-zone poker-action-zone">
+                <div class="form-grid">
+                  <div><label for="pokerRaiseAmount">Bet / Raise By</label><input id="pokerRaiseAmount" type="number" inputmode="numeric" min="1" value="10" /></div>
+                </div>
+                <div id="pokerActionReason" class="field-note">Waiting for a hand.</div>
+                <div id="pokerActionButtons" class="action-grid poker-actions">
+                  <button id="pokerDealButton" class="primary-btn" type="button" data-action="poker-deal-hand" aria-label="Deal new poker hand">Deal New Hand</button>
+                  <button id="pokerCheckButton" class="ghost-btn" type="button" data-action="poker-check">Check</button>
+                  <button id="pokerCallButton" class="ghost-btn" type="button" data-action="poker-call">Call</button>
+                  <button id="pokerWagerButton" class="primary-btn" type="button" data-action="poker-raise">Bet</button>
+                  <button id="pokerFoldButton" class="ghost-btn danger-btn" type="button" data-action="poker-fold" aria-label="Fold poker hand">Fold</button>
+                </div>
+              </section>
             </div>
-            <div class="form-grid">
-              <div><label for="pokerRaiseAmount">Raise Amount</label><input id="pokerRaiseAmount" type="number" inputmode="numeric" min="1" value="10" /></div>
-            </div>
-            <div class="action-grid">
-              <button class="primary-btn" type="button" data-action="poker-deal-hand">Deal New Hand</button>
-              <button class="ghost-btn" type="button" data-action="poker-check">Check</button>
-              <button class="ghost-btn" type="button" data-action="poker-call">Call</button>
-              <button class="ghost-btn" type="button" data-action="poker-raise">Raise</button>
-              <button class="ghost-btn" type="button" data-action="poker-fold">Fold</button>
+            <div class="action-grid room-exit-actions">
               <button class="ghost-btn" type="button" data-action="leave-active-room">Leave Session</button>
               <button id="closePokerRoomBtn" class="primary-btn danger-btn" type="button" data-action="close-active-room">Close Room</button>
             </div>
@@ -579,48 +583,126 @@
       </section>
 
       <section id="bankView" class="view">
-        <article class="panel panel-pad current-player-panel">
-          <div class="section-title"><span>&#9824; Your Bankroll</span></div>
-          <div id="currentPlayerStats" class="leaderboard-list"></div>
-        </article>
-        <article class="panel panel-pad" style="margin-top:18px;">
-          <div class="section-title"><span>&#9818; Banking</span></div>
-          <div class="form-grid">
-            <div><label for="bankingAmount">Amount</label><input id="bankingAmount" type="number" inputmode="numeric" placeholder="ex: 1000" /></div>
+        <header class="bank-page-header">
+          <div><p class="eyebrow">Financial Vault</p><h2>&#9824; Bank & Loans</h2><p>Manage your money, help family, and grow your wealth.</p></div>
+        </header>
+        <div id="bankSummaryGrid" class="bank-summary-grid"></div>
+        <div class="bank-workspace">
+          <article class="panel panel-pad banking-center">
+            <div class="section-title"><span>&#9878; Banking Center</span></div>
+            <div class="banking-actions-grid">
+              <section class="bank-action-card deposit-card">
+                <div class="bank-action-icon">&#8681;</div>
+                <h3>Deposit to Safe Bank</h3>
+                <label for="bankDepositAmount">Amount</label>
+                <input id="bankDepositAmount" type="number" inputmode="numeric" placeholder="1,000" />
+                <div class="preset-row">
+                  <button type="button" data-bank-preset="100" data-bank-target="bankDepositAmount">$100</button>
+                  <button type="button" data-bank-preset="500" data-bank-target="bankDepositAmount">$500</button>
+                  <button type="button" data-bank-preset="1000" data-bank-target="bankDepositAmount">$1,000</button>
+                  <button type="button" data-bank-preset="max" data-bank-target="bankDepositAmount">Max</button>
+                </div>
+                <button class="primary-btn w-full" type="button" data-action="bank-deposit">Deposit</button>
+              </section>
+              <section class="bank-action-card withdraw-card">
+                <div class="bank-action-icon">&#8679;</div>
+                <h3>Withdraw from Safe Bank</h3>
+                <label for="bankWithdrawAmount">Amount</label>
+                <input id="bankWithdrawAmount" type="number" inputmode="numeric" placeholder="500" />
+                <div class="preset-row">
+                  <button type="button" data-bank-preset="100" data-bank-target="bankWithdrawAmount">$100</button>
+                  <button type="button" data-bank-preset="500" data-bank-target="bankWithdrawAmount">$500</button>
+                  <button type="button" data-bank-preset="1000" data-bank-target="bankWithdrawAmount">$1,000</button>
+                  <button type="button" data-bank-preset="all" data-bank-target="bankWithdrawAmount">All</button>
+                </div>
+                <button class="primary-btn danger-btn w-full" type="button" data-action="bank-withdraw">Withdraw</button>
+              </section>
+            </div>
+            <p class="bank-tip">&#9878; Safe Bank keeps your money secure even when you are on a roll.</p>
+          </article>
+          <article class="panel panel-pad transfer-center">
+            <div class="section-title"><span>&#8644; Bankroll Transfer</span></div>
+            <div class="transfer-route">
+              <div><label>From</label><div id="transferFromPlayer" class="readonly-field"></div></div>
+              <span class="transfer-arrow">&#8646;</span>
+              <div><label for="transferToPlayer">To</label><select id="transferToPlayer"></select></div>
+            </div>
+            <label for="transferAmount">Amount</label>
+            <input id="transferAmount" type="number" inputmode="numeric" placeholder="250" />
+            <div class="preset-row">
+              <button type="button" data-bank-preset="50" data-bank-target="transferAmount">$50</button>
+              <button type="button" data-bank-preset="100" data-bank-target="transferAmount">$100</button>
+              <button type="button" data-bank-preset="250" data-bank-target="transferAmount">$250</button>
+              <button type="button" data-bank-preset="max" data-bank-target="transferAmount">All</button>
+            </div>
+            <button class="primary-btn w-full" type="button" data-action="bankroll-transfer">Transfer Bankroll</button>
+          </article>
+        </div>
+        <div class="bank-lower-grid">
+          <article class="panel panel-pad loan-center">
+            <div class="section-title"><span>&#9819; Your Loan Center</span></div>
+            <div id="loanPlayerCard" class="loan-player-card"></div>
+            <label for="bankBorrowAmount">Loan Amount</label>
+            <input id="bankBorrowAmount" type="number" inputmode="numeric" value="100" />
+            <div class="preset-row">
+              <button type="button" data-bank-preset="50" data-bank-target="bankBorrowAmount">$50</button>
+              <button type="button" data-bank-preset="100" data-bank-target="bankBorrowAmount">$100</button>
+              <button type="button" data-bank-preset="250" data-bank-target="bankBorrowAmount">$250</button>
+              <button type="button" data-bank-preset="500" data-bank-target="bankBorrowAmount">$500</button>
+            </div>
+            <button class="primary-btn w-full" type="button" data-action="bank-borrow">Issue Loan to Me</button>
+          </article>
+          <div class="bank-side-stack">
+            <article class="panel panel-pad">
+              <div class="section-title"><span>&#9819; Family Wealth Ranking</span></div>
+              <div id="familyWealthRanking" class="wealth-ranking"></div>
+            </article>
+            <article class="panel panel-pad">
+              <div class="section-title"><span>&#9878; Recent Loan Activity</span></div>
+              <div id="loanActivity" class="history-feed compact-feed"></div>
+            </article>
           </div>
-          <div class="action-grid">
-            <button class="primary-btn" type="button" data-action="bank-deposit">Deposit To Bank</button>
-            <button class="ghost-btn" type="button" data-action="bank-withdraw">Withdraw From Bank</button>
-          </div>
-        </article>
-        <article class="panel panel-pad" style="margin-top:18px;">
-          <div class="section-title"><span>&#8644; Bankroll Transfer</span></div>
-          <div class="form-grid">
-            <div><label for="transferToPlayer">Send To</label><select id="transferToPlayer"></select></div>
-            <div><label for="transferAmount">Amount</label><input id="transferAmount" type="number" inputmode="numeric" placeholder="ex: 100" /></div>
-          </div>
-          <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="bankroll-transfer">Transfer Bankroll</button>
-        </article>
-        <article class="panel panel-pad">
-          <div class="section-title"><span>&#9878; Bank & Loans</span></div>
-          <div class="form-grid">
-            <div><label for="bankBorrowPlayer">Player</label><select id="bankBorrowPlayer"></select></div>
-            <div><label for="bankBorrowAmount">Loan Amount</label><input id="bankBorrowAmount" type="number" inputmode="numeric" value="100" /></div>
-          </div>
-          <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="bank-borrow">Issue Loan</button>
-          <div id="debtBoard" class="leaderboard-list" style="margin-top:18px;"></div>
-        </article>
+        </div>
+        <p class="bank-footer-tip"><strong>Tip:</strong> Keep money in your Safe Bank to protect it. Loans are repaid automatically from winnings.</p>
       </section>
 
       <section id="achievementsView" class="view">
         <article class="panel panel-pad">
           <div class="section-title"><span>&#9733; Achievements</span></div>
+          <div id="achievementSummary" class="achievement-summary"></div>
+          <div class="achievement-tools">
+            <input id="achievementSearch" type="search" placeholder="Search achievements..." />
+            <select id="achievementSort" aria-label="Sort achievements">
+              <option value="unlocked">Unlocked First</option>
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="progress">Progress</option>
+              <option value="rarity">Rarity</option>
+              <option value="alphabetical">Alphabetical</option>
+              <option value="locked">Locked First</option>
+            </select>
+          </div>
+          <div class="achievement-categories" aria-label="Achievement category filters">
+            <button class="sub-tab active" type="button" data-achievement-category="all">All</button>
+            <button class="sub-tab" type="button" data-achievement-category="poker">Poker</button>
+            <button class="sub-tab" type="button" data-achievement-category="blackjack">Blackjack</button>
+            <button class="sub-tab" type="button" data-achievement-category="slots">Slots</button>
+            <button class="sub-tab" type="button" data-achievement-category="craps">Craps</button>
+            <button class="sub-tab" type="button" data-achievement-category="uno">Uno</button>
+            <button class="sub-tab" type="button" data-achievement-category="rpg">RPG</button>
+            <button class="sub-tab" type="button" data-achievement-category="wealth">Wealth</button>
+            <button class="sub-tab" type="button" data-achievement-category="prestige">Prestige</button>
+            <button class="sub-tab" type="button" data-achievement-category="dailies">Dailies</button>
+            <button class="sub-tab" type="button" data-achievement-category="hidden">Hidden</button>
+          </div>
           <div class="sub-tabs" aria-label="Achievement tabs">
             <button class="sub-tab active" type="button" data-achievement-tab="unlocked">Unlocked</button>
             <button class="sub-tab" type="button" data-achievement-tab="locked">Locked</button>
+            <button class="sub-tab" type="button" data-achievement-tab="recent">Recent Unlocks</button>
           </div>
           <div id="achievementUnlockedBoard" class="achievement-list"></div>
           <div id="achievementLockedBoard" class="achievement-list" hidden></div>
+          <div id="achievementRecentBoard" class="achievement-list" hidden></div>
         </article>
       </section>
 
@@ -639,11 +721,25 @@
 
       <section id="historyView" class="view">
         <article class="panel panel-pad">
-          <div class="section-title">
-            <span>Session History</span>
+          <div class="history-header">
+            <div><p class="eyebrow">Casino Activity</p><h2>Session History</h2><p>Wins, losses, banking, achievements, rewards, and system activity.</p></div>
             <label class="inline-control" for="historyLimit">Show <select id="historyLimit"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="999">All</option></select></label>
           </div>
-          <div id="historyBoard" class="history-list"></div>
+          <div class="history-tools">
+            <input id="historySearch" type="search" placeholder="Search history..." />
+            <div class="history-filters" aria-label="History categories">
+              <button class="sub-tab active" type="button" data-history-filter="all">All</button>
+              <button class="sub-tab" type="button" data-history-filter="poker">Poker</button>
+              <button class="sub-tab" type="button" data-history-filter="blackjack">Blackjack</button>
+              <button class="sub-tab" type="button" data-history-filter="slots">Slots</button>
+              <button class="sub-tab" type="button" data-history-filter="craps">Craps</button>
+              <button class="sub-tab" type="button" data-history-filter="bank">Bank</button>
+              <button class="sub-tab" type="button" data-history-filter="achievements">Achievements</button>
+              <button class="sub-tab" type="button" data-history-filter="dailies">Dailies</button>
+              <button class="sub-tab" type="button" data-history-filter="system">System</button>
+            </div>
+          </div>
+          <div id="historyBoard" class="history-feed"></div>
         </article>
       </section>
 
@@ -666,11 +762,10 @@
 
   <nav class="bottom-nav" aria-label="Mobile navigation">
     <button class="nav-btn active" data-view="overview"><span>&#8962;</span><span>Home</span></button>
+    <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Games</span></button>
     <button class="nav-btn" data-view="players"><span>&#9818;</span><span>Players</span></button>
-    <button class="nav-btn" data-view="sessions"><span>&#9824;</span><span>Local</span></button>
-    <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online</span></button>
     <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank</span></button>
-    <button class="nav-btn admin-link" data-view="admin"><span>&#9881;</span><span>Admin</span></button>
+    <button class="nav-btn" type="button" data-action="toggle-mobile-nav"><span>&#9776;</span><span>More</span></button>
   </nav>
 
   <div id="toast" class="toast"></div>
@@ -868,8 +963,25 @@
           <label for="pokerBigBlind">Big Blind</label>
           <input id="pokerBigBlind" type="number" inputmode="numeric" min="2" value="10" />
         </div>
+        <div>
+          <label for="pokerBuyIn">Table Buy-In</label>
+          <input id="pokerBuyIn" type="number" inputmode="numeric" min="465" value="465" />
+        </div>
+        <div>
+          <label for="pokerMaxPlayers">Seats</label>
+          <select id="pokerMaxPlayers">
+            <option value="2">2 players</option>
+            <option value="3">3 players</option>
+            <option value="4">4 players</option>
+            <option value="5">5 players</option>
+            <option value="6">6 players</option>
+            <option value="7">7 players</option>
+            <option value="8" selected>8 players</option>
+          </select>
+        </div>
       </div>
-      <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="create-poker-room">Create Room</button>
+      <div id="pokerBuyInPreview" class="chip-recommendation"></div>
+      <button class="primary-btn dialog-submit" type="button" data-action="create-poker-room">Create Room</button>
       <div id="pokerRoomMessage" class="auth-message"></div>
     </form>
   </dialog>
@@ -896,6 +1008,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=20260617-1"></script>
+  <script type="module" src="js/app.js?v=20260617-4"></script>
 </body>
 </html>

@@ -1,5 +1,26 @@
 # Virtual Casino Changelog
 
+## V1.10.0 - 2026-06-17 08:54 PM CT - Poker Economy, Casino History, Achievements, and Banking
+
+### Poker
+- Rebuilt Hold'em around seat order for heads-up and 3-8 player tables.
+- Separated bankroll from room chip stacks with configurable $465+ buy-ins, cash-outs, host settlement, recovery, and chip recommendations.
+- Corrected legal betting actions, street resets, bet-versus-raise labels, blind rotation, action reopening, and hand audit history.
+- Added clearer pot, current bet, current turn, amount owed, seat labels, legal-action controls, and mobile table layout.
+
+### History
+- Added structured casino activity events with category icons, amount badges, details, search, filters, and row limits.
+- Kept backward-compatible rendering for legacy text logs and removed duplicate result logging from updated games.
+
+### Achievements
+- Kept the compact list while adding category filters, search, sorting, progress bars, completion summaries, rarity visuals, hidden achievements, and recent unlocks.
+- Added rarity-colored unlock rewards and up to three showcased achievements per player on player cards and leaderboards.
+
+### Bank & Loans
+- Redesigned the banking center with bankroll, Safe Bank, lifetime, debt, and net-worth summaries.
+- Added deposit, withdrawal, transfer presets, wealth ranking, and recent loan activity.
+- Restricted the Loan Center to the logged-in linked player for every account, including admin.
+
 ## V1.9.0 - 2026-06-17 08:48 PM CT - Hold'em Flow, Craps, and Version History
 
 ### Added
