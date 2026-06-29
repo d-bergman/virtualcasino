@@ -35,6 +35,72 @@
       {label:"1000 XP", type:"xp", value:1000, weight:1},
       {label:"JACKPOT", type:"money", value:5000, weight:0.2, golden:true}
     ];
+    const STOCK_TICK_MIN_MS = 30 * 1000;
+    const STOCK_TICK_MAX_MS = 45 * 1000;
+    const STOCK_COMPANIES = [
+      ["NED","New Eden Resorts","Casino & Hospitality",42,1.1],
+      ["CRWN","Crownline Gaming","Casino Tech",68,1.35],
+      ["VLT","Vault National Bank","Banking",55,0.82],
+      ["LUX","Luxor Motors","Vehicles",124,1.25],
+      ["ATOM","Atomica Energy","Energy",37,1.55],
+      ["SKY","Skybridge Air","Travel",88,1.22],
+      ["CHIP","Royal Chipworks","Manufacturing",24,1.45],
+      ["ACE","Ace Analytics","Software",76,1.5],
+      ["DIAM","Diamond Coast Realty","Real Estate",112,0.96],
+      ["FIZZ","FizzPop Drinks","Consumer",18,1.72],
+      ["BLK","Black Card Security","Security",63,1.05],
+      ["SUN","Sunset Studios","Entertainment",31,1.6],
+      ["RIV","Riverline Logistics","Shipping",49,1.0],
+      ["MED","Medallion Health","Health",71,0.9],
+      ["ROBO","RoboJack Systems","Automation",96,1.9],
+      ["FARM","Lucky Clover Foods","Food",29,0.74],
+      ["GEM","Gemini Mining","Materials",53,1.85],
+      ["PIX","Pixel Palace Media","Media",44,1.4],
+      ["SPRK","Sparkline Telecom","Telecom",61,0.88],
+      ["DRFT","Drift King Customs","Vehicles",33,1.75],
+      ["AQUA","AquaLux Marine","Luxury",102,1.3],
+      ["NOVA","Nova Pharmaceuticals","Health",84,1.65],
+      ["ORBT","Orbit Freight","Space Logistics",117,2.0],
+      ["CASH","Cashmere Holdings","Finance",150,1.08]
+    ].map(([symbol, name, sector, base, volatility], index) => ({symbol, name, sector, base, volatility, network: index % 2 === 0 ? "LCN" : "BAWSAQ"}));
+    const VEHICLE_CATALOG = [
+      ["2020-toyota-corolla-le","2020 Toyota Corolla LE","Starter","Sedan",4200,0.68,"🚗"],
+      ["2019-honda-civic-lx","2019 Honda Civic LX","Starter","Sedan",5600,0.69,"🚗"],
+      ["2021-nissan-altima-sv","2021 Nissan Altima SV","Starter","Sedan",7800,0.69,"🚗"],
+      ["2022-hyundai-elantra-sel","2022 Hyundai Elantra SEL","Starter","Sedan",9100,0.7,"🚗"],
+      ["2024-toyota-rav4-xle","2024 Toyota RAV4 XLE","Common","SUV",28500,0.75,"🚙"],
+      ["2024-honda-cr-v-ex-l","2024 Honda CR-V EX-L","Common","SUV",31800,0.76,"🚙"],
+      ["2024-ford-f-150-xlt","2024 Ford F-150 XLT","Common","Truck",36500,0.75,"🛻"],
+      ["2024-chevrolet-tahoe-lt","2024 Chevrolet Tahoe LT","Common","SUV",58800,0.77,"🚙"],
+      ["2025-toyota-camry-xse","2025 Toyota Camry XSE","Uncommon","Sedan",34900,0.78,"🚘"],
+      ["2025-honda-accord-touring-hybrid","2025 Honda Accord Touring Hybrid","Uncommon","Sedan",40500,0.78,"🚘"],
+      ["2025-tesla-model-3-performance","2025 Tesla Model 3 Performance","Uncommon","EV Sport Sedan",54900,0.77,"⚡"],
+      ["2024-jeep-wrangler-rubicon","2024 Jeep Wrangler Rubicon","Uncommon","SUV",62000,0.79,"🚙"],
+      ["2024-bmw-m3-competition","2024 BMW M3 Competition","Rare","Sports Sedan",86000,0.83,"🏎️"],
+      ["2024-audi-rs7-performance","2024 Audi RS7 Performance","Rare","Sports Sedan",128000,0.84,"🏎️"],
+      ["2024-chevrolet-corvette-z06","2024 Chevrolet Corvette Z06","Rare","Sports Car",132000,0.84,"🏎️"],
+      ["2024-porsche-911-carrera-s","2024 Porsche 911 Carrera S","Rare","Sports Car",142000,0.86,"🏎️"],
+      ["2024-nissan-gt-r-nismo","2024 Nissan GT-R NISMO","Epic","Supercar",221000,0.87,"🏁"],
+      ["2024-mercedes-amg-gt-63","2024 Mercedes-AMG GT 63","Epic","Grand Tourer",183000,0.85,"🏁"],
+      ["2024-audi-r8-gt","2024 Audi R8 GT","Epic","Supercar",253000,0.88,"🏁"],
+      ["2025-lamborghini-huracan-tecnica","2025 Lamborghini Huracan Tecnica","Legendary","Supercar",285000,0.9,"🔥"],
+      ["2024-ferrari-296-gtb","2024 Ferrari 296 GTB","Legendary","Supercar",342000,0.91,"🔥"],
+      ["2024-mclaren-750s","2024 McLaren 750S","Legendary","Supercar",331000,0.91,"🔥"],
+      ["2025-rolls-royce-phantom","2025 Rolls-Royce Phantom","Legendary","Luxury Sedan",505000,0.92,"👑"],
+      ["2022-lamborghini-aventador-svj","2022 Lamborghini Aventador SVJ","Mythic","Hypercar",720000,0.94,"💎"],
+      ["2015-porsche-918-spyder","2015 Porsche 918 Spyder","Mythic","Hypercar",1700000,0.95,"💎"],
+      ["2015-mclaren-p1","2015 McLaren P1","Mythic","Hypercar",1850000,0.95,"💎"],
+      ["2016-ferrari-laferrari","2016 Ferrari LaFerrari","Mythic","Hypercar",2200000,0.96,"💎"],
+      ["2024-bugatti-chiron-super-sport","2024 Bugatti Chiron Super Sport","Mythic","Hypercar",3900000,0.97,"💎"],
+      ["2025-koenigsegg-jesko-absolut","2025 Koenigsegg Jesko Absolut","Mythic","Hypercar",3400000,0.97,"💎"]
+    ].map(([id, name, rarity, type, price, resaleRate, icon]) => ({id, name, rarity, type, price, resaleRate, icon}));
+    const DAILY_CLICKABLES = [
+      {id:"coin", icon:"🪙", title:"House Coin", description:"Call the gold coin flip.", reward:{type:"money", min:15, max:80}, chance:0.58},
+      {id:"dice", icon:"🎲", title:"Loaded Dice", description:"Roll casino dice for a bankroll bump.", reward:{type:"money", min:20, max:120}, chance:0.5},
+      {id:"vault", icon:"🔐", title:"Mini Vault", description:"Crack a tiny vault for money or XP.", reward:{type:"mixed", min:25, max:150}, chance:0.45},
+      {id:"cards", icon:"🃏", title:"Card Draw", description:"Draw a lucky card for XP.", reward:{type:"xp", min:25, max:140}, chance:0.62},
+      {id:"ticket", icon:"🎟️", title:"Ticket Booth", description:"Try for a free Casino Ticket.", reward:{type:"ticket", min:1, max:1}, chance:0.34}
+    ];
     const levels = [{level:1,xp:0},{level:2,xp:100},{level:3,xp:250},{level:4,xp:450},{level:5,xp:700},{level:6,xp:1000},{level:7,xp:1400},{level:8,xp:1900},{level:9,xp:2500},{level:10,xp:3200},{level:11,xp:4100},{level:12,xp:5200},{level:13,xp:6500}];
     const standard = {white:10,red:10,blue:8,green:5,black:2};
     const blank = {white:0,red:0,blue:0,green:0,black:0};
@@ -118,7 +184,7 @@
       ["wealth-tycoon","Tycoon","Reach $5,000 bankroll","Legendary","Wealth","wealth"],
       ["wealth-casino-king","Casino King","Reach $10,000 bankroll","Mythic","Wealth","wealth"],
       ["bank-first-deposit","First Deposit","Deposit bankroll into the bank","Common","Banking","banking"],
-      ["bank-safe-stack","Safe Stack","Keep $10,000 in safe bank","Rare","Banking","banking"],
+      ["bank-safe-stack","Bank Stack","Keep $10,000 in the Bank","Rare","Banking","banking"],
       ["bankroll-transfer","Generous Banker","Transfer bankroll to another player","Common","Banking","banking"],
       ["debt-borrower","Borrower","Take first loan","Common","Debt","debt"],
       ["debt-deep","Deep in Debt","Owe $500+","Rare","Debt","debt"],
@@ -136,6 +202,17 @@
       ["daily-first-clear","Daily Grinder","Complete a daily challenge","Common","Dailies","daily"],
       ["daily-wheel-spin","Wheel Spinner","Spin the Lucky Wheel","Common","Dailies","daily"],
       ["daily-scratch-card","Scratch Luck","Use the daily scratch-off","Common","Dailies","daily"],
+      ["stock-first-buy","First Share","Buy your first stock share","Common","Stocks","stocks"],
+      ["stock-diversified","Diversified","Own shares in 5 different companies","Uncommon","Stocks","stocks"],
+      ["stock-portfolio-1000","Market Regular","Reach a $1,000 stock portfolio value","Rare","Stocks","stocks"],
+      ["stock-portfolio-10000","Market Mogul","Reach a $10,000 stock portfolio value","Epic","Stocks","stocks"],
+      ["stock-profit-sale","Green Trade","Sell stock for a profit","Rare","Stocks","stocks"],
+      ["asset-first-car","First Ride","Buy your first vehicle asset","Common","Assets","assets"],
+      ["asset-garage-5","Garage Builder","Own 5 vehicles","Uncommon","Assets","assets"],
+      ["asset-garage-10","Packed Garage","Own 10 vehicles","Rare","Assets","assets"],
+      ["asset-rare-vehicle","Rare Keys","Own a Rare or better vehicle","Rare","Assets","assets"],
+      ["asset-hypercar","Hypercar Royalty","Own a Mythic hypercar","Legendary","Assets","assets"],
+      ["asset-million-garage","Million-Dollar Garage","Reach $1,000,000 in owned vehicle resale value","Mythic","Assets","assets"],
       ["craps-first-roll","Dice Rookie","Roll your first craps hand","Common","Craps","craps"],
       ["craps-pass-line","Pass Line Winner","Win a Pass Line bet","Common","Craps","craps"],
       ["craps-field-day","Field Day","Win a Field bet","Common","Craps","craps"],
@@ -303,6 +380,9 @@
     let activityHistoryLimit = 10;
     let historyFilter = "all";
     let historySearch = "";
+    let pendingTicketUse = "";
+    let assetViewPlayerName = "";
+    let activeAssetCategory = "garage";
     let changelogEntries = [];
     let changelogPage = 1;
     const changelogRowsPerPage = 5;
@@ -362,6 +442,8 @@
       pokerRoomMessage: $("pokerRoomMessage"),
       pokerGuideDialog: $("pokerGuideDialog"),
       luckyWheelDialog: $("luckyWheelDialog"),
+      ticketUseDialog: $("ticketUseDialog"),
+      assetViewDialog: $("assetViewDialog"),
       crapsGuideDialog: $("crapsGuideDialog"),
       linkProfileDialog: $("linkProfileDialog")
     };
@@ -395,12 +477,16 @@
           lifetime,
           bankBalance: Number(player.bankBalance || 0),
           bankDebt: Number(player.bankDebt || 0),
+          casinoTickets: Number(player.casinoTickets || 0),
+          portfolio: player.portfolio && typeof player.portfolio === "object" && !Array.isArray(player.portfolio) ? player.portfolio : {},
+          portfolioCost: player.portfolioCost && typeof player.portfolioCost === "object" && !Array.isArray(player.portfolioCost) ? player.portfolioCost : {},
+          ownedAssets: Array.isArray(player.ownedAssets) ? player.ownedAssets : [],
           sessionBuyIn: Number(player.sessionBuyIn || player.sessionStart || 0),
           gamesPlayed: Number(player.gamesPlayed || 0),
           favoriteAchievements: Array.isArray(player.favoriteAchievements) ? player.favoriteAchievements.slice(0, 3) : []
         };
       });
-      data.version = 10;
+      data.version = 11;
       data.updatedAt = data.updatedAt || Date.now();
       data.pokerSessionActive = Boolean(data.pokerSessionActive);
       data.biggestPot = data.biggestPot || {player:"", value:0};
@@ -458,7 +544,10 @@
       data.daily.challenges = data.daily.challenges && typeof data.daily.challenges === "object" && !Array.isArray(data.daily.challenges) ? data.daily.challenges : {};
       data.daily.wheel = data.daily.wheel && typeof data.daily.wheel === "object" && !Array.isArray(data.daily.wheel) ? data.daily.wheel : {};
       data.daily.scratch = data.daily.scratch && typeof data.daily.scratch === "object" && !Array.isArray(data.daily.scratch) ? data.daily.scratch : {};
+      data.daily.activities = data.daily.activities && typeof data.daily.activities === "object" && !Array.isArray(data.daily.activities) ? data.daily.activities : {};
       data.daily.wheelHistory = Array.isArray(data.daily.wheelHistory) ? data.daily.wheelHistory.slice(0, 12) : [];
+      data.stockMarket = normalizeStockMarket(data.stockMarket);
+      data.assetMarket = normalizeAssetMarket(data.assetMarket);
       data.jackpots = data.jackpots && typeof data.jackpots === "object" && !Array.isArray(data.jackpots) ? data.jackpots : {};
       data.jackpots.treasureVault = {
         mini: Number(data.jackpots.treasureVault?.mini || 250),
@@ -466,6 +555,145 @@
         grand: Number(data.jackpots.treasureVault?.grand || 25000)
       };
       return data;
+    }
+
+    function normalizeStockMarket(input) {
+      const market = input && typeof input === "object" && !Array.isArray(input) ? structuredClone(input) : {};
+      market.lastTick = Number(market.lastTick || Date.now());
+      market.nextTick = Number(market.nextTick || Date.now() + stockTickDelay());
+      market.tickNumber = Number(market.tickNumber || 0);
+      market.news = Array.isArray(market.news) ? market.news.slice(0, 8) : [];
+      market.companies = market.companies && typeof market.companies === "object" && !Array.isArray(market.companies) ? market.companies : {};
+      STOCK_COMPANIES.forEach((company, index) => {
+        const existing = market.companies[company.symbol] || {};
+        const start = Math.max(1, Number(existing.price || company.base + (index % 5) * 3));
+        market.companies[company.symbol] = {
+          ...company,
+          price: Number(start.toFixed(2)),
+          previous: Number(existing.previous || start),
+          trend: Number(existing.trend || 0),
+          network: existing.network || company.network,
+          event: existing.event || ""
+        };
+      });
+      return market;
+    }
+
+    function normalizeAssetMarket(input) {
+      const market = input && typeof input === "object" && !Array.isArray(input) ? structuredClone(input) : {};
+      market.lastRefresh = Number(market.lastRefresh || 0);
+      market.listings = Array.isArray(market.listings) ? market.listings : [];
+      const validVehicleIds = new Set(VEHICLE_CATALOG.map((vehicle) => vehicle.id));
+      const hasLegacyListings = market.listings.some((listing) => !validVehicleIds.has(listing.vehicleId) || !/\b(19|20)\d{2}\b/.test(String(listing.name || "")));
+      const missingFeaturedCamry = !market.listings.some((listing) => listing.vehicleId === "2025-toyota-camry-xse");
+      if (!market.listings.length || hasLegacyListings || missingFeaturedCamry) refreshAssetMarket(market, true);
+      return market;
+    }
+
+    function maybeAdvanceMarkets() {
+      const now = Date.now();
+      if (!state?.stockMarket) return;
+      let changed = false;
+      let guard = 0;
+      while (now >= Number(state.stockMarket.nextTick || 0) && guard < 20) {
+        advanceStockMarketTick(now);
+        changed = true;
+        guard += 1;
+      }
+      if (now >= nextAssetRefreshTime(Number(state.assetMarket?.lastRefresh || 0)).getTime()) {
+        refreshAssetMarket(state.assetMarket);
+        changed = true;
+      }
+      if (changed) {
+        state.updatedAt = Date.now();
+        localStorage.setItem(localKey, JSON.stringify(state));
+        queueCloudWrite();
+      }
+    }
+
+    function stockTickDelay() {
+      return STOCK_TICK_MIN_MS + Math.floor(Math.random() * (STOCK_TICK_MAX_MS - STOCK_TICK_MIN_MS + 1));
+    }
+
+    function isStockBusinessHours(date = new Date()) {
+      const parts = centralParts(date);
+      return parts.hour >= 8 && parts.hour < 16;
+    }
+
+    function advanceStockMarketTick(now = Date.now()) {
+      const market = state.stockMarket;
+      market.tickNumber += 1;
+      market.lastTick = now;
+      market.nextTick = now + stockTickDelay();
+      const companies = Object.values(market.companies);
+      const eventCompany = companies[Math.floor(Math.random() * companies.length)] || STOCK_COMPANIES[Math.floor(Math.random() * STOCK_COMPANIES.length)];
+      const eventDirection = Math.random() > 0.48 ? 1 : -1;
+      const openHours = isStockBusinessHours(new Date(now));
+      const networkText = eventCompany.network === "BAWSAQ" ? "BAWSAQ online activity" : "LCN local market event";
+      const eventText = eventDirection > 0 ? `${networkText}: buying pressure` : `${networkText}: selloff pressure`;
+      companies.forEach((company) => {
+        const sectorMood = company.sector === eventCompany.sector ? eventDirection * (0.35 + Math.random() * 1.1) : 0;
+        const networkMood = company.network === eventCompany.network ? eventDirection * (0.15 + Math.random() * 0.65) : 0;
+        const shock = company.symbol === eventCompany.symbol ? eventDirection * (0.85 + Math.random() * 2.25) : 0;
+        const drift = (Math.random() - 0.49) * Number(company.volatility || 1) * 0.85;
+        const pullToBase = ((Number(company.base || company.price) - Number(company.price || company.base)) / Math.max(1, Number(company.price || 1))) * 0.32;
+        const multiplier = openHours ? 1.65 : 0.72;
+        const percent = Math.max(-7.5, Math.min(7.5, (drift + shock + sectorMood + networkMood + pullToBase) * multiplier));
+        company.previous = Number(company.price || company.base);
+        company.price = Number(Math.max(1, company.previous * (1 + percent / 100)).toFixed(2));
+        company.trend = Number(((company.price - company.previous) / company.previous * 100).toFixed(2));
+        company.event = company.symbol === eventCompany.symbol ? eventText : "";
+      });
+      market.news.unshift(`${eventCompany.network} / ${eventCompany.name} moved on ${eventDirection > 0 ? "buying pressure" : "selloff pressure"}${openHours ? " during business hours" : " after hours"}.`);
+      market.news = market.news.slice(0, 8);
+    }
+
+    function refreshAssetMarket(market = state.assetMarket, initial = false) {
+      const now = Date.now();
+      const commonPool = VEHICLE_CATALOG.filter((item) => !["Legendary", "Mythic"].includes(item.rarity));
+      const listings = [];
+      const used = new Set();
+      const featuredCamry = VEHICLE_CATALOG.find((item) => item.id === "2025-toyota-camry-xse");
+      if (featuredCamry) {
+        used.add(featuredCamry.id);
+        listings.push(createAssetListing(featuredCamry));
+      }
+      while (listings.length < 10) {
+        const vehicle = commonPool[Math.floor(Math.random() * commonPool.length)];
+        if (!vehicle || used.has(vehicle.id)) continue;
+        used.add(vehicle.id);
+        listings.push(createAssetListing(vehicle));
+      }
+      if (initial || Math.random() < 0.38) {
+        const rarePool = VEHICLE_CATALOG.filter((item) => ["Rare", "Epic", "Legendary", "Mythic"].includes(item.rarity));
+        const vehicle = rarePool[Math.floor(Math.random() * rarePool.length)];
+        if (vehicle && !used.has(vehicle.id)) listings.push(createAssetListing(vehicle, true));
+      }
+      market.lastRefresh = now;
+      market.listings = listings.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+    }
+
+    function nextAssetRefreshTime(fromMs = Date.now()) {
+      const from = new Date(Number(fromMs || Date.now()));
+      const central = centralParts(from);
+      const centralOnePmUtc = Date.UTC(central.year, central.month - 1, central.day, 13, 0) - centralOffsetMs(from);
+      const refresh = new Date(centralOnePmUtc);
+      return from.getTime() < refresh.getTime() ? refresh : new Date(refresh.getTime() + 24 * 60 * 60 * 1000);
+    }
+
+    function createAssetListing(vehicle, rareDrop = false) {
+      const premium = rareDrop ? 1.08 + Math.random() * 0.22 : 0.88 + Math.random() * 0.22;
+      return {
+        listingId:`asset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        vehicleId:vehicle.id,
+        name:vehicle.name,
+        rarity:vehicle.rarity,
+        type:vehicle.type,
+        icon:vehicle.icon,
+        price:Math.round(vehicle.price * premium),
+        resaleRate:vehicle.resaleRate,
+        listedAt:Date.now()
+      };
     }
 
     function playerByNameFromList(players, name) {
@@ -663,6 +891,39 @@
       return normalized;
     }
 
+    function addSystemHistory(title, description, details = {}) {
+      return addHistoryEvent({
+        type:"admin-system",
+        category:"System",
+        player:currentDisplayName() || "Admin",
+        title,
+        description,
+        details
+      });
+    }
+
+    function awardCasinoTickets(player, amount, reason) {
+      const tickets = Math.max(0, Math.round(Number(amount || 0)));
+      if (!player || tickets <= 0) return 0;
+      player.casinoTickets = Number(player.casinoTickets || 0) + tickets;
+      addHistoryEvent({
+        type:"casino-ticket",
+        category:"Dailies",
+        player:player.name,
+        title:"Casino Ticket Earned",
+        description:`${player.name} earned ${tickets} Casino Ticket${tickets === 1 ? "" : "s"} from ${reason}.`,
+        amount:tickets,
+        amountKind:"ticket",
+        details:{reason}
+      });
+      return tickets;
+    }
+
+    function maybeDropCasinoTicket(player, chance, reason) {
+      if (!player || Math.random() >= Number(chance || 0)) return 0;
+      return awardCasinoTickets(player, 1, reason);
+    }
+
     function unlockAchievement(id, player = "", source = "tracker") {
       const linkedPlayer = currentPlayer();
       if (!linkedPlayer) return false;
@@ -787,7 +1048,7 @@
       state.onlineRooms = {};
       activeRoomId = "";
       activeOnlineGame = "";
-      log("All online rooms were cleared by Darren.");
+      addSystemHistory("Rooms Cleared", "All online rooms were cleared by admin.");
       localStorage.setItem(localKey, JSON.stringify(state));
       render();
       if (!firebaseDisabled && firebaseState.ready && firebaseState.user) {
@@ -873,6 +1134,7 @@
 
     function render() {
       document.body.classList.toggle("auth-locked", !isSignedIn() && !document.body.classList.contains("auth-checking"));
+      if (isSignedIn()) maybeAdvanceMarkets();
       handleActiveRoomClosure();
       if (activeView === "admin" && !isDarrenAdmin()) activeView = "players";
       document.querySelectorAll("[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === activeView));
@@ -912,6 +1174,8 @@
         : renderListRow("&#9733;", "No achievements unlocked yet", "Complete tracked milestones to unlock achievements.", "");
       renderAchievementBoards();
       renderBankDashboard();
+      renderStockMarket();
+      renderAssets();
       renderBlackjackBankroll();
       $("gameGrid").innerHTML = ["poker","blackjack","uno"].map(renderGameCard).join("");
       document.querySelectorAll("[data-game-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.gamePanel === activeGame));
@@ -958,9 +1222,11 @@
     function renderHistoryEvent(item) {
       const meta = historyCategoryMeta(item.category);
       const amount = item.amount;
-      const amountClass = item.amountKind === "xp" ? "xp" : item.type.includes("achievement") ? "achievement" : Number(amount || 0) < 0 ? "loss" : Number(amount || 0) > 0 ? "win" : "";
+      const amountClass = item.amountKind === "xp" || item.amountKind === "ticket" ? "xp" : item.type.includes("achievement") ? "achievement" : Number(amount || 0) < 0 ? "loss" : Number(amount || 0) > 0 ? "win" : "";
+      const amountNumber = Number(amount || 0);
       const amountText = amount === null || amount === undefined ? ""
         : item.amountKind === "xp" ? `+${Number(amount).toLocaleString()} XP`
+        : item.amountKind === "ticket" ? `${amountNumber > 0 ? "+" : ""}${amountNumber.toLocaleString()} 🎟️`
         : signedMoney(amount);
       const details = Object.entries(item.details || {}).filter(([, value]) => value !== "" && value !== null && value !== undefined).slice(0, 4)
         .map(([key, value]) => `<span><b>${escapeHtml(historyDetailLabel(key))}</b> ${typeof value === "number" && /amount|wager|payout|net|debt|buyIn|cashOut|pot/i.test(key) ? money(value) : escapeHtml(value)}</span>`).join("");
@@ -1101,6 +1367,7 @@
               <div class="stat-line"><span>Current Bankroll</span><strong class="${bankrollClass}">${money(bankrollValue(player))}</strong></div>
               <div class="stat-line"><span>Lifetime P/L</span><strong class="${lifetimeClass}">${signedMoney(player.lifetime)}</strong></div>
               <div class="stat-line"><span>Bank Debt</span><strong>${money(player.bankDebt)}</strong></div>
+              <div class="stat-line"><span>Casino Tickets</span><strong>🎟️ ${Number(player.casinoTickets || 0)}</strong></div>
             </div>
             <div class="xp-row">
               <span>Level ${level}</span>
@@ -1109,6 +1376,7 @@
             </div>
             <div class="chip-text">Achievements: ${achievementCompletionText(player.name)}</div>
             ${achievementShowcaseMarkup(player)}
+            <button class="mini-btn asset-mini-btn" type="button" data-action="view-player-assets" data-player-name="${escapeAttr(player.name)}">View Assets (${player.ownedAssets?.length || 0})</button>
             <div class="chip-text" title="${escapeAttr(chipText(player.chips))}">Chips: ${escapeHtml(chipText(player.chips))}</div>
           </div>
         </article>`;
@@ -1135,24 +1403,38 @@
         </div>
         <div class="all-player-stats">
           <div><span>Bankroll</span><strong class="${player.bankDebt > 0 ? "loss" : "money"}">${money(bankroll)}</strong></div>
-          <div><span>Safe Bank</span><strong>${money(player.bankBalance || 0)}</strong></div>
+          <div><span>Bank</span><strong>${money(player.bankBalance || 0)}</strong></div>
           <div><span>Lifetime P/L</span><strong class="${player.lifetime >= 0 ? "money" : "loss"}">${signedMoney(player.lifetime)}</strong></div>
           <div><span>Bank Debt</span><strong class="${debtClass}">${money(player.bankDebt || 0)}</strong></div>
+          <div><span>Tickets</span><strong>🎟️ ${Number(player.casinoTickets || 0)}</strong></div>
           <div><span>Achievements</span><strong>${achievements}</strong></div>
           <div><span>XP</span><strong>${Number(player.xp || 0).toLocaleString()}</strong></div>
         </div>
         ${achievementShowcaseMarkup(player)}
+        <button class="mini-btn asset-mini-btn" type="button" data-action="view-player-assets" data-player-name="${escapeAttr(player.name)}">View Owned Assets (${player.ownedAssets?.length || 0})</button>
       </article>`;
     }
 
     function renderLeaderboardRow(player, index) {
       const net = netBankroll(player);
-      const debtText = player.bankDebt > 0 ? `Debt ${money(player.bankDebt)} - net ${signedMoney(net)}` : `Net ${money(net)}`;
-      return `<div class="list-row leaderboard-row">
-        <span class="medal medal-crown">#${index + 1}</span>
-        <div><strong>${escapeHtml(displayNameForPlayer(player.name))}</strong><div class="list-row-sub">${escapeHtml(debtText)}</div>${achievementShowcaseMarkup(player)}</div>
-        <strong>${escapeHtml(signedMoney(player.lifetime))}</strong>
-      </div>`;
+      const maxNet = Math.max(1, ...state.players.map((candidate) => Math.max(0, netBankroll(candidate))));
+      const width = Math.max(4, Math.round(Math.max(0, net) / maxNet * 100));
+      const debtText = player.bankDebt > 0 ? `Debt ${money(player.bankDebt)}` : "No debt";
+      const rankTone = index === 0 ? "gold" : index === 1 ? "silver" : index === 2 ? "bronze" : "standard";
+      return `<article class="leaderboard-row leaderboard-${rankTone}">
+        <div class="leaderboard-rank"><span>#${index + 1}</span></div>
+        <div class="leaderboard-profile">
+          <strong>${escapeHtml(displayNameForPlayer(player.name))}</strong>
+          <span>Level ${levelFromXP(player.xp)} • ${achievementCompletionText(player.name)} achievements</span>
+          ${achievementShowcaseMarkup(player)}
+        </div>
+        <div class="leaderboard-bar"><span style="width:${width}%"></span></div>
+        <div class="leaderboard-money">
+          <div><span>Net Worth</span><strong>${signedMoney(net)}</strong></div>
+          <div><span>Lifetime</span><strong class="${player.lifetime >= 0 ? "money" : "loss"}">${signedMoney(player.lifetime)}</strong></div>
+          <div><span>Status</span><strong>${escapeHtml(debtText)}</strong></div>
+        </div>
+      </article>`;
     }
 
     function renderPlayerSummaryRow(player) {
@@ -1301,18 +1583,19 @@
         $("bankSummaryGrid").innerHTML = `<div class="blackjack-status">Link your profile to use banking and loans.</div>`;
         $("loanPlayerCard").innerHTML = `<div class="blackjack-status">No linked player.</div>`;
         $("transferFromPlayer").textContent = "No linked player";
+        $("bankInvestmentSnapshot").innerHTML = `<div class="blackjack-status">Link your profile to see investments.</div>`;
         return;
       }
       const bankroll = bankrollValue(player);
-      const safeBank = Number(player.bankBalance || 0);
+      const banked = Number(player.bankBalance || 0);
       const debt = Number(player.bankDebt || 0);
-      const netWorth = bankroll + safeBank - debt;
+      const netWorth = bankroll + banked - debt;
       $("bankSummaryGrid").innerHTML = [
         ["bankroll","&#128179;","Bankroll",money(bankroll),"Available to play"],
-        ["safe","&#9878;","Safe Bank",money(safeBank),"Locked and secure"],
+        ["safe","&#9878;","Bank",money(banked),"Stored balance"],
         ["lifetime","&#8599;","Lifetime Profit / Loss",signedMoney(player.lifetime),"All time net"],
         ["debt","&#9888;","Bank Debt",money(debt),"Outstanding loans"],
-        ["worth","&#9670;","Net Worth",signedMoney(netWorth),"Bankroll + Safe Bank - Debt"]
+        ["worth","&#9670;","Net Worth",signedMoney(netWorth),"Bankroll + Bank - Debt"]
       ].map(([tone, icon, label, value, note]) => `<article class="bank-summary-card ${tone}"><span class="bank-summary-icon">${icon}</span><div><span>${label}</span><strong>${value}</strong><small>${note}</small></div></article>`).join("");
       $("transferFromPlayer").innerHTML = `<strong>${escapeHtml(currentDisplayName())}</strong><span>${money(bankroll)} available</span>`;
       const transferSelect = $("transferToPlayer");
@@ -1328,6 +1611,293 @@
       }).join("");
       const loanEvents = (state.history || []).filter((event) => event.category === "Bank" && /loan|debt/i.test(`${event.type} ${event.title} ${event.description}`)).slice(0, 5);
       $("loanActivity").innerHTML = loanEvents.length ? loanEvents.map(renderHistoryEvent).join("") : `<div class="blackjack-status">No recent loan activity.</div>`;
+      $("bankInvestmentSnapshot").innerHTML = renderInvestmentSnapshot(player);
+    }
+
+    function portfolioValue(player) {
+      return Object.entries(player?.portfolio || {}).reduce((sum, [symbol, shares]) => {
+        const stock = state.stockMarket?.companies?.[symbol];
+        return sum + Number(shares || 0) * Number(stock?.price || 0);
+      }, 0);
+    }
+
+    function portfolioCost(player) {
+      return Object.entries(player?.portfolio || {}).reduce((sum, [symbol, shares]) => {
+        const stored = Number(player?.portfolioCost?.[symbol] || 0);
+        if (stored > 0) return sum + stored;
+        const stock = state.stockMarket?.companies?.[symbol];
+        return sum + Number(shares || 0) * Number(stock?.previous || stock?.price || 0);
+      }, 0);
+    }
+
+    function assetValue(player) {
+      return (player?.ownedAssets || []).reduce((sum, asset) => sum + Math.round(Number(asset.pricePaid || 0) * Number(asset.resaleRate || 0.7)), 0);
+    }
+
+    function checkStockAchievements(player) {
+      if (!player) return;
+      const holdingCount = Object.values(player.portfolio || {}).filter((shares) => Number(shares || 0) > 0).length;
+      const value = portfolioValue(player);
+      unlockAchievement("stock-first-buy", player.name);
+      if (holdingCount >= 5) unlockAchievement("stock-diversified", player.name);
+      if (value >= 1000) unlockAchievement("stock-portfolio-1000", player.name);
+      if (value >= 10000) unlockAchievement("stock-portfolio-10000", player.name);
+    }
+
+    function checkAssetAchievements(player) {
+      if (!player) return;
+      const assets = player.ownedAssets || [];
+      const rarityRank = {Starter:0, Common:1, Uncommon:2, Rare:3, Epic:4, Legendary:5, Mythic:6};
+      unlockAchievement("asset-first-car", player.name);
+      if (assets.length >= 5) unlockAchievement("asset-garage-5", player.name);
+      if (assets.length >= 10) unlockAchievement("asset-garage-10", player.name);
+      if (assets.some((asset) => Number(rarityRank[asset.rarity] || 0) >= rarityRank.Rare)) unlockAchievement("asset-rare-vehicle", player.name);
+      if (assets.some((asset) => asset.rarity === "Mythic" && /hypercar/i.test(String(asset.type || "")))) unlockAchievement("asset-hypercar", player.name);
+      if (assetValue(player) >= 1000000) unlockAchievement("asset-million-garage", player.name);
+    }
+
+    function renderInvestmentSnapshot(player) {
+      const stocks = portfolioValue(player);
+      const assets = assetValue(player);
+      return [
+        renderListRow("📈", "Stock Portfolio", "Current market value", money(stocks)),
+        renderListRow("🚗", "Owned Assets", `${player.ownedAssets?.length || 0} acquired`, money(assets)),
+        renderListRow("🎟️", "Casino Tickets", "Wheel and scratch-off passes", Number(player.casinoTickets || 0))
+      ].join("");
+    }
+
+    function renderStockMarket() {
+      const player = currentPlayer();
+      const market = state.stockMarket;
+      if (!market) return;
+      const portfolio = player ? portfolioValue(player) : 0;
+      const cost = player ? portfolioCost(player) : 0;
+      const gain = portfolio - cost;
+      $("stockSummaryGrid").innerHTML = [
+        ["bankroll","💵","Bankroll",player ? money(bankrollValue(player)) : "Link profile","Cash available"],
+        ["lifetime","📈","Portfolio",money(portfolio),"Current value"],
+        ["safe","📊","Unrealized P/L",signedMoney(gain),cost > 0 ? `${gain >= 0 ? "Up" : "Down"} ${Math.abs(gain / cost * 100).toFixed(1)}%` : "No positions"],
+        ["worth","⏱️","Next Pulse",marketCountdown(market.nextTick),"LCN/BAWSAQ 30-45s"],
+        ["debt","📰","Market News",escapeHtml(market.news?.[0] || "Quiet trading day"),isStockBusinessHours() ? "Business hours: larger swings" : "After hours: lighter movement"]
+      ].map(([tone, icon, label, value, note]) => `<article class="bank-summary-card ${tone}"><span class="bank-summary-icon">${icon}</span><div><span>${label}</span><strong>${value}</strong><small>${note}</small></div></article>`).join("");
+      $("marketClock").textContent = `Next ${marketCountdown(market.nextTick)} • ${isStockBusinessHours() ? "8A-4P CT active" : "after hours"}`;
+      const currentSymbol = $("stockSymbol")?.value;
+      $("stockSymbol").innerHTML = Object.values(market.companies).map((stock) => `<option value="${stock.symbol}">${stock.symbol} - ${escapeHtml(stock.name)} (${money(stock.price)})</option>`).join("");
+      if (currentSymbol && market.companies[currentSymbol]) $("stockSymbol").value = currentSymbol;
+      $("stockMarketBoard").innerHTML = Object.values(market.companies).map(renderStockCard).join("");
+      $("portfolioBoard").innerHTML = player ? renderPortfolioRows(player) : `<div class="blackjack-status">Link your profile to trade.</div>`;
+      updateTradePreview();
+    }
+
+    function renderStockCard(stock) {
+      const trendClass = Number(stock.trend || 0) >= 0 ? "money" : "loss";
+      const movement = Number(stock.price || 0) - Number(stock.previous || stock.price || 0);
+      return `<article class="market-card ${trendClass === "money" ? "stock-up" : "stock-down"}">
+        <div><strong>${escapeHtml(stock.symbol)} • ${escapeHtml(stock.network || "LCN")}</strong><span>${escapeHtml(stock.sector)}</span></div>
+        <h3>${escapeHtml(stock.name)}</h3>
+        <div class="market-price">${money(stock.price)}</div>
+        <p class="${trendClass}">${Number(stock.trend || 0) >= 0 ? "+" : ""}${Number(stock.trend || 0).toFixed(2)}% (${signedMoney(movement)})</p>
+        ${stock.event ? `<small>${escapeHtml(stock.event)}</small>` : ""}
+      </article>`;
+    }
+
+    function renderPortfolioRows(player) {
+      const entries = Object.entries(player.portfolio || {}).filter(([, shares]) => Number(shares || 0) > 0);
+      return entries.length ? entries.map(([symbol, shares]) => {
+        const stock = state.stockMarket.companies[symbol];
+        const value = Number(shares) * Number(stock?.price || 0);
+        const cost = Number(player.portfolioCost?.[symbol] || 0);
+        const gain = value - cost;
+        const gainText = cost > 0 ? ` / P/L ${signedMoney(gain)} (${gain >= 0 ? "+" : ""}${(gain / cost * 100).toFixed(1)}%)` : "";
+        return renderListRow(symbol, stock?.name || symbol, `${shares} share${Number(shares) === 1 ? "" : "s"} @ ${money(stock?.price || 0)}${gainText}`, money(value));
+      }).join("") : `<div class="blackjack-status">No stock holdings yet.</div>`;
+    }
+
+    function marketCountdown(target) {
+      const ms = Math.max(0, Number(target || Date.now()) - Date.now());
+      const days = Math.floor(ms / 86400000);
+      const hours = Math.floor((ms % 86400000) / 3600000);
+      const minutes = Math.floor((ms % 3600000) / 60000);
+      const seconds = Math.floor((ms % 60000) / 1000);
+      if (days > 0) return `${days}d ${hours}h`;
+      if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+      return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+    }
+
+    function updateTradePreview() {
+      const stock = state.stockMarket?.companies?.[$("stockSymbol")?.value];
+      const shares = Math.max(1, Math.round(Number($("stockShares")?.value || 1)));
+      if ($("tradePreview")) $("tradePreview").textContent = stock ? `${shares} share(s) of ${stock.name}: ${money(shares * stock.price)}` : "Pick a stock and shares.";
+    }
+
+    function renderAssets() {
+      const player = currentPlayer();
+      const market = state.assetMarket;
+      if (!market) return;
+      document.querySelectorAll("[data-asset-category]").forEach((button) => button.classList.toggle("active", button.dataset.assetCategory === activeAssetCategory));
+      if (activeAssetCategory !== "garage") {
+        const label = {properties:"Properties", land:"Land", airplanes:"Airplanes", boats:"Boats"}[activeAssetCategory] || "Assets";
+        $("assetCategoryPanels").innerHTML = `<article class="panel panel-pad asset-coming-soon">
+          <div class="asset-showroom-badge">Coming Soon</div>
+          <h3>${escapeHtml(label)}</h3>
+          <p>This category is staged for the next asset expansion. Garage vehicles are live now; ${escapeHtml(label.toLowerCase())} will plug into the same buy, flex, and sell system later.</p>
+        </article>`;
+        return;
+      }
+      $("assetCategoryPanels").innerHTML = `<article class="panel panel-pad asset-market-panel">
+        <div class="section-title"><span>Vehicle Market</span><span id="assetMarketClock" class="sync-pill">Refreshing soon</span></div>
+        <div id="assetMarketBoard" class="asset-grid"></div>
+      </article>
+      <aside class="stock-side">
+        <article class="panel panel-pad owned-garage-panel">
+          <div class="section-title"><span>Your Acquired Assets</span></div>
+          <div id="ownedAssetsBoard" class="leaderboard-list"></div>
+        </article>
+      </aside>`;
+      $("assetMarketClock").textContent = `Refresh ${marketCountdown(nextAssetRefreshTime(Number(market.lastRefresh || 0)).getTime())}`;
+      $("assetMarketBoard").innerHTML = market.listings.slice().sort((a, b) => Number(a.price || 0) - Number(b.price || 0)).map(renderAssetListing).join("");
+      $("ownedAssetsBoard").innerHTML = player ? renderOwnedAssets(player, true) : `<div class="blackjack-status">Link your profile to buy assets.</div>`;
+    }
+
+    function renderAssetListing(listing) {
+      return `<article class="asset-card asset-listing-card rarity-${String(listing.rarity).toLowerCase()}">
+        <div class="asset-card-copy">
+          <span class="asset-kicker">${escapeHtml(listing.rarity)}${listing.type ? ` • ${escapeHtml(listing.type)}` : ""}</span>
+          <h3>${escapeHtml(listing.name)}</h3>
+          <p class="asset-msrp"><span>MSRP</span><strong>${money(listing.price)}</strong></p>
+        </div>
+        <button class="mini-btn asset-buy-btn" type="button" data-action="buy-asset" data-listing-id="${escapeAttr(listing.listingId)}">Buy</button>
+      </article>`;
+    }
+
+    function renderOwnedAssets(player, includeSell = false) {
+      const assets = player.ownedAssets || [];
+      return assets.length ? assets.map((asset) => `<article class="asset-card owned">
+        <div class="asset-card-copy">
+          <span class="asset-kicker">${escapeHtml(asset.rarity || "Owned")}${asset.type ? ` • ${escapeHtml(asset.type)}` : ""}</span>
+          <h3>${escapeHtml(asset.name)}</h3>
+          <p>Paid ${money(asset.pricePaid)} / sell value ${money(Math.round(Number(asset.pricePaid || 0) * Number(asset.resaleRate || 0.7)))}</p>
+        </div>
+        ${includeSell ? `<button class="mini-btn asset-buy-btn" type="button" data-action="sell-asset" data-asset-id="${escapeAttr(asset.assetId)}">Sell</button>` : ""}
+      </article>`).join("") : `<div class="blackjack-status">No owned assets yet.</div>`;
+    }
+
+    function buyStock() {
+      const player = currentPlayer();
+      const symbol = $("stockSymbol").value;
+      const stock = state.stockMarket.companies[symbol];
+      const shares = Math.max(1, Math.round(Number($("stockShares").value || 1)));
+      const cost = Math.round(shares * Number(stock?.price || 0));
+      if (!player || !stock) return toast("Link your profile and choose a stock.");
+      if (bankrollValue(player) < cost) return toast(`You need ${money(cost)} bankroll to buy those shares.`);
+      adjustPlayerBankroll(player, -cost);
+      player.portfolioCost = player.portfolioCost || {};
+      player.portfolio[symbol] = Number(player.portfolio[symbol] || 0) + shares;
+      player.portfolioCost[symbol] = Number(player.portfolioCost[symbol] || 0) + cost;
+      checkStockAchievements(player);
+      addHistoryEvent({
+        type:"stock-buy",
+        category:"Bank",
+        player:player.name,
+        title:"Stock Purchase",
+        description:`${player.name} bought ${shares} share${shares === 1 ? "" : "s"} of ${stock.name}.`,
+        amount:-cost,
+        details:{symbol, shares, price:stock.price}
+      });
+      save();
+      toast(`Bought ${shares} ${symbol} share${shares === 1 ? "" : "s"}.`);
+    }
+
+    function sellStock() {
+      const player = currentPlayer();
+      const symbol = $("stockSymbol").value;
+      const stock = state.stockMarket.companies[symbol];
+      const shares = Math.max(1, Math.round(Number($("stockShares").value || 1)));
+      if (!player || !stock) return toast("Link your profile and choose a stock.");
+      if (Number(player.portfolio[symbol] || 0) < shares) return toast(`You do not own ${shares} ${symbol} shares.`);
+      const payout = Math.round(shares * Number(stock.price || 0));
+      const ownedShares = Number(player.portfolio[symbol] || 0);
+      const oldCost = Number(player.portfolioCost?.[symbol] || 0);
+      const costSold = ownedShares > 0 ? Math.round(oldCost * (shares / ownedShares)) : 0;
+      player.portfolio[symbol] -= shares;
+      if (player.portfolio[symbol] <= 0) {
+        delete player.portfolio[symbol];
+        if (player.portfolioCost) delete player.portfolioCost[symbol];
+      } else if (player.portfolioCost) {
+        player.portfolioCost[symbol] = Math.max(0, oldCost - costSold);
+      }
+      adjustPlayerBankroll(player, payout);
+      if (payout > costSold) unlockAchievement("stock-profit-sale", player.name);
+      checkStockAchievements(player);
+      addHistoryEvent({
+        type:"stock-sell",
+        category:"Bank",
+        player:player.name,
+        title:"Stock Sale",
+        description:`${player.name} sold ${shares} share${shares === 1 ? "" : "s"} of ${stock.name}.`,
+        amount:payout,
+        details:{symbol, shares, price:stock.price, gain:payout - costSold}
+      });
+      save();
+      toast(`Sold ${shares} ${symbol} share${shares === 1 ? "" : "s"}.`);
+    }
+
+    function buyAsset(listingId) {
+      const player = currentPlayer();
+      const listing = state.assetMarket.listings.find((item) => item.listingId === listingId);
+      if (!player || !listing) return toast("Choose a listed asset.");
+      if (bankrollValue(player) < Number(listing.price || 0)) return toast(`You need ${money(listing.price)} bankroll to buy this asset.`);
+      adjustPlayerBankroll(player, -listing.price);
+      const asset = {
+        ...listing,
+        assetId:`owned-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        owner:player.name,
+        pricePaid:listing.price,
+        acquiredAt:Date.now()
+      };
+      player.ownedAssets.push(asset);
+      checkAssetAchievements(player);
+      state.assetMarket.listings = state.assetMarket.listings.filter((item) => item.listingId !== listingId);
+      addHistoryEvent({
+        type:"asset-buy",
+        category:"Bank",
+        player:player.name,
+        title:"Asset Purchased",
+        description:`${player.name} bought ${asset.name}.`,
+        amount:-asset.pricePaid,
+        details:{rarity:asset.rarity, resaleValue:Math.round(asset.pricePaid * asset.resaleRate)}
+      });
+      save();
+      toast(`${asset.name} acquired.`);
+    }
+
+    function sellAsset(assetId) {
+      const player = currentPlayer();
+      const asset = player?.ownedAssets?.find((item) => item.assetId === assetId);
+      if (!player || !asset) return toast("Choose one of your owned assets.");
+      const payout = Math.round(Number(asset.pricePaid || 0) * Number(asset.resaleRate || 0.7));
+      player.ownedAssets = player.ownedAssets.filter((item) => item.assetId !== assetId);
+      adjustPlayerBankroll(player, payout);
+      addHistoryEvent({
+        type:"asset-sell",
+        category:"Bank",
+        player:player.name,
+        title:"Asset Sold",
+        description:`${player.name} sold ${asset.name}.`,
+        amount:payout,
+        details:{paid:asset.pricePaid, resaleRate:asset.resaleRate}
+      });
+      save();
+      toast(`${asset.name} sold for ${money(payout)}.`);
+    }
+
+    function showPlayerAssets(playerName) {
+      const player = playerByName(playerName);
+      if (!player) return toast("Player not found.");
+      assetViewPlayerName = player.name;
+      $("assetViewTitle").textContent = `${displayNameForPlayer(player.name)}'s Assets`;
+      $("assetViewBoard").innerHTML = renderOwnedAssets(player, false);
+      els.assetViewDialog.showModal();
     }
 
     function renderBlackjackBankroll() {
@@ -1350,13 +1920,77 @@
       return state.daily.challenges[playerName];
     }
 
+    function dailyActivityRecord(playerName = currentPlayer()?.name || "") {
+      const key = todayKey();
+      state.daily.activities[playerName] = state.daily.activities[playerName] || {};
+      if (state.daily.activities[playerName].date !== key) {
+        state.daily.activities[playerName] = {date:key, played:{}};
+      }
+      state.daily.activities[playerName].played = state.daily.activities[playerName].played || {};
+      return state.daily.activities[playerName];
+    }
+
+    function renderDailyActivityCards(player) {
+      const record = dailyActivityRecord(player.name);
+      const reset = dailyResetText();
+      return DAILY_CLICKABLES.map((activity) => {
+        const done = Boolean(record.played[activity.id]);
+        return `<button class="daily-card bonus-card ${done ? "cooldown" : "ready"}" type="button" data-action="play-daily-activity" data-daily-activity="${escapeAttr(activity.id)}">
+          <span>${activity.icon}</span>
+          <strong>${escapeHtml(activity.title)}</strong>
+          <small>${done ? `Cooldown: ${reset.countdown}` : escapeHtml(activity.description)}</small>
+        </button>`;
+      }).join("");
+    }
+
+    function playDailyActivity(activityId) {
+      const player = currentPlayer();
+      const activity = DAILY_CLICKABLES.find((item) => item.id === activityId);
+      if (!player || !activity) return toast("Choose a daily activity.");
+      const record = dailyActivityRecord(player.name);
+      if (record.played[activity.id]) return toast(`${activity.title} is already claimed today.`);
+      record.played[activity.id] = true;
+      const won = Math.random() < Number(activity.chance || 0);
+      let result = "No reward this time.";
+      let amount = 0;
+      let amountKind = "";
+      if (won) {
+        const reward = activity.reward;
+        amount = Math.round(Number(reward.min || 0) + Math.random() * Math.max(0, Number(reward.max || 0) - Number(reward.min || 0)));
+        if (reward.type === "money" || (reward.type === "mixed" && Math.random() > 0.45)) {
+          grantDailyMoney(player, amount, `${activity.title} reward`);
+          result = `${money(amount)} bankroll reward`;
+        } else if (reward.type === "ticket") {
+          awardCasinoTickets(player, amount, activity.title);
+          amountKind = "ticket";
+          result = `${amount} Casino Ticket${amount === 1 ? "" : "s"}`;
+        } else {
+          addXP(player.name, amount, activity.title, {persist:false, toast:false});
+          amountKind = "xp";
+          result = `${amount} XP`;
+        }
+      }
+      addHistoryEvent({
+        type:"daily-clickable",
+        category:"Dailies",
+        player:player.name,
+        title:activity.title,
+        description:`${player.name} played ${activity.title}: ${result}.`,
+        amount:won ? amount : 0,
+        amountKind,
+        details:{activity:activity.id}
+      });
+      state.daily.wheelHistory.unshift(`${player.name} played ${activity.title}: ${result}.`);
+      state.daily.wheelHistory = state.daily.wheelHistory.slice(0, 12);
+      save();
+      resultToast(activity.title, result);
+    }
+
     function renderDailyRewards() {
       const player = currentPlayer();
       if (!player) {
         $("dailyChallengeBoard").innerHTML = renderListRow("&#9733;", "Link profile for daily rewards", "Daily challenge, wheel, and scratch card unlock after linking.", "");
         $("dailyRewardHistory").innerHTML = "";
-        const claimButton = $("claimDailyButton");
-        if (claimButton) claimButton.disabled = true;
         return;
       }
       const record = dailyRecord(player.name);
@@ -1364,16 +1998,27 @@
       const scratchDone = state.daily.scratch[player.name] === todayKey();
       const complete = record.blackjackWins >= 5 && record.slotSpins >= 5 && record.xpEarned >= 200;
       const reset = dailyResetText();
-      $("dailyChallengeBoard").innerHTML = [
-        renderListRow("&#9827;", "Win 5 Blackjack Hands", "Daily Challenge", `${Math.min(record.blackjackWins, 5)} / 5`),
-        renderListRow("&#127922;", "Spin Slots 5 Times", "Daily Challenge", `${Math.min(record.slotSpins, 5)} / 5`),
-        renderListRow("XP", "Earn 200 XP", "Daily Challenge", `${Math.min(record.xpEarned, 200)} / 200`),
-        renderListRow("&#9819;", "Claim Reward", complete ? "Reward ready: $150 bankroll" : "Complete all tasks", record.claimed ? "Claimed" : complete ? "Ready" : "Locked"),
-        renderListRow("&#127919;", "Lucky Wheel", "Once per day", wheelDone ? `Ready in ${reset.countdown} / ${reset.unlock}` : "Ready"),
-        renderListRow("&#9635;", "Daily Scratch-Off", "Once per day", scratchDone ? `Ready in ${reset.countdown} / ${reset.unlock}` : "Ready")
-      ].join("");
-      const claimButton = $("claimDailyButton");
-      if (claimButton) claimButton.disabled = !complete || record.claimed;
+      $("dailyChallengeBoard").innerHTML = `
+        <div class="daily-card-grid">
+          <button class="daily-card ${complete && !record.claimed ? "ready" : ""}" type="button" data-action="claim-daily-challenge">
+            <span>👑</span><strong>Daily Challenge</strong><small>${record.claimed ? "Claimed" : complete ? "Reward ready: $150" : "Complete all tasks"}</small>
+          </button>
+          <button class="daily-card ${wheelDone ? "cooldown" : "ready"}" type="button" data-action="spin-lucky-wheel">
+            <span>🎡</span><strong>Lucky Wheel</strong><small>${wheelDone ? `Cooldown: ${reset.countdown}` : "Ready to spin"}</small>
+          </button>
+          <button class="daily-card ${scratchDone ? "cooldown" : "ready"}" type="button" data-action="scratch-daily-card">
+            <span>🎫</span><strong>Scratch-Off</strong><small>${scratchDone ? `Cooldown: ${reset.countdown}` : "Ready to scratch"}</small>
+          </button>
+          <div class="daily-card ticket-card">
+            <span>🎟️</span><strong>Casino Tickets</strong><small>${Number(player.casinoTickets || 0)} available for extra plays</small>
+          </div>
+          ${renderDailyActivityCards(player)}
+        </div>
+        <div class="leaderboard-list daily-task-list">
+          ${renderListRow("&#9827;", "Win 5 Blackjack Hands", "Daily Challenge", `${Math.min(record.blackjackWins, 5)} / 5`)}
+          ${renderListRow("&#127922;", "Spin Slots 5 Times", "Daily Challenge", `${Math.min(record.slotSpins, 5)} / 5`)}
+          ${renderListRow("XP", "Earn 200 XP", "Daily Challenge", `${Math.min(record.xpEarned, 200)} / 200`)}
+        </div>`;
       $("dailyRewardHistory").innerHTML = "";
     }
 
@@ -1687,6 +2332,10 @@
       const player = currentPlayer();
       const bankroll = Math.max(0, bankrollValue(player));
       const debt = Math.max(0, Number(player?.bankDebt || 0));
+      const stockPortfolio = Math.max(0, portfolioValue(player));
+      const stockCompanies = Object.values(player?.portfolio || {}).filter((shares) => Number(shares || 0) > 0).length;
+      const ownedAssets = player?.ownedAssets?.length || 0;
+      const garageValue = assetValue(player);
       const progress = (current, target, suffix = "") => ({
         text:`${suffix === "$" ? money(Math.min(current, target)) : Math.min(current, target).toLocaleString()} / ${suffix === "$" ? money(target) : `${target.toLocaleString()}${suffix}`}`,
         value:Math.min(100, Math.round(current / Math.max(1, target) * 100))
@@ -1703,6 +2352,12 @@
         "wealth-tycoon": progress(bankroll, 5000, "$"),
         "wealth-casino-king": progress(bankroll, 10000, "$"),
         "debt-deep": progress(debt, 500, "$"),
+        "stock-diversified": progress(stockCompanies, 5, " companies"),
+        "stock-portfolio-1000": progress(stockPortfolio, 1000, "$"),
+        "stock-portfolio-10000": progress(stockPortfolio, 10000, "$"),
+        "asset-garage-5": progress(ownedAssets, 5, " vehicles"),
+        "asset-garage-10": progress(ownedAssets, 10, " vehicles"),
+        "asset-million-garage": progress(garageValue, 1000000, "$"),
         "activity-dedicated-player": progress(state.counters.sessionsPlayed, 10, " sessions"),
         "activity-regular": progress(state.counters.sessionsPlayed, 25, " sessions"),
         "activity-addicted": progress(state.counters.sessionsPlayed, 50, " sessions"),
@@ -2194,6 +2849,7 @@
       if (result.totalWin > wager) state.gameStats.slots.wins = Number(state.gameStats.slots.wins || 0) + 1;
       state.gameStats.slots.profit = Number(state.gameStats.slots.profit || 0) + net;
       state.gameStats.slots.biggest = Math.max(Number(state.gameStats.slots.biggest || 0), result.totalWin);
+      if (net > 0) maybeDropCasinoTicket(player, slotMachine.jackpot ? 1 : 0.08, slotMachine.jackpot ? "slots jackpot" : "slots win");
       addHistoryEvent({
         type:net > 0 ? "slots-win" : "slots-loss",
         category:"Slots",
@@ -2473,6 +3129,7 @@
       state.gameStats.blackjack.played = Number(state.gameStats.blackjack.played || 0) + hands.length;
       state.gameStats.blackjack.wins = Number(state.gameStats.blackjack.wins || 0) + wins;
       state.gameStats.blackjack.profit = Number(state.gameStats.blackjack.profit || 0) + totalDelta;
+      if (totalDelta > 0) maybeDropCasinoTicket(player, 0.12, "blackjack win");
       soloBlackjack.message = `Dealer ${dealerTotal}. ${wins} win, ${losses} loss, ${pushes} push. Net ${signedMoney(totalDelta)}.`;
       addHistoryEvent({
         type:totalDelta > 0 ? "blackjack-win" : totalDelta < 0 ? "blackjack-loss" : "blackjack-push",
@@ -3260,6 +3917,7 @@
         if (player) {
           adjustPlayerBankroll(player, seatDelta);
           if (seatDelta !== 0) applyMoneyResult(player, seatDelta, `online blackjack room ${room.name}`, {silent:true, bankrollAlreadyAdjusted:true});
+          if (seatDelta > 0) maybeDropCasinoTicket(player, 0.12, "multiplayer blackjack win");
           addHistoryEvent({
             type:seatDelta > 0 ? "blackjack-win" : seatDelta < 0 ? "blackjack-loss" : "blackjack-push",
             category:"Blackjack",
@@ -3458,12 +4116,12 @@
         category:"Bank",
         player:player.name,
         title:"Bank Deposit",
-        description:`${player.name} deposited ${money(amount)} into the Safe Bank.`,
+        description:`${player.name} deposited ${money(amount)} into the Bank.`,
         amount,
         details:{bankBalance:player.bankBalance}
       });
       save();
-      toast(`Deposited ${money(amount)} into safe bank.`);
+      toast(`Deposited ${money(amount)} into the Bank.`);
     }
 
     function withdrawFromBank() {
@@ -3471,7 +4129,7 @@
       const amount = Math.round(Number($("bankWithdrawAmount").value || 0));
       if (!player) return toast("Link your profile to a player before banking.");
       if (amount <= 0) return toast("Enter a withdrawal amount.");
-      if (Number(player.bankBalance || 0) < amount) return toast("Not enough safe bank balance.");
+      if (Number(player.bankBalance || 0) < amount) return toast("Not enough bank balance.");
       player.bankBalance -= amount;
       adjustPlayerBankroll(player, amount);
       $("bankWithdrawAmount").value = "";
@@ -3480,7 +4138,7 @@
         category:"Bank",
         player:player.name,
         title:"Bank Withdrawal",
-        description:`${player.name} withdrew ${money(amount)} from the Safe Bank.`,
+        description:`${player.name} withdrew ${money(amount)} from the Bank.`,
         amount:-amount,
         details:{bankBalance:player.bankBalance}
       });
@@ -3785,7 +4443,7 @@
     function spinLuckyWheel() {
       const player = currentPlayer();
       if (!player) return toast("Link your profile to spin the wheel.");
-      if (state.daily.wheel[player.name] === todayKey()) return toast("Lucky Wheel already used today.");
+      if (state.daily.wheel[player.name] === todayKey()) return openTicketUseDialog("wheel");
       $("wheelResult").textContent = "Spin once per day.";
       $("wheelSpinButton").disabled = false;
       $("luckyWheel").classList.remove("spinning");
@@ -3796,7 +4454,7 @@
     function awardLuckyWheel() {
       const player = currentPlayer();
       if (!player) return toast("Link your profile to spin the wheel.");
-      if (state.daily.wheel[player.name] === todayKey()) return toast("Lucky Wheel already used today.");
+      if (state.daily.wheel[player.name] === todayKey() && pendingTicketUse !== "wheel-active") return openTicketUseDialog("wheel");
       $("wheelSpinButton").disabled = true;
       const reward = weightedReward(LUCKY_WHEEL_REWARDS);
       const segment = LUCKY_WHEEL_REWARDS.findIndex((item) => item === reward);
@@ -3807,7 +4465,22 @@
       $("luckyWheel").classList.add("spinning");
       $("wheelResult").textContent = "Wheel spinning...";
       setTimeout(() => {
-      state.daily.wheel[player.name] = todayKey();
+      if (pendingTicketUse === "wheel-active") {
+        player.casinoTickets = Math.max(0, Number(player.casinoTickets || 0) - 1);
+        addHistoryEvent({
+          type:"casino-ticket-spent",
+          category:"Dailies",
+          player:player.name,
+          title:"Casino Ticket Used",
+          description:`${player.name} used 1 Casino Ticket for an extra Lucky Wheel spin.`,
+          amount:-1,
+          amountKind:"ticket",
+          details:{reward:"Lucky Wheel"}
+        });
+        pendingTicketUse = "";
+      } else {
+        state.daily.wheel[player.name] = todayKey();
+      }
       unlockAchievement("daily-wheel-spin", player.name);
       if (reward.type === "money") {
         grantDailyMoney(player, reward.value, "lucky wheel reward");
@@ -3830,7 +4503,7 @@
     function scratchDailyCard() {
       const player = currentPlayer();
       if (!player) return toast("Link your profile to scratch.");
-      if (state.daily.scratch[player.name] === todayKey()) return toast("Daily scratch already used today.");
+      if (state.daily.scratch[player.name] === todayKey()) return openTicketUseDialog("scratch");
       const reward = weightedReward([
         {value:0, weight:45}, {value:25, weight:25}, {value:50, weight:16}, {value:100, weight:10}, {value:250, weight:4}
       ]);
@@ -3843,6 +4516,53 @@
       log(text);
       save();
       resultToast("Daily Scratch-Off", reward.value > 0 ? `+$${reward.value}` : "$0");
+    }
+
+    function openTicketUseDialog(type) {
+      const player = currentPlayer();
+      const label = type === "wheel" ? "Lucky Wheel" : "Daily Scratch-Off";
+      if (!player) return toast(`Link your profile to use ${label}.`);
+      if (Number(player.casinoTickets || 0) <= 0) return toast(`${label} already used today and you have no Casino Tickets.`);
+      pendingTicketUse = type;
+      $("ticketUseTitle").textContent = `Use Ticket for ${label}?`;
+      $("ticketUseBody").textContent = `Spend 1 Casino Ticket for an extra ${label} play. You have ${player.casinoTickets}.`;
+      $("ticketUseButton").textContent = `Use 1 Ticket (${player.casinoTickets})`;
+      els.ticketUseDialog.showModal();
+    }
+
+    function confirmUseTicket() {
+      const type = pendingTicketUse;
+      const player = currentPlayer();
+      if (!player || Number(player.casinoTickets || 0) <= 0) return toast("You have no Casino Tickets.");
+      if (els.ticketUseDialog.open) els.ticketUseDialog.close();
+      if (type === "wheel") {
+        pendingTicketUse = "wheel-active";
+        $("wheelResult").textContent = "Ticket play ready.";
+        $("wheelSpinButton").disabled = false;
+        $("luckyWheel").classList.remove("spinning");
+        $("luckyWheel").style.setProperty("--wheel-rotation", "0deg");
+        els.luckyWheelDialog.showModal();
+        return;
+      }
+      if (type === "scratch") {
+        player.casinoTickets = Math.max(0, Number(player.casinoTickets || 0) - 1);
+        pendingTicketUse = "";
+        addHistoryEvent({
+          type:"casino-ticket-spent",
+          category:"Dailies",
+          player:player.name,
+          title:"Casino Ticket Used",
+          description:`${player.name} used 1 Casino Ticket for an extra Scratch-Off.`,
+          amount:-1,
+          amountKind:"ticket",
+          details:{reward:"Scratch-Off"}
+        });
+        const original = state.daily.scratch[player.name];
+        delete state.daily.scratch[player.name];
+        scratchDailyCard();
+        state.daily.scratch[player.name] = original || todayKey();
+        save();
+      }
     }
 
     function weightedReward(rewards) {
@@ -3880,6 +4600,52 @@
       if (action === "sign-out") {
         closeProfileDialog();
         signOutUser();
+        return;
+      }
+      if (action === "register-account") {
+        registerAccount();
+        return;
+      }
+      if (action === "close-ticket-dialog") {
+        pendingTicketUse = "";
+        if (els.ticketUseDialog?.open) els.ticketUseDialog.close();
+        return;
+      }
+      if (action === "confirm-use-ticket") {
+        confirmUseTicket();
+        return;
+      }
+      if (action === "play-daily-activity") {
+        playDailyActivity(target?.dataset.dailyActivity || "");
+        return;
+      }
+      if (action === "buy-stock") {
+        buyStock();
+        return;
+      }
+      if (action === "sell-stock") {
+        sellStock();
+        return;
+      }
+      if (action === "buy-asset") {
+        buyAsset(target?.dataset.listingId || "");
+        return;
+      }
+      if (action === "sell-asset") {
+        sellAsset(target?.dataset.assetId || "");
+        return;
+      }
+      if (action === "asset-category") {
+        activeAssetCategory = target?.dataset.assetCategory || "garage";
+        renderAssets();
+        return;
+      }
+      if (action === "view-player-assets") {
+        showPlayerAssets(target?.dataset.playerName || "");
+        return;
+      }
+      if (action === "close-assets-dialog") {
+        if (els.assetViewDialog?.open) els.assetViewDialog.close();
         return;
       }
       if (action === "open-online-blackjack") {
@@ -4165,7 +4931,7 @@
         Object.values(state.linkages || {}).forEach((link) => {
           if (link.playerName === name) link.playerName = "";
         });
-        log(`${name} was removed from the casino.`);
+        addSystemHistory("Player Removed", `${name} was removed from the casino.`, {player:name});
         pendingDeletePlayer = "";
         if (els.confirmDialog.open) els.confirmDialog.close();
         save();
@@ -4181,6 +4947,7 @@
         state.counters.loansTaken += 1;
         unlockAchievement("debt-borrower", player.name);
         log(`${player.name} borrowed $${amount} from the bank.`);
+        addSystemHistory("Loan Issued", `${player.name} was issued a ${money(amount)} loan from the overview bank panel.`, {player:player.name, amount});
         save();
         toast(`${player.name} borrowed ${money(amount)}. Chips added: ${chipText(chips)}.`);
       }
@@ -4238,9 +5005,9 @@
         const name = $("newPlayerName").value.trim();
         if (!name) return toast("Enter a player name.");
         if (state.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) return toast("That player already exists.");
-        state.players.push({name, xp:0, stars:0, chips:{...blank}, lifetime:0, bankDebt:0, sessionBuyIn:0, gamesPlayed:0});
+        state.players.push({name, xp:0, stars:0, chips:{...blank}, bankroll:0, lifetime:0, bankBalance:0, bankDebt:0, casinoTickets:0, portfolio:{}, portfolioCost:{}, ownedAssets:[], sessionBuyIn:0, gamesPlayed:0});
         $("newPlayerName").value = "";
-        log(`${name} joined the casino.`);
+        addSystemHistory("Player Created", `${name} was created by admin.`, {player:name});
         save();
       }
       if (action === "delete-player") {
@@ -4254,6 +5021,7 @@
       }
       if (action === "manual-xp") {
         if (!isDarrenAdmin()) return toast("Only Darren can set XP.");
+        addSystemHistory("Manual XP", `${$("manualPlayer").value} received ${Number($("manualXP").value || 0)} manual XP.`, {player:$("manualPlayer").value});
         addXP($("manualPlayer").value, Number($("manualXP").value || 0), "Manual catch-up adjustment");
       }
       if (action === "manual-level") {
@@ -4262,7 +5030,7 @@
         if (!player) return;
         player.xp = levelXP(Number($("manualLevel").value));
         player.stars = Math.max(0, Number($("manualStars").value || 0));
-        log(`${player.name} manually set to Level ${$("manualLevel").value} with ${player.stars} star(s).`);
+        addSystemHistory("Manual Level", `${player.name} manually set to Level ${$("manualLevel").value} with ${player.stars} star(s).`, {player:player.name, level:$("manualLevel").value, stars:player.stars});
         save();
       }
       if (action === "grant-bankroll") {
@@ -4272,21 +5040,52 @@
         if (!player || amount === 0) return toast("Choose a player and amount.");
         adjustPlayerBankroll(player, amount);
         player.lifetime += amount;
-        log(`${player.name} received ${money(amount)} bankroll grant.`);
+        addHistoryEvent({
+          type:"bank-grant",
+          category:"Bank",
+          player:player.name,
+          title:"Bank Grant",
+          description:`${player.name} was granted ${money(amount)} by the Bank.`,
+          amount,
+          details:{source:"Admin Bank Grant"}
+        });
+        addSystemHistory("Bankroll Granted", `${player.name} was granted ${money(amount)} by admin.`, {player:player.name, amount});
         save();
         toast(`${player.name} bankroll updated by ${signedMoney(amount)}.`);
+      }
+      if (action === "remove-bankroll") {
+        if (!isDarrenAdmin()) return toast("Only Darren can remove bankroll.");
+        const player = playerByName($("manualPlayer").value);
+        const amount = Math.max(0, Number($("removeMoneyAmount").value || 0));
+        if (!player || amount <= 0) return toast("Choose a player and amount.");
+        const removed = Math.min(bankrollValue(player), amount);
+        adjustPlayerBankroll(player, -removed);
+        addSystemHistory("Bankroll Removed", `${money(removed)} was removed from ${player.name}'s bankroll.`, {player:player.name, amount:removed});
+        save();
+        toast(`${money(removed)} removed from ${player.name}.`);
+      }
+      if (action === "grant-tickets") {
+        if (!isDarrenAdmin()) return toast("Only Darren can grant tickets.");
+        const player = playerByName($("manualPlayer").value);
+        const amount = Math.max(0, Math.round(Number($("grantTicketsAmount").value || 0)));
+        if (!player || amount <= 0) return toast("Choose a player and ticket amount.");
+        awardCasinoTickets(player, amount, "admin grant");
+        addSystemHistory("Tickets Granted", `${player.name} received ${amount} Casino Ticket${amount === 1 ? "" : "s"} from admin.`, {player:player.name, amount});
+        save();
+        toast(`${amount} ticket${amount === 1 ? "" : "s"} granted to ${player.name}.`);
       }
       if (action === "reset-daily-wheel") {
         if (!isDarrenAdmin()) return toast("Only Darren can reset daily spins.");
         const player = playerByName($("manualPlayer").value);
         if (!player) return toast("Choose a player.");
         delete state.daily.wheel[player.name];
-        log(`${player.name}'s Lucky Wheel spin was reset by Darren.`);
+        addSystemHistory("Wheel Cooldown Reset", `${player.name}'s Lucky Wheel cooldown was reset by admin.`, {player:player.name});
         save();
         toast(`${player.name} can spin the wheel again.`);
       }
       if (action === "settle-local-blackjack") {
         if (!isDarrenAdmin()) return toast("Only Darren can settle local blackjack.");
+        addSystemHistory("Local Blackjack Settlement", `Admin settled a local blackjack session for ${$("localBjPlayer").value}.`, {player:$("localBjPlayer").value});
         settleLocalBlackjack();
       }
       if (action === "clear-linkage") {
@@ -4296,7 +5095,7 @@
           state.linkages[key].playerName = "";
           state.linkages[key].displayName = state.linkages[key].displayName || "";
           state.linkages[key].updatedAt = Date.now();
-          log(`Cleared player linkage for ${state.linkages[key].email || key}.`);
+          addSystemHistory("Linkage Cleared", `Cleared player linkage for ${state.linkages[key].email || key}.`, {key});
           save();
         }
       }
@@ -4308,7 +5107,7 @@
           state.linkages[key].playerName = select.value;
           state.linkages[key].displayName = select.value;
           state.linkages[key].updatedAt = Date.now();
-          log(`Updated player linkage for ${state.linkages[key].email || key} to ${select.value}.`);
+          addSystemHistory("Linkage Updated", `Updated player linkage for ${state.linkages[key].email || key} to ${select.value}.`, {key, player:select.value});
           save();
         }
       }
@@ -4377,7 +5176,7 @@
       if (action === "import") {
         try {
           state = normalize(decodeSave($("saveText").value));
-          log("Imported save text.");
+          addSystemHistory("Save Imported", "Admin imported save text.");
           save();
           toast("Import complete.");
         } catch (error) {
@@ -4386,12 +5185,12 @@
       }
       if (action === "seed-save") {
         state = normalize(decodeSave(attachedSaveText));
-        log("Loaded attached Canada save.");
+        addSystemHistory("Seed Save Loaded", "Admin loaded the attached Canada save.");
         save();
       }
       if (action === "reset") {
         state = structuredClone(defaultState);
-        log("Tracker reset to attached Canada save.");
+        addSystemHistory("Tracker Reset", "Admin reset the tracker to the attached Canada save.");
         save();
       }
     }
@@ -4578,6 +5377,7 @@
           getAuth: authModule.getAuth,
           onAuthStateChanged: authModule.onAuthStateChanged,
           signInWithEmailAndPassword: authModule.signInWithEmailAndPassword,
+          createUserWithEmailAndPassword: authModule.createUserWithEmailAndPassword,
           updateProfile: authModule.updateProfile,
           updatePassword: authModule.updatePassword,
           signOut: authModule.signOut,
@@ -4685,6 +5485,38 @@
         setSync("Room sync blocked", false);
       });
       startRoomPoller();
+    }
+
+    async function registerAccount() {
+      const email = els.signInEmail.value.trim();
+      const password = els.signInPassword.value;
+      if (firebaseDisabled) {
+        els.signInMessage.textContent = "Registration is disabled in local test mode. Use password neweden.";
+        return;
+      }
+      if (!email || !password) {
+        els.signInMessage.textContent = "Enter email and password to register.";
+        return;
+      }
+      if (!firebaseState.ready) {
+        els.signInMessage.textContent = firebaseConfigured() ? "Firebase is still loading." : "Firebase config is missing.";
+        return;
+      }
+      try {
+        const credential = await firebaseState.modules.createUserWithEmailAndPassword(firebaseState.auth, email, password);
+        const displayName = email.split("@")[0] || "Player";
+        await firebaseState.modules.updateProfile(credential.user, {displayName}).catch(() => {});
+        await firebaseState.modules.update(firebaseState.modules.dbRef(firebaseState.db, `${databasePath}/users/${credential.user.uid}`), {
+          email,
+          displayName,
+          playerName:"",
+          createdAt: firebaseState.modules.serverTimestamp(),
+          online:true
+        }).catch(() => {});
+        els.signInMessage.textContent = "Account created. Open Profile Settings to claim your player.";
+      } catch (error) {
+        els.signInMessage.textContent = firebaseErrorMessage(error);
+      }
     }
 
     async function signIn(email, password) {
@@ -4878,6 +5710,8 @@
       renderSlots();
     });
     $("slotBetAmount").addEventListener("input", renderSlots);
+    $("stockSymbol")?.addEventListener("change", updateTradePreview);
+    $("stockShares")?.addEventListener("input", updateTradePreview);
     $("historyLimit")?.addEventListener("change", () => {
       activityHistoryLimit = Number($("historyLimit").value || 10);
       renderHistoryBoard();
@@ -4898,6 +5732,13 @@
     setInterval(() => {
       if (activeView === "dailies") renderDailyRewards();
     }, 30000);
+    setInterval(() => {
+      if (!isSignedIn()) return;
+      maybeAdvanceMarkets();
+      if (activeView === "stocks") renderStockMarket();
+      if (activeView === "assets") renderAssets();
+      if (activeView === "dailies") renderDailyRewards();
+    }, 10000);
     fillStaticSelects();
     render();
     loadChangelog();

@@ -229,6 +229,14 @@
       text-align: center;
     }
 
+    .auth-hint {
+      margin: 10px 0 0 !important;
+      color: #ffe8a7 !important;
+      font-size: 0.82rem;
+      line-height: 1.35;
+      text-align: center;
+    }
+
     .casino-shell {
       display: grid;
       grid-template-columns: 288px minmax(0, 1fr);
@@ -252,7 +260,7 @@
     }
 
     .brand-block {
-      padding: 28px 18px 18px;
+      padding: 22px 18px 14px;
       text-align: center;
       background: radial-gradient(circle at 50% 0%, rgba(255,216,107,0.14), transparent 55%);
       border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -293,7 +301,7 @@
 
     .brand-title {
       color: var(--gold);
-      font-size: 2.42rem;
+      font-size: 2.22rem;
       line-height: 0.92;
       text-shadow: 0 5px 20px rgba(255, 188, 49, 0.32);
     }
@@ -309,7 +317,10 @@
     .side-nav {
       display: grid;
       gap: 8px;
+      min-height: 0;
+      overflow-y: auto;
       padding: 0 16px;
+      scrollbar-color: rgba(255,216,107,0.42) rgba(255,255,255,0.04);
     }
 
     .nav-btn {
@@ -317,10 +328,10 @@
       align-items: center;
       gap: 14px;
       width: 100%;
-      min-height: 52px;
+      min-height: 46px;
       border-radius: 8px;
       background: transparent;
-      padding: 0 16px;
+      padding: 0 14px;
       color: #d5ccd9;
       font-weight: 800;
       text-align: left;
@@ -336,8 +347,8 @@
     }
 
     .luck-card {
-      margin: auto 18px 18px;
-      min-height: 234px;
+      margin: 12px 18px 18px;
+      min-height: 112px;
       border: 1px solid rgba(176, 60, 255, 0.62);
       border-radius: 8px;
       background:
@@ -355,7 +366,7 @@
       margin: 0;
       color: #ffe6a3;
       font-family: Georgia, "Times New Roman", serif;
-      font-size: 1.75rem;
+      font-size: 1.18rem;
       font-style: italic;
       line-height: 1.35;
     }
@@ -573,6 +584,14 @@
       line-height: 1.35;
     }
     .chip-text { color: var(--muted); font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .asset-mini-btn {
+      width: fit-content;
+      min-height: 28px;
+      margin: 10px 0 8px;
+      padding: 6px 10px;
+      font-size: .72rem;
+      justify-self: start;
+    }
     .xp-row {
       display: grid;
       grid-template-columns: auto 1fr auto;
@@ -1017,6 +1036,138 @@
     .all-player-stats span {
       color: var(--muted);
       font-size: .76rem;
+    }
+
+    .leaderboard-row {
+      display: grid;
+      grid-template-columns: auto minmax(220px, 1fr) minmax(160px, .9fr);
+      grid-template-areas:
+        "rank profile money"
+        "rank bar money";
+      gap: 12px 16px;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255,216,107,.16);
+      border-radius: 16px;
+      padding: 16px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.02)),
+        radial-gradient(circle at 0% 0%, rgba(141,60,255,.14), transparent 38%),
+        rgba(255,255,255,.035);
+    }
+
+    .leaderboard-row::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      bottom: -70px;
+      width: 170px;
+      height: 170px;
+      border-radius: 50%;
+      background: rgba(255,216,107,.08);
+    }
+
+    .leaderboard-gold {
+      border-color: rgba(255,216,107,.48);
+      box-shadow: 0 0 28px rgba(255,216,107,.08);
+    }
+
+    .leaderboard-silver { border-color: rgba(210,220,255,.32); }
+    .leaderboard-bronze { border-color: rgba(211,133,55,.34); }
+
+    .leaderboard-rank {
+      grid-area: rank;
+      position: relative;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      width: 62px;
+      height: 62px;
+      border: 1px solid rgba(255,216,107,.48);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 34% 30%, rgba(255,255,255,.55), transparent 18%),
+        conic-gradient(from 130deg, #3f1774, #f7db67, #7b4b08, #3f1774);
+      color: #fff4bd;
+      box-shadow: 0 0 24px rgba(141,60,255,.26);
+      font-weight: 950;
+      font-size: 1.2rem;
+    }
+
+    .leaderboard-profile {
+      grid-area: profile;
+      position: relative;
+      z-index: 1;
+      min-width: 0;
+    }
+
+    .leaderboard-profile strong,
+    .leaderboard-profile span {
+      display: block;
+    }
+
+    .leaderboard-profile strong {
+      color: #fff4bd;
+      font-size: 1.25rem;
+    }
+
+    .leaderboard-profile > span {
+      color: var(--muted);
+      font-size: .82rem;
+      margin-top: 2px;
+    }
+
+    .leaderboard-bar {
+      grid-area: bar;
+      position: relative;
+      z-index: 1;
+      height: 9px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+    }
+
+    .leaderboard-bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #7b2cff, #ffd86b);
+      box-shadow: 0 0 18px rgba(255,216,107,.22);
+    }
+
+    .leaderboard-money {
+      grid-area: money;
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .leaderboard-money div {
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px;
+      background: rgba(0,0,0,.18);
+      padding: 10px;
+    }
+
+    .leaderboard-money span,
+    .leaderboard-money strong {
+      display: block;
+    }
+
+    .leaderboard-money span {
+      color: var(--muted);
+      font-size: .68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .leaderboard-money strong {
+      margin-top: 4px;
+      color: #fff;
+      font-size: 1rem;
     }
 
     .inline-control {
@@ -1750,6 +1901,7 @@
     .readonly-field span { color: var(--muted); font-size: .78rem; }
     .bank-lower-grid { display: grid; grid-template-columns: .9fr 1.1fr; gap: 14px; margin-top: 14px; }
     .bank-side-stack { display: grid; gap: 14px; }
+    .investment-snapshot { display: grid; gap: 9px; }
     .loan-player-card { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 14px; padding: 12px; border: 1px solid rgba(255,216,107,.16); border-radius: 8px; background: rgba(255,255,255,.035); }
     .loan-player-identity { display: flex; gap: 10px; align-items: center; }
     .loan-player-identity span { display: block; color: var(--muted); font-size: .8rem; }
@@ -1761,6 +1913,316 @@
     .wealth-bar { height: 9px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.08); }
     .wealth-bar span { display: block; height: 100%; background: linear-gradient(90deg, #6f20ff, var(--gold)); }
     .compact-feed .history-event { padding: 9px; }
+
+    .stock-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(320px, .55fr);
+      gap: 14px;
+    }
+
+    #stocksView .bank-page-header,
+    #assetsView .bank-page-header {
+      border: 1px solid rgba(255,216,107,.18);
+      border-radius: 16px;
+      padding: 18px;
+      background:
+        radial-gradient(circle at 82% 16%, rgba(255,216,107,.18), transparent 28%),
+        radial-gradient(circle at 12% 100%, rgba(141,60,255,.2), transparent 30%),
+        rgba(255,255,255,.035);
+    }
+
+    .stock-side {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .market-grid,
+    .asset-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(285px, 1fr));
+      gap: 14px;
+    }
+
+    .market-card,
+    .asset-card {
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px;
+      background:
+        radial-gradient(circle at top left, rgba(255,216,107,.1), transparent 34%),
+        rgba(255,255,255,.04);
+      padding: 13px;
+      box-shadow: inset 0 0 20px rgba(0,0,0,.12);
+    }
+
+    .market-card {
+      display: grid;
+      gap: 8px;
+      position: relative;
+      min-height: 188px;
+      overflow: hidden;
+      border-radius: 14px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.025)),
+        radial-gradient(circle at 20% 0%, rgba(255,216,107,.14), transparent 42%),
+        rgba(3,7,14,.66);
+    }
+
+    .market-card::after {
+      content: "";
+      position: absolute;
+      right: -30px;
+      bottom: -40px;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: rgba(255,216,107,.08);
+    }
+
+    .market-card.stock-up { border-color: rgba(50,223,99,.26); }
+    .market-card.stock-down { border-color: rgba(255,77,77,.26); }
+
+    .market-card > * { position: relative; z-index: 1; }
+
+    .asset-tabs {
+      display: flex;
+      gap: 10px;
+      margin: 0 0 14px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .asset-tab {
+      min-height: 42px;
+      border: 1px solid rgba(255,216,107,.18);
+      border-radius: 999px;
+      background: rgba(255,255,255,.045);
+      color: var(--muted);
+      padding: 9px 15px;
+      font-weight: 900;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .asset-tab.active {
+      color: #170f05;
+      background: linear-gradient(180deg, #ffe38a, #c78321);
+      box-shadow: 0 8px 24px rgba(255,190,45,.16);
+    }
+
+    .asset-market-panel,
+    .owned-garage-panel {
+      background:
+        linear-gradient(145deg, rgba(15,17,23,.92), rgba(7,7,12,.82)),
+        radial-gradient(circle at top right, rgba(255,216,107,.12), transparent 34%);
+    }
+
+    .market-card > div:first-child {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--gold);
+      font-size: .78rem;
+      text-transform: uppercase;
+    }
+
+    .market-card h3,
+    .asset-card h3 {
+      margin: 0;
+      color: #fff5cc;
+    }
+
+    .market-price {
+      color: var(--gold);
+      font-size: 1.55rem;
+      font-weight: 950;
+    }
+
+    .market-card p,
+    .market-card small,
+    .asset-card p,
+    .asset-card span {
+      margin: 0;
+      color: var(--muted);
+      font-size: .82rem;
+    }
+
+    .trade-actions { margin-top: 12px; }
+
+    .asset-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: end;
+      min-height: 168px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 18px;
+      padding: 18px;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.018)),
+        radial-gradient(circle at 0% 0%, rgba(141,60,255,.18), transparent 42%),
+        radial-gradient(circle at 100% 100%, rgba(255,216,107,.12), transparent 38%),
+        rgba(6,6,12,.72);
+    }
+
+    .asset-card::before {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border: 1px solid rgba(255,216,107,.1);
+      border-radius: 14px;
+      pointer-events: none;
+    }
+
+    .asset-card::after {
+      content: "GARAGE";
+      position: absolute;
+      right: 14px;
+      top: 14px;
+      color: rgba(255,216,107,.1);
+      font-size: .72rem;
+      font-weight: 950;
+      letter-spacing: .22em;
+    }
+
+    .asset-card.owned {
+      border-color: rgba(50,223,99,.24);
+      background:
+        radial-gradient(circle at top left, rgba(50,223,99,.1), transparent 34%),
+        rgba(255,255,255,.04);
+    }
+
+    .asset-card.rarity-rare { border-color: rgba(46,132,255,.32); }
+    .asset-card.rarity-epic { border-color: rgba(179,70,255,.38); }
+    .asset-card.rarity-legendary { border-color: rgba(255,190,45,.48); box-shadow: 0 0 22px rgba(255,190,45,.1); }
+    .asset-card.rarity-mythic { border-color: rgba(255,216,107,.62); box-shadow: 0 0 28px rgba(255,216,107,.14); }
+
+    .asset-card-copy {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .asset-kicker {
+      width: fit-content;
+      border: 1px solid rgba(255,216,107,.16);
+      border-radius: 999px;
+      background: rgba(0,0,0,.22);
+      padding: 5px 9px;
+      color: var(--muted) !important;
+      font-size: .72rem !important;
+      font-weight: 900;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .asset-card h3 {
+      max-width: 100%;
+      color: #fff4c8;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.22rem, 2vw, 1.72rem);
+      line-height: 1.05;
+      text-wrap: balance;
+    }
+
+    .asset-msrp {
+      display: grid;
+      gap: 2px;
+    }
+
+    .asset-msrp span {
+      color: var(--muted);
+      font-size: .68rem;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .asset-msrp strong {
+      color: var(--gold);
+      font-size: 1.22rem;
+    }
+
+    .asset-buy-btn {
+      position: relative;
+      z-index: 1;
+      align-self: end;
+      min-width: 66px;
+      min-height: 34px;
+      border: 1px solid rgba(255,216,107,.28);
+      background: linear-gradient(180deg, rgba(190,128,25,.95), rgba(90,49,8,.95));
+      color: #fff2bd;
+      font-size: .78rem;
+      text-transform: uppercase;
+    }
+
+    .asset-coming-soon {
+      min-height: 320px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      background:
+        radial-gradient(circle at 50% 12%, rgba(255,216,107,.18), transparent 34%),
+        radial-gradient(circle at 10% 80%, rgba(141,60,255,.18), transparent 34%),
+        rgba(255,255,255,.035);
+    }
+
+    .asset-coming-soon h3 {
+      margin: 8px 0;
+      color: var(--gold);
+      font-size: clamp(2rem, 6vw, 4rem);
+      font-family: Georgia, serif;
+    }
+
+    .asset-coming-soon p {
+      max-width: 620px;
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .asset-showroom-badge {
+      justify-self: center;
+      border: 1px solid rgba(255,216,107,.3);
+      border-radius: 999px;
+      padding: 8px 14px;
+      color: var(--gold);
+      background: rgba(255,216,107,.08);
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .daily-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .daily-card {
+      display: grid;
+      gap: 6px;
+      min-height: 142px;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 12px;
+      background:
+        radial-gradient(circle at top right, rgba(255,216,107,.18), transparent 48%),
+        linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.025));
+      color: var(--text);
+      padding: 16px;
+      text-align: left;
+    }
+
+    .daily-card span { font-size: 2rem; }
+    .daily-card strong { color: var(--gold); font-size: 1.05rem; }
+    .daily-card small { color: var(--muted); line-height: 1.35; }
+    .daily-card.ready { border-color: rgba(50,223,99,.34); box-shadow: inset 0 0 20px rgba(50,223,99,.08); }
+    .daily-card.cooldown { border-color: rgba(255,216,107,.2); opacity: .86; }
+    .bonus-card { min-height: 128px; }
+    .ticket-card { border-color: rgba(180,80,255,.4); background: radial-gradient(circle at top, rgba(180,80,255,.22), transparent 46%), rgba(255,255,255,.04); }
+    .daily-task-list { margin-top: 12px; }
 
     .history-header { display: flex; justify-content: space-between; gap: 18px; align-items: end; }
     .history-header h2 { margin: 0 0 4px; }
@@ -1878,7 +2340,8 @@
       }
       .bank-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .bank-workspace,
-      .bank-lower-grid { grid-template-columns: 1fr; }
+      .bank-lower-grid,
+      .stock-layout { grid-template-columns: 1fr; }
     }
 
     @media (min-width: 1181px) and (max-width: 1450px) {
@@ -1958,8 +2421,13 @@
       .poker-seat-grid { grid-template-columns: 1fr; }
       .bank-summary-grid,
       .banking-actions-grid,
+      .daily-card-grid,
       .achievement-summary,
       .achievement-tools { grid-template-columns: 1fr; }
+      .market-grid,
+      .asset-grid { grid-template-columns: 1fr; }
+      .asset-card { grid-template-columns: minmax(0, 1fr); }
+      .asset-card button { justify-self: start; }
       .transfer-route { grid-template-columns: 1fr; }
       .transfer-arrow { transform: rotate(90deg); justify-self: center; padding: 0; }
       .achievement-quick-stats { grid-template-columns: 1fr; }
@@ -1969,6 +2437,14 @@
       .history-header { align-items: start; flex-direction: column; }
       .history-event { grid-template-columns: auto minmax(0, 1fr); }
       .history-side { grid-column: 2; justify-items: start; }
+      .leaderboard-row {
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+          "rank profile"
+          "bar bar"
+          "money money";
+      }
+      .leaderboard-money { grid-template-columns: 1fr; }
       .wealth-row { grid-template-columns: 24px 68px minmax(60px, 1fr) auto; }
       .side-stack { gap: 14px; }
       .toast { right: 16px; bottom: 92px; }

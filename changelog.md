@@ -1,5 +1,27 @@
 # Virtual Casino Changelog
 
+## V1.11.0 - 2026-06-29 12:00 PM CT - Admin Audit, Casino Tickets, Stocks, and Assets
+
+### Admin
+- Added bankroll removal and Casino Ticket grants to admin manual tools.
+- Logged admin-created player records, bankroll grants/removals, manual XP/level changes, daily resets, linkage changes, imports, resets, and room failsafes to the System history tab.
+- Updated bankroll grant history so player-facing Bank history says the money was granted by the Bank.
+- Added self-registration support for Firebase accounts while keeping player profile claiming tied to admin-created player records.
+
+### Casino Tickets and Dailies
+- Added Casino Tickets that can be earned from play and occasional slot/blackjack win drops.
+- Let players spend Casino Tickets for extra Lucky Wheel spins or extra Scratch-Offs when those rewards are on cooldown.
+- Reworked Dailies into larger clickable reward cards for the daily challenge, Lucky Wheel, Scratch-Off, ticket balance, House Coin, Loaded Dice, Mini Vault, Card Draw, and Ticket Booth, added cooldown text to every claimed daily card, then removed the redundant bottom buttons.
+
+### Bank, Stocks, and Assets
+- Renamed Bank & Loans to Bank, removed old protected-bank wording, and added an investment snapshot for stocks, owned assets, and tickets.
+- Added a 24-company active Stock Market with GTA-inspired LCN/BAWSAQ-style networks, 30-45 second live price pulses, bigger 8 AM-4 PM CT business-hour swings, sector/event movement, market headlines, portfolio tracking, cost basis, and unrealized gain/loss before selling.
+- Added an Assets tab with Garage/Properties/Land/Airplanes/Boats categories, a daily 1 PM CT Garage refresh, real-world year/make/model vehicle listings sorted low-to-high, rare vehicle chance, owned assets, resale, and player-card asset viewing.
+- Refined Garage cards to a no-image luxury listing design with smaller buy buttons and MSRP-only market pricing.
+- Added Stock Market and Assets achievement sets.
+- Redesigned the leaderboard into premium ranked cards with net-worth bars, lifetime/status stats, and stronger top-player presentation.
+- Made the sidebar easier to live with now that the site has more tabs.
+
 ## V1.10.0 - 2026-06-17 08:54 PM CT - Poker Economy, Casino History, Achievements, and Banking
 
 ### Poker
@@ -17,7 +39,7 @@
 - Added rarity-colored unlock rewards and up to three showcased achievements per player on player cards and leaderboards.
 
 ### Bank & Loans
-- Redesigned the banking center with bankroll, Safe Bank, lifetime, debt, and net-worth summaries.
+- Redesigned the banking center with bankroll, Bank, lifetime, debt, and net-worth summaries.
 - Added deposit, withdrawal, transfer presets, wealth ranking, and recent loan activity.
 - Restricted the Loan Center to the logged-in linked player for every account, including admin.
 
@@ -58,7 +80,7 @@
 ## V1.7.0 - 2026-06-16 01:10 AM CT - Banking and Casino Rewards
 
 ### Added
-- Added safe bank deposits and withdrawals.
+- Added bank deposits and withdrawals.
 - Added bankroll transfers.
 - Added Lucky Wheel, Daily Scratch-Off, daily challenge tracking, and extra slot machines.
 

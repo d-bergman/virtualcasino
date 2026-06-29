@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Virtual Casino | Family Card RPG</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260617-3" />
+  <link rel="stylesheet" href="css/styles.css?v=20260629-1" />
 </head>
 <body class="auth-checking">
   <div id="appLoader" class="app-loader" role="status" aria-live="polite">
@@ -32,7 +32,9 @@
       <input id="signInEmail" type="email" autocomplete="username" placeholder="family@email.com" />
       <label for="signInPassword">Password</label>
       <input id="signInPassword" type="password" autocomplete="current-password" required />
-      <button class="primary-btn" type="submit" style="width:100%;margin-top:18px;">Sign In</button>
+      <button class="primary-btn dialog-submit" type="submit">Sign In</button>
+      <button class="ghost-btn dialog-submit" type="button" data-action="register-account">Register New Account</button>
+      <p class="auth-hint">New accounts can register here, then claim a player profile that Darren/admin already created.</p>
       <div id="signInMessage" class="auth-message">Firebase authentication required.</div>
     </form>
   </section>
@@ -53,7 +55,9 @@
         <button class="nav-btn" data-view="players"><span>&#9818;</span><span>Players</span></button>
         <button class="nav-btn" data-view="sessions"><span>&#9830;</span><span>Local Sessions</span></button>
         <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online Sessions</span></button>
-        <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank & Loans</span></button>
+        <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank</span></button>
+        <button class="nav-btn" data-view="stocks"><span>&#128200;</span><span>Stocks</span></button>
+        <button class="nav-btn" data-view="assets"><span>&#128663;</span><span>Assets</span></button>
         <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Achievements</span></button>
         <button class="nav-btn" data-view="dailies"><span>&#127919;</span><span>Dailies</span></button>
         <button class="nav-btn admin-link" data-view="admin"><span>&#9881;</span><span>Admin</span></button>
@@ -113,7 +117,7 @@
           </div>
           <aside class="side-stack">
             <article class="panel panel-pad">
-              <div class="section-title"><span>Bank & Loans</span></div>
+              <div class="section-title"><span>Bank</span></div>
               <div class="form-grid">
                 <div class="full"><label for="borrowPlayer">Player</label><select id="borrowPlayer"></select></div>
                 <div class="full"><label for="borrowAmount">Custom Amount</label><input id="borrowAmount" type="number" inputmode="numeric" value="100" /></div>
@@ -161,11 +165,15 @@
             <div><label for="manualLevel">Exact Level</label><select id="manualLevel"></select></div>
             <div><label for="manualStars">Prestige Stars</label><input id="manualStars" type="number" inputmode="numeric" value="0" /></div>
             <div><label for="grantMoneyAmount">Grant Bankroll</label><input id="grantMoneyAmount" type="number" inputmode="numeric" value="100" /></div>
+            <div><label for="removeMoneyAmount">Remove Bankroll</label><input id="removeMoneyAmount" type="number" inputmode="numeric" value="100" /></div>
+            <div><label for="grantTicketsAmount">Grant Casino Tickets</label><input id="grantTicketsAmount" type="number" inputmode="numeric" value="1" /></div>
           </div>
           <div class="action-grid">
             <button class="primary-btn" type="button" data-action="manual-xp">Add XP</button>
             <button class="ghost-btn" type="button" data-action="manual-level">Set Level / Stars</button>
             <button class="ghost-btn" type="button" data-action="grant-bankroll">Grant Bankroll</button>
+            <button class="ghost-btn danger-btn" type="button" data-action="remove-bankroll">Remove Bankroll</button>
+            <button class="ghost-btn" type="button" data-action="grant-tickets">Grant Tickets</button>
             <button class="ghost-btn" type="button" data-action="reset-daily-wheel">Reset Daily Wheel</button>
           </div>
         </article>
@@ -584,7 +592,7 @@
 
       <section id="bankView" class="view">
         <header class="bank-page-header">
-          <div><p class="eyebrow">Financial Vault</p><h2>&#9824; Bank & Loans</h2><p>Manage your money, help family, and grow your wealth.</p></div>
+          <div><p class="eyebrow">Financial Vault</p><h2>&#9824; Bank</h2><p>Manage your money, loans, transfers, and investments.</p></div>
         </header>
         <div id="bankSummaryGrid" class="bank-summary-grid"></div>
         <div class="bank-workspace">
@@ -593,7 +601,7 @@
             <div class="banking-actions-grid">
               <section class="bank-action-card deposit-card">
                 <div class="bank-action-icon">&#8681;</div>
-                <h3>Deposit to Safe Bank</h3>
+                <h3>Deposit to Bank</h3>
                 <label for="bankDepositAmount">Amount</label>
                 <input id="bankDepositAmount" type="number" inputmode="numeric" placeholder="1,000" />
                 <div class="preset-row">
@@ -606,7 +614,7 @@
               </section>
               <section class="bank-action-card withdraw-card">
                 <div class="bank-action-icon">&#8679;</div>
-                <h3>Withdraw from Safe Bank</h3>
+                <h3>Withdraw from Bank</h3>
                 <label for="bankWithdrawAmount">Amount</label>
                 <input id="bankWithdrawAmount" type="number" inputmode="numeric" placeholder="500" />
                 <div class="preset-row">
@@ -618,7 +626,7 @@
                 <button class="primary-btn danger-btn w-full" type="button" data-action="bank-withdraw">Withdraw</button>
               </section>
             </div>
-            <p class="bank-tip">&#9878; Safe Bank keeps your money secure even when you are on a roll.</p>
+            <p class="bank-tip">&#9878; The Bank keeps your money tucked away from table swings.</p>
           </article>
           <article class="panel panel-pad transfer-center">
             <div class="section-title"><span>&#8644; Bankroll Transfer</span></div>
@@ -661,9 +669,69 @@
               <div class="section-title"><span>&#9878; Recent Loan Activity</span></div>
               <div id="loanActivity" class="history-feed compact-feed"></div>
             </article>
+            <article class="panel panel-pad">
+              <div class="section-title"><span>&#128200; Investment Snapshot</span></div>
+              <div id="bankInvestmentSnapshot" class="investment-snapshot"></div>
+            </article>
           </div>
         </div>
-        <p class="bank-footer-tip"><strong>Tip:</strong> Keep money in your Safe Bank to protect it. Loans are repaid automatically from winnings.</p>
+        <p class="bank-footer-tip"><strong>Tip:</strong> Keep money in the Bank to protect it. Loans are repaid automatically from winnings.</p>
+      </section>
+
+      <section id="stocksView" class="view">
+        <header class="bank-page-header">
+          <div><p class="eyebrow">Market Floor</p><h2>&#128200; Stock Market</h2><p>Buy low, sell high, and try not to get wrecked by the market gods.</p></div>
+        </header>
+        <div id="stockSummaryGrid" class="bank-summary-grid"></div>
+        <div class="stock-layout">
+          <article class="panel panel-pad">
+            <div class="section-title"><span>Market Listings</span><span id="marketClock" class="sync-pill">Market closed</span></div>
+            <div id="stockMarketBoard" class="market-grid"></div>
+          </article>
+          <aside class="stock-side">
+            <article class="panel panel-pad">
+              <div class="section-title"><span>Your Portfolio</span></div>
+              <div id="portfolioBoard" class="leaderboard-list"></div>
+            </article>
+            <article class="panel panel-pad">
+              <div class="section-title"><span>Trade Ticket</span></div>
+              <label for="stockSymbol">Company</label>
+              <select id="stockSymbol"></select>
+              <label for="stockShares">Shares</label>
+              <input id="stockShares" type="number" inputmode="numeric" min="1" value="1" />
+              <div class="action-grid trade-actions">
+                <button class="primary-btn" type="button" data-action="buy-stock">Buy Shares</button>
+                <button class="ghost-btn" type="button" data-action="sell-stock">Sell Shares</button>
+              </div>
+              <div id="tradePreview" class="blackjack-status">Pick a stock and shares.</div>
+            </article>
+          </aside>
+        </div>
+      </section>
+
+      <section id="assetsView" class="view">
+        <header class="bank-page-header">
+          <div><p class="eyebrow">Luxury Garage</p><h2>&#128663; Assets</h2><p>Buy vehicles as a money sink, flex them, or sell them back later.</p></div>
+        </header>
+        <div class="asset-tabs">
+          <button class="asset-tab active" type="button" data-action="asset-category" data-asset-category="garage">Garage</button>
+          <button class="asset-tab" type="button" data-action="asset-category" data-asset-category="properties">Properties</button>
+          <button class="asset-tab" type="button" data-action="asset-category" data-asset-category="land">Land</button>
+          <button class="asset-tab" type="button" data-action="asset-category" data-asset-category="airplanes">Airplanes</button>
+          <button class="asset-tab" type="button" data-action="asset-category" data-asset-category="boats">Boats</button>
+        </div>
+        <div id="assetCategoryPanels" class="stock-layout">
+          <article class="panel panel-pad">
+            <div class="section-title"><span>Vehicle Market</span><span id="assetMarketClock" class="sync-pill">Refreshing soon</span></div>
+            <div id="assetMarketBoard" class="asset-grid"></div>
+          </article>
+          <aside class="stock-side">
+            <article class="panel panel-pad">
+              <div class="section-title"><span>Your Acquired Assets</span></div>
+              <div id="ownedAssetsBoard" class="leaderboard-list"></div>
+            </article>
+          </aside>
+        </div>
       </section>
 
       <section id="achievementsView" class="view">
@@ -691,6 +759,8 @@
             <button class="sub-tab" type="button" data-achievement-category="uno">Uno</button>
             <button class="sub-tab" type="button" data-achievement-category="rpg">RPG</button>
             <button class="sub-tab" type="button" data-achievement-category="wealth">Wealth</button>
+            <button class="sub-tab" type="button" data-achievement-category="stocks">Stocks</button>
+            <button class="sub-tab" type="button" data-achievement-category="assets">Assets</button>
             <button class="sub-tab" type="button" data-achievement-category="prestige">Prestige</button>
             <button class="sub-tab" type="button" data-achievement-category="dailies">Dailies</button>
             <button class="sub-tab" type="button" data-achievement-category="hidden">Hidden</button>
@@ -710,11 +780,6 @@
         <article class="panel panel-pad">
           <div class="section-title"><span>&#127919; Dailies</span></div>
           <div id="dailyChallengeBoard" class="leaderboard-list"></div>
-          <div class="action-grid" style="margin-top:12px;">
-            <button id="claimDailyButton" class="primary-btn" type="button" data-action="claim-daily-challenge">Claim Daily $150</button>
-            <button class="ghost-btn" type="button" data-action="spin-lucky-wheel">Spin Lucky Wheel</button>
-            <button class="ghost-btn" type="button" data-action="scratch-daily-card">Scratch Daily Card</button>
-          </div>
           <div id="dailyRewardHistory" class="history-list" style="margin-top:14px;" hidden></div>
         </article>
       </section>
@@ -779,7 +844,9 @@
       <button class="nav-btn" data-view="players"><span>&#9818;</span><span>Players</span></button>
       <button class="nav-btn" data-view="sessions"><span>&#9830;</span><span>Local Sessions</span></button>
       <button class="nav-btn" data-view="online"><span>&#127922;</span><span>Online Sessions</span></button>
-      <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank & Loans</span></button>
+      <button class="nav-btn" data-view="bank"><span>&#9878;</span><span>Bank</span></button>
+      <button class="nav-btn" data-view="stocks"><span>&#128200;</span><span>Stock Market</span></button>
+      <button class="nav-btn" data-view="assets"><span>&#128663;</span><span>Assets</span></button>
       <button class="nav-btn" data-view="achievements"><span>&#9733;</span><span>Achievements</span></button>
       <button class="nav-btn" data-view="dailies"><span>&#127919;</span><span>Dailies</span></button>
       <button class="nav-btn admin-link" data-view="admin"><span>&#9881;</span><span>Admin</span></button>
@@ -799,6 +866,30 @@
         <button class="primary-btn" type="button" data-action="open-profile">Open Profile Settings</button>
         <button class="ghost-btn" type="button" data-action="dismiss-link-profile">Not Now</button>
       </div>
+    </form>
+  </dialog>
+
+  <dialog id="ticketUseDialog" class="profile-dialog">
+    <form method="dialog" class="profile-card">
+      <div class="section-title">
+        <span id="ticketUseTitle">Use Casino Ticket?</span>
+        <button class="mini-btn" type="button" data-action="close-ticket-dialog">Close</button>
+      </div>
+      <p id="ticketUseBody" class="auth-message">Spend 1 Casino Ticket for an extra play?</p>
+      <div class="action-grid">
+        <button id="ticketUseButton" class="primary-btn" type="button" data-action="confirm-use-ticket">Use Ticket</button>
+        <button class="ghost-btn" type="button" data-action="close-ticket-dialog">Not Now</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="assetViewDialog" class="profile-dialog wide-dialog">
+    <form method="dialog" class="profile-card">
+      <div class="section-title">
+        <span id="assetViewTitle">Owned Assets</span>
+        <button class="mini-btn" type="button" data-action="close-assets-dialog">Close</button>
+      </div>
+      <div id="assetViewBoard" class="asset-grid"></div>
     </form>
   </dialog>
 
