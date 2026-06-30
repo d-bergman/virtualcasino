@@ -1,5 +1,22 @@
 # Virtual Casino Changelog
 
+## V1.11.1 - 2026-06-30 - Stock/Asset Polish and Money Audit Fixes
+
+### Fixed
+- Added fresh player lookups to delayed slot and blackjack settlements so animations cannot finish against a stale player object.
+- Corrected `applyMoneyResult(..., { bankrollAlreadyAdjusted:true })` so it no longer changes bankroll a second time after the game settlement already did.
+- Stopped admin Bankroll Grants from inflating lifetime P/L, and added an admin Lifetime P/L adjustment tool for cleanup cases like mistaken manual grants.
+
+### Stocks and Assets
+- Moved Market News out of the top stat tiles into a wide banner so the summary cards stay compact.
+- Increased stock market pulse volatility so LCN/BAWSAQ changes feel more alive while still respecting business-hours vs after-hours behavior.
+- Added rare market catalyst swings so headline stocks can technically surge or crash up to about 65% in a pulse.
+- Expanded portfolio rows to show share count, average buy price, current sell price, current value, and live unrealized P/L.
+- Added a detailed Stock Market Field Guide explaining pulses, LCN vs BAWSAQ, portfolio P/L, and trading strategy.
+- Made purchased assets disappear from active listings immediately.
+- Added live Airplanes and Boats asset markets with helicopters, private jets, airliners, small boats, cruisers, yachts, and superyachts.
+- Moved cars, airplanes, and boats into validated JSON asset catalog files with stable IDs.
+
 ## V1.11.0 - 2026-06-29 12:00 PM CT - Admin Audit, Casino Tickets, Stocks, and Assets
 
 ### Admin

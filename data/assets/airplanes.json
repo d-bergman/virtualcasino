@@ -1,0 +1,17 @@
+[
+  {"id":"2018-robinson-r44-raven-ii","name":"2018 Robinson R44 Raven II","rarity":"Common","type":"Light Helicopter","price":475000,"resaleRate":0.72},
+  {"id":"2020-bell-505-jet-ranger-x","name":"2020 Bell 505 Jet Ranger X","rarity":"Common","type":"Light Helicopter","price":1450000,"resaleRate":0.74},
+  {"id":"2022-airbus-h125","name":"2022 Airbus H125","rarity":"Uncommon","type":"Utility Helicopter","price":3200000,"resaleRate":0.76},
+  {"id":"2023-sikorsky-s-76d","name":"2023 Sikorsky S-76D","rarity":"Rare","type":"Executive Helicopter","price":13500000,"resaleRate":0.8},
+  {"id":"2021-pilatus-pc-12-ng","name":"2021 Pilatus PC-12 NG","rarity":"Uncommon","type":"Turboprop","price":5200000,"resaleRate":0.77},
+  {"id":"2024-cessna-citation-cj4-gen2","name":"2024 Cessna Citation CJ4 Gen2","rarity":"Rare","type":"Private Jet","price":10700000,"resaleRate":0.81},
+  {"id":"2024-embraer-phenom-300e","name":"2024 Embraer Phenom 300E","rarity":"Rare","type":"Private Jet","price":11600000,"resaleRate":0.82},
+  {"id":"2024-cessna-citation-longitude","name":"2024 Cessna Citation Longitude","rarity":"Epic","type":"Super-Midsize Jet","price":30000000,"resaleRate":0.84},
+  {"id":"2024-dassault-falcon-8x","name":"2024 Dassault Falcon 8X","rarity":"Legendary","type":"Long-Range Private Jet","price":62000000,"resaleRate":0.86},
+  {"id":"2025-gulfstream-g650er","name":"2025 Gulfstream G650ER","rarity":"Legendary","type":"Ultra-Long-Range Jet","price":78000000,"resaleRate":0.88},
+  {"id":"2025-bombardier-global-7500","name":"2025 Bombardier Global 7500","rarity":"Legendary","type":"Ultra-Long-Range Jet","price":81000000,"resaleRate":0.88},
+  {"id":"2018-embraer-e175","name":"2018 Embraer E175","rarity":"Epic","type":"Regional Airliner","price":46000000,"resaleRate":0.79},
+  {"id":"2017-boeing-737-800","name":"2017 Boeing 737-800","rarity":"Legendary","type":"Airliner","price":89000000,"resaleRate":0.8},
+  {"id":"2024-airbus-a320neo","name":"2024 Airbus A320neo","rarity":"Legendary","type":"Airliner","price":111000000,"resaleRate":0.82},
+  {"id":"2023-boeing-787-9-dreamliner","name":"2023 Boeing 787-9 Dreamliner","rarity":"Mythic","type":"Widebody Airliner","price":292000000,"resaleRate":0.84}
+]

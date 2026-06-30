@@ -166,6 +166,7 @@
             <div><label for="manualStars">Prestige Stars</label><input id="manualStars" type="number" inputmode="numeric" value="0" /></div>
             <div><label for="grantMoneyAmount">Grant Bankroll</label><input id="grantMoneyAmount" type="number" inputmode="numeric" value="100" /></div>
             <div><label for="removeMoneyAmount">Remove Bankroll</label><input id="removeMoneyAmount" type="number" inputmode="numeric" value="100" /></div>
+            <div><label for="lifetimeAdjustAmount">Adjust Lifetime P/L</label><input id="lifetimeAdjustAmount" type="number" inputmode="numeric" value="-15000" /></div>
             <div><label for="grantTicketsAmount">Grant Casino Tickets</label><input id="grantTicketsAmount" type="number" inputmode="numeric" value="1" /></div>
           </div>
           <div class="action-grid">
@@ -173,6 +174,7 @@
             <button class="ghost-btn" type="button" data-action="manual-level">Set Level / Stars</button>
             <button class="ghost-btn" type="button" data-action="grant-bankroll">Grant Bankroll</button>
             <button class="ghost-btn danger-btn" type="button" data-action="remove-bankroll">Remove Bankroll</button>
+            <button class="ghost-btn" type="button" data-action="adjust-lifetime">Adjust Lifetime P/L</button>
             <button class="ghost-btn" type="button" data-action="grant-tickets">Grant Tickets</button>
             <button class="ghost-btn" type="button" data-action="reset-daily-wheel">Reset Daily Wheel</button>
           </div>
@@ -683,6 +685,7 @@
           <div><p class="eyebrow">Market Floor</p><h2>&#128200; Stock Market</h2><p>Buy low, sell high, and try not to get wrecked by the market gods.</p></div>
         </header>
         <div id="stockSummaryGrid" class="bank-summary-grid"></div>
+        <div id="marketNewsBanner" class="market-news-banner"></div>
         <div class="stock-layout">
           <article class="panel panel-pad">
             <div class="section-title"><span>Market Listings</span><span id="marketClock" class="sync-pill">Market closed</span></div>
@@ -707,6 +710,38 @@
             </article>
           </aside>
         </div>
+        <article class="panel panel-pad stock-guide-panel">
+          <div class="section-title"><span>Stock Market Field Guide</span><span class="sync-pill">LCN / BAWSAQ</span></div>
+          <div class="stock-guide-grid">
+            <section>
+              <h3>How the market breathes</h3>
+              <p>Every pulse updates all listed companies. One company becomes the headline event, then its sector and network ripple outward. The featured company moves the hardest, similar-sector companies tend to follow, and the opposite side of the market may barely twitch.</p>
+              <p>Business hours run from 8:00 AM to 4:00 PM Central. During those hours, movement is sharper and news has more bite. After hours still moves, but it is more like thin trading: smaller background drift with occasional ugly surprises.</p>
+            </section>
+            <section>
+              <h3>LCN vs BAWSAQ</h3>
+              <p>LCN is the local offline-style exchange. It behaves like the casino world's internal economy: resorts, banks, travel, logistics, and local industry react to in-game news and sector pressure.</p>
+              <p>BAWSAQ is the hotter online-style exchange. It is more momentum-driven and reacts hard when player-facing companies catch a bid or panic selloff.</p>
+            </section>
+            <section>
+              <h3>Reading your portfolio</h3>
+              <ul>
+                <li><strong>Portfolio</strong> is the current resale value of every share you own.</li>
+                <li><strong>Unrealized P/L</strong> is profit or loss before selling. It can vanish if the next pulse turns against you.</li>
+                <li><strong>Trade Ticket</strong> previews cost before you buy, and your holdings panel shows gain or loss before you sell.</li>
+              </ul>
+            </section>
+            <section>
+              <h3>Strategy without getting cooked</h3>
+              <ul>
+                <li>Buy dips when the company is still healthy, not just because the number is red.</li>
+                <li>Diversify across sectors so one bad casino-tech headline does not wreck the whole wallet.</li>
+                <li>Take profit when a stock jumps hard. Greed is the market's favorite snack.</li>
+                <li>Keep some bankroll liquid for games, assets, and surprise dips.</li>
+              </ul>
+            </section>
+          </div>
+        </article>
       </section>
 
       <section id="assetsView" class="view">

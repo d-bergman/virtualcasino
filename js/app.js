@@ -63,37 +63,13 @@
       ["ORBT","Orbit Freight","Space Logistics",117,2.0],
       ["CASH","Cashmere Holdings","Finance",150,1.08]
     ].map(([symbol, name, sector, base, volatility], index) => ({symbol, name, sector, base, volatility, network: index % 2 === 0 ? "LCN" : "BAWSAQ"}));
-    const VEHICLE_CATALOG = [
-      ["2020-toyota-corolla-le","2020 Toyota Corolla LE","Starter","Sedan",4200,0.68,"🚗"],
-      ["2019-honda-civic-lx","2019 Honda Civic LX","Starter","Sedan",5600,0.69,"🚗"],
-      ["2021-nissan-altima-sv","2021 Nissan Altima SV","Starter","Sedan",7800,0.69,"🚗"],
-      ["2022-hyundai-elantra-sel","2022 Hyundai Elantra SEL","Starter","Sedan",9100,0.7,"🚗"],
-      ["2024-toyota-rav4-xle","2024 Toyota RAV4 XLE","Common","SUV",28500,0.75,"🚙"],
-      ["2024-honda-cr-v-ex-l","2024 Honda CR-V EX-L","Common","SUV",31800,0.76,"🚙"],
-      ["2024-ford-f-150-xlt","2024 Ford F-150 XLT","Common","Truck",36500,0.75,"🛻"],
-      ["2024-chevrolet-tahoe-lt","2024 Chevrolet Tahoe LT","Common","SUV",58800,0.77,"🚙"],
-      ["2025-toyota-camry-xse","2025 Toyota Camry XSE","Uncommon","Sedan",34900,0.78,"🚘"],
-      ["2025-honda-accord-touring-hybrid","2025 Honda Accord Touring Hybrid","Uncommon","Sedan",40500,0.78,"🚘"],
-      ["2025-tesla-model-3-performance","2025 Tesla Model 3 Performance","Uncommon","EV Sport Sedan",54900,0.77,"⚡"],
-      ["2024-jeep-wrangler-rubicon","2024 Jeep Wrangler Rubicon","Uncommon","SUV",62000,0.79,"🚙"],
-      ["2024-bmw-m3-competition","2024 BMW M3 Competition","Rare","Sports Sedan",86000,0.83,"🏎️"],
-      ["2024-audi-rs7-performance","2024 Audi RS7 Performance","Rare","Sports Sedan",128000,0.84,"🏎️"],
-      ["2024-chevrolet-corvette-z06","2024 Chevrolet Corvette Z06","Rare","Sports Car",132000,0.84,"🏎️"],
-      ["2024-porsche-911-carrera-s","2024 Porsche 911 Carrera S","Rare","Sports Car",142000,0.86,"🏎️"],
-      ["2024-nissan-gt-r-nismo","2024 Nissan GT-R NISMO","Epic","Supercar",221000,0.87,"🏁"],
-      ["2024-mercedes-amg-gt-63","2024 Mercedes-AMG GT 63","Epic","Grand Tourer",183000,0.85,"🏁"],
-      ["2024-audi-r8-gt","2024 Audi R8 GT","Epic","Supercar",253000,0.88,"🏁"],
-      ["2025-lamborghini-huracan-tecnica","2025 Lamborghini Huracan Tecnica","Legendary","Supercar",285000,0.9,"🔥"],
-      ["2024-ferrari-296-gtb","2024 Ferrari 296 GTB","Legendary","Supercar",342000,0.91,"🔥"],
-      ["2024-mclaren-750s","2024 McLaren 750S","Legendary","Supercar",331000,0.91,"🔥"],
-      ["2025-rolls-royce-phantom","2025 Rolls-Royce Phantom","Legendary","Luxury Sedan",505000,0.92,"👑"],
-      ["2022-lamborghini-aventador-svj","2022 Lamborghini Aventador SVJ","Mythic","Hypercar",720000,0.94,"💎"],
-      ["2015-porsche-918-spyder","2015 Porsche 918 Spyder","Mythic","Hypercar",1700000,0.95,"💎"],
-      ["2015-mclaren-p1","2015 McLaren P1","Mythic","Hypercar",1850000,0.95,"💎"],
-      ["2016-ferrari-laferrari","2016 Ferrari LaFerrari","Mythic","Hypercar",2200000,0.96,"💎"],
-      ["2024-bugatti-chiron-super-sport","2024 Bugatti Chiron Super Sport","Mythic","Hypercar",3900000,0.97,"💎"],
-      ["2025-koenigsegg-jesko-absolut","2025 Koenigsegg Jesko Absolut","Mythic","Hypercar",3400000,0.97,"💎"]
-    ].map(([id, name, rarity, type, price, resaleRate, icon]) => ({id, name, rarity, type, price, resaleRate, icon}));
+    const loadedAssetCatalogs = await loadAssetCatalogs();
+    const VEHICLE_CATALOG = loadedAssetCatalogs.garage;
+    const AIRCRAFT_CATALOG = loadedAssetCatalogs.airplanes;
+    const BOAT_CATALOG = loadedAssetCatalogs.boats;
+    const ASSET_CATALOGS = {garage: VEHICLE_CATALOG, airplanes: AIRCRAFT_CATALOG, boats: BOAT_CATALOG};
+    const ASSET_CATEGORY_LABELS = {garage:"Garage", properties:"Properties", land:"Land", airplanes:"Airplanes", boats:"Boats"};
+    const ASSET_MARKET_TITLES = {garage:"Vehicle Market", airplanes:"Aircraft Market", boats:"Boat Market"};
     const DAILY_CLICKABLES = [
       {id:"coin", icon:"🪙", title:"House Coin", description:"Call the gold coin flip.", reward:{type:"money", min:15, max:80}, chance:0.58},
       {id:"dice", icon:"🎲", title:"Loaded Dice", description:"Roll casino dice for a bankroll bump.", reward:{type:"money", min:20, max:120}, chance:0.5},
@@ -354,6 +330,48 @@
       {id:"scatter", label:"Scatter", display:"&#9733;", weight:5, scatter:true}
     ];
 
+    async function loadAssetCatalogs() {
+      const [garage, airplanes, boats] = await Promise.all([
+        loadAssetCatalog("data/assets/cars.json", "garage"),
+        loadAssetCatalog("data/assets/airplanes.json", "airplanes"),
+        loadAssetCatalog("data/assets/boats.json", "boats")
+      ]);
+      return {garage, airplanes, boats};
+    }
+
+    async function loadAssetCatalog(path, category) {
+      try {
+        const response = await fetch(path, {cache:"no-store"});
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        return validateAssetCatalog(await response.json(), category, path);
+      } catch (error) {
+        console.error(`Could not load ${category} asset catalog from ${path}.`, error);
+        return [];
+      }
+    }
+
+    function validateAssetCatalog(items, category, path) {
+      if (!Array.isArray(items)) throw new Error(`${path} must be a JSON array.`);
+      const seen = new Set();
+      return items.map((item, index) => {
+        const id = String(item?.id || "").trim();
+        const name = String(item?.name || "").trim();
+        if (!id || !name) throw new Error(`${path} item ${index + 1} is missing id or name.`);
+        if (seen.has(id)) throw new Error(`${path} has duplicate id ${id}.`);
+        seen.add(id);
+        return {
+          id,
+          category,
+          name,
+          rarity:String(item.rarity || "Common"),
+          type:String(item.type || "Asset"),
+          price:Math.max(1, Math.round(Number(item.price || 0))),
+          resaleRate:Math.max(0.05, Math.min(1, Number(item.resaleRate || 0.7))),
+          icon:item.icon || ""
+        };
+      });
+    }
+
     const defaultState = normalize(decodeSave(attachedSaveText));
     let state = normalize(JSON.parse(localStorage.getItem(localKey) || "null") || structuredClone(defaultState));
     let activeView = "overview";
@@ -547,7 +565,7 @@
       data.daily.activities = data.daily.activities && typeof data.daily.activities === "object" && !Array.isArray(data.daily.activities) ? data.daily.activities : {};
       data.daily.wheelHistory = Array.isArray(data.daily.wheelHistory) ? data.daily.wheelHistory.slice(0, 12) : [];
       data.stockMarket = normalizeStockMarket(data.stockMarket);
-      data.assetMarket = normalizeAssetMarket(data.assetMarket);
+      data.assetMarket = normalizeAssetMarket(data.assetMarket, data.players);
       data.jackpots = data.jackpots && typeof data.jackpots === "object" && !Array.isArray(data.jackpots) ? data.jackpots : {};
       data.jackpots.treasureVault = {
         mini: Number(data.jackpots.treasureVault?.mini || 250),
@@ -579,14 +597,34 @@
       return market;
     }
 
-    function normalizeAssetMarket(input) {
+    function normalizeAssetMarket(input, players = []) {
       const market = input && typeof input === "object" && !Array.isArray(input) ? structuredClone(input) : {};
-      market.lastRefresh = Number(market.lastRefresh || 0);
-      market.listings = Array.isArray(market.listings) ? market.listings : [];
-      const validVehicleIds = new Set(VEHICLE_CATALOG.map((vehicle) => vehicle.id));
-      const hasLegacyListings = market.listings.some((listing) => !validVehicleIds.has(listing.vehicleId) || !/\b(19|20)\d{2}\b/.test(String(listing.name || "")));
-      const missingFeaturedCamry = !market.listings.some((listing) => listing.vehicleId === "2025-toyota-camry-xse");
-      if (!market.listings.length || hasLegacyListings || missingFeaturedCamry) refreshAssetMarket(market, true);
+      market.categories = market.categories && typeof market.categories === "object" && !Array.isArray(market.categories) ? market.categories : {};
+      if (Array.isArray(market.listings) && market.listings.length && !market.categories.garage) {
+        market.categories.garage = {lastRefresh:Number(market.lastRefresh || 0), listings:market.listings};
+      }
+      ["garage", "airplanes", "boats"].forEach((category) => {
+        const categoryMarket = market.categories[category] && typeof market.categories[category] === "object" && !Array.isArray(market.categories[category])
+          ? market.categories[category]
+          : {};
+        categoryMarket.lastRefresh = Number(categoryMarket.lastRefresh || 0);
+        categoryMarket.listings = Array.isArray(categoryMarket.listings) ? categoryMarket.listings : [];
+        const catalog = assetCatalogForCategory(category);
+        const validIds = new Set(catalog.map((item) => item.id));
+        const minimumListings = category === "garage" ? 10 : 8;
+        const hasLegacyListings = categoryMarket.listings.some((listing) => !validIds.has(listing.vehicleId));
+        const missingFeaturedCamry = category === "garage" && !categoryMarket.listings.some((listing) => listing.vehicleId === "2025-toyota-camry-xse");
+        if (!categoryMarket.listings.length || categoryMarket.listings.length < minimumListings || hasLegacyListings || missingFeaturedCamry) {
+          market.categories[category] = categoryMarket;
+          refreshAssetCategoryMarket(market, category, true, players);
+        } else {
+          categoryMarket.listings = categoryMarket.listings.map((listing) => ({...listing, category:listing.category || category}));
+          market.categories[category] = categoryMarket;
+        }
+      });
+      removeOwnedAssetListings(market, players);
+      market.lastRefresh = Number(market.categories.garage?.lastRefresh || market.lastRefresh || 0);
+      market.listings = Array.isArray(market.categories.garage?.listings) ? market.categories.garage.listings : [];
       return market;
     }
 
@@ -600,10 +638,13 @@
         changed = true;
         guard += 1;
       }
-      if (now >= nextAssetRefreshTime(Number(state.assetMarket?.lastRefresh || 0)).getTime()) {
-        refreshAssetMarket(state.assetMarket);
-        changed = true;
-      }
+      ["garage", "airplanes", "boats"].forEach((category) => {
+        const lastRefresh = Number(activeAssetMarket(category)?.lastRefresh || 0);
+        if (now >= nextAssetRefreshTime(lastRefresh).getTime()) {
+          refreshAssetCategoryMarket(state.assetMarket, category, false, state.players);
+          changed = true;
+        }
+      });
       if (changed) {
         state.updatedAt = Date.now();
         localStorage.setItem(localKey, JSON.stringify(state));
@@ -632,13 +673,14 @@
       const networkText = eventCompany.network === "BAWSAQ" ? "BAWSAQ online activity" : "LCN local market event";
       const eventText = eventDirection > 0 ? `${networkText}: buying pressure` : `${networkText}: selloff pressure`;
       companies.forEach((company) => {
-        const sectorMood = company.sector === eventCompany.sector ? eventDirection * (0.35 + Math.random() * 1.1) : 0;
-        const networkMood = company.network === eventCompany.network ? eventDirection * (0.15 + Math.random() * 0.65) : 0;
-        const shock = company.symbol === eventCompany.symbol ? eventDirection * (0.85 + Math.random() * 2.25) : 0;
-        const drift = (Math.random() - 0.49) * Number(company.volatility || 1) * 0.85;
-        const pullToBase = ((Number(company.base || company.price) - Number(company.price || company.base)) / Math.max(1, Number(company.price || 1))) * 0.32;
-        const multiplier = openHours ? 1.65 : 0.72;
-        const percent = Math.max(-7.5, Math.min(7.5, (drift + shock + sectorMood + networkMood + pullToBase) * multiplier));
+        const sectorMood = company.sector === eventCompany.sector ? eventDirection * (0.75 + Math.random() * 2.2) : 0;
+        const networkMood = company.network === eventCompany.network ? eventDirection * (0.42 + Math.random() * 1.35) : 0;
+        const rareCatalyst = company.symbol === eventCompany.symbol && Math.random() < 0.07 ? eventDirection * (18 + Math.random() * 42) : 0;
+        const shock = company.symbol === eventCompany.symbol ? eventDirection * (3.5 + Math.random() * 11.5) : 0;
+        const drift = (Math.random() - 0.47) * Number(company.volatility || 1) * 2.05;
+        const pullToBase = ((Number(company.base || company.price) - Number(company.price || company.base)) / Math.max(1, Number(company.price || 1))) * 0.48;
+        const multiplier = openHours ? 2.15 : 1.08;
+        const percent = Math.max(-65, Math.min(65, ((drift + shock + sectorMood + networkMood + pullToBase) * multiplier) + rareCatalyst));
         company.previous = Number(company.price || company.base);
         company.price = Number(Math.max(1, company.previous * (1 + percent / 100)).toFixed(2));
         company.trend = Number(((company.price - company.previous) / company.previous * 100).toFixed(2));
@@ -648,29 +690,74 @@
       market.news = market.news.slice(0, 8);
     }
 
+    function assetCatalogForCategory(category = "garage") {
+      return ASSET_CATALOGS[category] || VEHICLE_CATALOG;
+    }
+
+    function activeAssetMarket(category = activeAssetCategory) {
+      state.assetMarket = state.assetMarket || {};
+      state.assetMarket.categories = state.assetMarket.categories || {};
+      return state.assetMarket.categories[category] || {lastRefresh:0, listings:[]};
+    }
+
+    function ownedAssetVehicleIds(players = state?.players || [], category = "") {
+      const ids = new Set();
+      (players || []).forEach((player) => {
+        (player.ownedAssets || []).forEach((asset) => {
+          const assetCategory = asset.category || "garage";
+          if ((!category || assetCategory === category) && asset.vehicleId) ids.add(asset.vehicleId);
+        });
+      });
+      return ids;
+    }
+
+    function removeOwnedAssetListings(market = state.assetMarket, players = state?.players || []) {
+      if (!market?.categories) return;
+      Object.entries(market.categories).forEach(([category, categoryMarket]) => {
+        const ownedIds = ownedAssetVehicleIds(players, category);
+        categoryMarket.listings = (categoryMarket.listings || []).filter((listing) => !ownedIds.has(listing.vehicleId));
+      });
+      market.listings = market.categories.garage?.listings || [];
+      market.lastRefresh = Number(market.categories.garage?.lastRefresh || market.lastRefresh || 0);
+    }
+
     function refreshAssetMarket(market = state.assetMarket, initial = false) {
+      refreshAssetCategoryMarket(market, "garage", initial, state?.players || []);
+    }
+
+    function refreshAssetCategoryMarket(market = state.assetMarket, category = "garage", initial = false, players = state?.players || []) {
       const now = Date.now();
-      const commonPool = VEHICLE_CATALOG.filter((item) => !["Legendary", "Mythic"].includes(item.rarity));
+      const catalog = assetCatalogForCategory(category);
+      const ownedIds = ownedAssetVehicleIds(players, category);
+      const commonPool = catalog.filter((item) => !ownedIds.has(item.id) && !["Legendary", "Mythic"].includes(item.rarity));
       const listings = [];
       const used = new Set();
-      const featuredCamry = VEHICLE_CATALOG.find((item) => item.id === "2025-toyota-camry-xse");
+      const featuredCamry = category === "garage" && !ownedIds.has("2025-toyota-camry-xse") ? VEHICLE_CATALOG.find((item) => item.id === "2025-toyota-camry-xse") : null;
       if (featuredCamry) {
         used.add(featuredCamry.id);
-        listings.push(createAssetListing(featuredCamry));
+        listings.push(createAssetListing(featuredCamry, false, category));
       }
-      while (listings.length < 10) {
-        const vehicle = commonPool[Math.floor(Math.random() * commonPool.length)];
-        if (!vehicle || used.has(vehicle.id)) continue;
-        used.add(vehicle.id);
-        listings.push(createAssetListing(vehicle));
+      const targetCount = category === "garage" ? 10 : 8;
+      while (listings.length < targetCount && used.size < commonPool.length + (featuredCamry ? 1 : 0)) {
+        const item = commonPool[Math.floor(Math.random() * commonPool.length)];
+        if (!item || used.has(item.id)) continue;
+        used.add(item.id);
+        listings.push(createAssetListing(item, false, category));
       }
       if (initial || Math.random() < 0.38) {
-        const rarePool = VEHICLE_CATALOG.filter((item) => ["Rare", "Epic", "Legendary", "Mythic"].includes(item.rarity));
-        const vehicle = rarePool[Math.floor(Math.random() * rarePool.length)];
-        if (vehicle && !used.has(vehicle.id)) listings.push(createAssetListing(vehicle, true));
+        const rarePool = catalog.filter((item) => ["Rare", "Epic", "Legendary", "Mythic"].includes(item.rarity) && !ownedIds.has(item.id) && !used.has(item.id));
+        const item = rarePool[Math.floor(Math.random() * rarePool.length)];
+        if (item && !used.has(item.id)) listings.push(createAssetListing(item, true, category));
       }
-      market.lastRefresh = now;
-      market.listings = listings.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+      market.categories = market.categories || {};
+      market.categories[category] = {
+        lastRefresh: now,
+        listings: listings.sort((a, b) => Number(a.price || 0) - Number(b.price || 0))
+      };
+      if (category === "garage") {
+        market.lastRefresh = now;
+        market.listings = market.categories.garage.listings;
+      }
     }
 
     function nextAssetRefreshTime(fromMs = Date.now()) {
@@ -681,11 +768,12 @@
       return from.getTime() < refresh.getTime() ? refresh : new Date(refresh.getTime() + 24 * 60 * 60 * 1000);
     }
 
-    function createAssetListing(vehicle, rareDrop = false) {
+    function createAssetListing(vehicle, rareDrop = false, category = "garage") {
       const premium = rareDrop ? 1.08 + Math.random() * 0.22 : 0.88 + Math.random() * 0.22;
       return {
         listingId:`asset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         vehicleId:vehicle.id,
+        category,
         name:vehicle.name,
         rarity:vehicle.rarity,
         type:vehicle.type,
@@ -790,6 +878,11 @@
 
     function playerById(id) {
       return state.players.find((player) => player.id === id);
+    }
+
+    function freshPlayer(player) {
+      if (!player) return null;
+      return playerById(player.id) || playerByName(player.name);
     }
 
     function currentProfile() {
@@ -1677,9 +1770,9 @@
         ["bankroll","💵","Bankroll",player ? money(bankrollValue(player)) : "Link profile","Cash available"],
         ["lifetime","📈","Portfolio",money(portfolio),"Current value"],
         ["safe","📊","Unrealized P/L",signedMoney(gain),cost > 0 ? `${gain >= 0 ? "Up" : "Down"} ${Math.abs(gain / cost * 100).toFixed(1)}%` : "No positions"],
-        ["worth","⏱️","Next Pulse",marketCountdown(market.nextTick),"LCN/BAWSAQ 30-45s"],
-        ["debt","📰","Market News",escapeHtml(market.news?.[0] || "Quiet trading day"),isStockBusinessHours() ? "Business hours: larger swings" : "After hours: lighter movement"]
+        ["worth","⏱️","Next Pulse",marketCountdown(market.nextTick),"LCN/BAWSAQ 30-45s"]
       ].map(([tone, icon, label, value, note]) => `<article class="bank-summary-card ${tone}"><span class="bank-summary-icon">${icon}</span><div><span>${label}</span><strong>${value}</strong><small>${note}</small></div></article>`).join("");
+      if ($("marketNewsBanner")) $("marketNewsBanner").innerHTML = `<span class="market-news-icon">📰</span><div><span>Market News</span><strong>${escapeHtml(market.news?.[0] || "Quiet trading day across LCN and BAWSAQ.")}</strong><small>${isStockBusinessHours() ? "Business hours: heavier swings, stronger sector reactions, faster volatility." : "After hours: lighter liquidity, but shocks can still move a favorite stock."}</small></div>`;
       $("marketClock").textContent = `Next ${marketCountdown(market.nextTick)} • ${isStockBusinessHours() ? "8A-4P CT active" : "after hours"}`;
       const currentSymbol = $("stockSymbol")?.value;
       $("stockSymbol").innerHTML = Object.values(market.companies).map((stock) => `<option value="${stock.symbol}">${stock.symbol} - ${escapeHtml(stock.name)} (${money(stock.price)})</option>`).join("");
@@ -1708,8 +1801,10 @@
         const value = Number(shares) * Number(stock?.price || 0);
         const cost = Number(player.portfolioCost?.[symbol] || 0);
         const gain = value - cost;
-        const gainText = cost > 0 ? ` / P/L ${signedMoney(gain)} (${gain >= 0 ? "+" : ""}${(gain / cost * 100).toFixed(1)}%)` : "";
-        return renderListRow(symbol, stock?.name || symbol, `${shares} share${Number(shares) === 1 ? "" : "s"} @ ${money(stock?.price || 0)}${gainText}`, money(value));
+        const avgBuy = Number(shares) > 0 && cost > 0 ? cost / Number(shares) : 0;
+        const sellPrice = Number(stock?.price || 0);
+        const gainText = cost > 0 ? `P/L ${signedMoney(gain)} (${gain >= 0 ? "+" : ""}${(gain / cost * 100).toFixed(1)}%)` : "P/L tracking starts after a new buy";
+        return renderListRow(symbol, stock?.name || symbol, `${shares} share${Number(shares) === 1 ? "" : "s"} • Bought @ ${money(avgBuy)} • Sell @ ${money(sellPrice)} • ${gainText}`, money(value));
       }).join("") : `<div class="blackjack-status">No stock holdings yet.</div>`;
     }
 
@@ -1734,29 +1829,35 @@
       const player = currentPlayer();
       const market = state.assetMarket;
       if (!market) return;
+      removeOwnedAssetListings(market, state.players);
       document.querySelectorAll("[data-asset-category]").forEach((button) => button.classList.toggle("active", button.dataset.assetCategory === activeAssetCategory));
-      if (activeAssetCategory !== "garage") {
-        const label = {properties:"Properties", land:"Land", airplanes:"Airplanes", boats:"Boats"}[activeAssetCategory] || "Assets";
+      if (!ASSET_CATALOGS[activeAssetCategory]) {
+        const label = ASSET_CATEGORY_LABELS[activeAssetCategory] || "Assets";
         $("assetCategoryPanels").innerHTML = `<article class="panel panel-pad asset-coming-soon">
           <div class="asset-showroom-badge">Coming Soon</div>
           <h3>${escapeHtml(label)}</h3>
-          <p>This category is staged for the next asset expansion. Garage vehicles are live now; ${escapeHtml(label.toLowerCase())} will plug into the same buy, flex, and sell system later.</p>
+          <p>This category is staged for the next asset expansion. Garage vehicles, aircraft, and boats are live now; ${escapeHtml(label.toLowerCase())} will plug into the same buy, flex, and sell system later.</p>
         </article>`;
         return;
       }
+      const categoryMarket = activeAssetMarket();
+      if (!categoryMarket.listings?.length) refreshAssetCategoryMarket(market, activeAssetCategory, true);
+      const activeMarket = activeAssetMarket();
+      const marketTitle = ASSET_MARKET_TITLES[activeAssetCategory] || "Asset Market";
+      const ownedTitle = activeAssetCategory === "garage" ? "Your Garage" : activeAssetCategory === "airplanes" ? "Your Hangar" : "Your Marina";
       $("assetCategoryPanels").innerHTML = `<article class="panel panel-pad asset-market-panel">
-        <div class="section-title"><span>Vehicle Market</span><span id="assetMarketClock" class="sync-pill">Refreshing soon</span></div>
+        <div class="section-title"><span>${escapeHtml(marketTitle)}</span><span id="assetMarketClock" class="sync-pill">Refreshing soon</span></div>
         <div id="assetMarketBoard" class="asset-grid"></div>
       </article>
       <aside class="stock-side">
         <article class="panel panel-pad owned-garage-panel">
-          <div class="section-title"><span>Your Acquired Assets</span></div>
+          <div class="section-title"><span>${escapeHtml(ownedTitle)}</span></div>
           <div id="ownedAssetsBoard" class="leaderboard-list"></div>
         </article>
       </aside>`;
-      $("assetMarketClock").textContent = `Refresh ${marketCountdown(nextAssetRefreshTime(Number(market.lastRefresh || 0)).getTime())}`;
-      $("assetMarketBoard").innerHTML = market.listings.slice().sort((a, b) => Number(a.price || 0) - Number(b.price || 0)).map(renderAssetListing).join("");
-      $("ownedAssetsBoard").innerHTML = player ? renderOwnedAssets(player, true) : `<div class="blackjack-status">Link your profile to buy assets.</div>`;
+      $("assetMarketClock").textContent = `Refresh ${marketCountdown(nextAssetRefreshTime(Number(activeMarket.lastRefresh || 0)).getTime())}`;
+      $("assetMarketBoard").innerHTML = activeMarket.listings.slice().sort((a, b) => Number(a.price || 0) - Number(b.price || 0)).map(renderAssetListing).join("");
+      $("ownedAssetsBoard").innerHTML = player ? renderOwnedAssets(player, true, activeAssetCategory) : `<div class="blackjack-status">Link your profile to buy assets.</div>`;
     }
 
     function renderAssetListing(listing) {
@@ -1770,8 +1871,8 @@
       </article>`;
     }
 
-    function renderOwnedAssets(player, includeSell = false) {
-      const assets = player.ownedAssets || [];
+    function renderOwnedAssets(player, includeSell = false, category = "") {
+      const assets = (player.ownedAssets || []).filter((asset) => !category || (asset.category || "garage") === category);
       return assets.length ? assets.map((asset) => `<article class="asset-card owned">
         <div class="asset-card-copy">
           <span class="asset-kicker">${escapeHtml(asset.rarity || "Owned")}${asset.type ? ` • ${escapeHtml(asset.type)}` : ""}</span>
@@ -1844,7 +1945,8 @@
 
     function buyAsset(listingId) {
       const player = currentPlayer();
-      const listing = state.assetMarket.listings.find((item) => item.listingId === listingId);
+      const categoryMarket = activeAssetMarket();
+      const listing = categoryMarket.listings.find((item) => item.listingId === listingId);
       if (!player || !listing) return toast("Choose a listed asset.");
       if (bankrollValue(player) < Number(listing.price || 0)) return toast(`You need ${money(listing.price)} bankroll to buy this asset.`);
       adjustPlayerBankroll(player, -listing.price);
@@ -1857,7 +1959,9 @@
       };
       player.ownedAssets.push(asset);
       checkAssetAchievements(player);
-      state.assetMarket.listings = state.assetMarket.listings.filter((item) => item.listingId !== listingId);
+      categoryMarket.listings = categoryMarket.listings.filter((item) => item.listingId !== listingId && item.vehicleId !== listing.vehicleId);
+      state.assetMarket.categories[activeAssetCategory] = categoryMarket;
+      if (activeAssetCategory === "garage") state.assetMarket.listings = categoryMarket.listings;
       addHistoryEvent({
         type:"asset-buy",
         category:"Bank",
@@ -1865,7 +1969,7 @@
         title:"Asset Purchased",
         description:`${player.name} bought ${asset.name}.`,
         amount:-asset.pricePaid,
-        details:{rarity:asset.rarity, resaleValue:Math.round(asset.pricePaid * asset.resaleRate)}
+        details:{category:asset.category || "garage", rarity:asset.rarity, resaleValue:Math.round(asset.pricePaid * asset.resaleRate)}
       });
       save();
       toast(`${asset.name} acquired.`);
@@ -2827,6 +2931,13 @@
     }
 
     function finishSlotSpin(player, lineBet, wager) {
+      player = freshPlayer(player);
+      if (!player) {
+        slotMachine.spinning = false;
+        slotMachine.message = "Spin cancelled because the linked player could not be found.";
+        renderSlots();
+        return;
+      }
       slotMachine.reels = spinSlotGrid();
       const result = evaluateSlots(slotMachine.reels, lineBet);
       const net = result.totalWin - wager;
@@ -3072,7 +3183,7 @@
     }
 
     function settleSoloBlackjack() {
-      const player = currentPlayer();
+      const player = freshPlayer(currentPlayer());
       if (!player) return;
       soloBlackjack.phase = "done";
       soloBlackjack.revealDealer = true;
@@ -3872,6 +3983,7 @@
     }
 
     function settleMultiplayerBlackjack(room) {
+      room = room?.id ? (state.rooms || []).find((item) => item.id === room.id) || room : room;
       const table = room.table;
       if (!table || table.phase === "done") return;
       table.phase = "done";
@@ -3884,7 +3996,7 @@
       let winners = 0;
       Object.entries(table.hands || {}).forEach(([key, hand]) => {
         const seat = room.seats?.[key];
-        const player = seat?.playerName ? playerByName(seat.playerName) : null;
+        const player = seat?.playerName ? freshPlayer(playerByName(seat.playerName)) : null;
         let seatDelta = 0;
         multiSeatHands(hand).forEach((playerHand) => {
           const total = handValue(playerHand.cards);
@@ -4387,15 +4499,15 @@
     }
 
     function applyMoneyResult(player, amount, reason, options = {}) {
+      player = freshPlayer(player);
+      if (!player) return;
       const value = Number(amount || 0);
       if (value > 0) {
-        const debtPay = Math.min(player.bankDebt, value);
-        player.bankDebt -= debtPay;
+        const debtPay = Math.min(Number(player.bankDebt || 0), value);
+        player.bankDebt = Number(player.bankDebt || 0) - debtPay;
         state.counters.debtRepaid += debtPay;
         const remaining = value - debtPay;
-        if (options.bankrollAlreadyAdjusted) {
-          if (debtPay > 0) adjustPlayerBankroll(player, -debtPay);
-        } else if (remaining > 0) {
+        if (!options.bankrollAlreadyAdjusted && remaining > 0) {
           adjustPlayerBankroll(player, remaining);
         }
         player.lifetime += remaining;
@@ -5039,7 +5151,6 @@
         const amount = Number($("grantMoneyAmount").value || 0);
         if (!player || amount === 0) return toast("Choose a player and amount.");
         adjustPlayerBankroll(player, amount);
-        player.lifetime += amount;
         addHistoryEvent({
           type:"bank-grant",
           category:"Bank",
@@ -5052,6 +5163,16 @@
         addSystemHistory("Bankroll Granted", `${player.name} was granted ${money(amount)} by admin.`, {player:player.name, amount});
         save();
         toast(`${player.name} bankroll updated by ${signedMoney(amount)}.`);
+      }
+      if (action === "adjust-lifetime") {
+        if (!isDarrenAdmin()) return toast("Only Darren can adjust lifetime P/L.");
+        const player = playerByName($("manualPlayer").value);
+        const amount = Number($("lifetimeAdjustAmount").value || 0);
+        if (!player || amount === 0) return toast("Choose a player and lifetime adjustment amount.");
+        player.lifetime = Number(player.lifetime || 0) + amount;
+        addSystemHistory("Lifetime P/L Adjusted", `${player.name}'s lifetime P/L was adjusted by ${signedMoney(amount)}.`, {player:player.name, amount, lifetime:player.lifetime});
+        save();
+        toast(`${player.name} lifetime P/L adjusted by ${signedMoney(amount)}.`);
       }
       if (action === "remove-bankroll") {
         if (!isDarrenAdmin()) return toast("Only Darren can remove bankroll.");
