@@ -1,5 +1,16 @@
 # Virtual Casino Changelog
 
+## V1.11.2 - 2026-06-30 - Multiplayer Blackjack, Dailies, and Performance Polish
+
+### Changed
+- Removed the old Poker Session and Poker Chip Counter panels from Local Sessions while keeping Poker XP and Pots in the newer local desk styling.
+- Removed the Dashboard Overview loan panel so Recent Achievements and Recent Activity sit higher on the page.
+- Migrated multiplayer blackjack into the premium blackjack table layout with the right-side table controls, action controls, and game message rail.
+- Reduced blackjack deal timing and card compositing flicker during solo and multiplayer hands.
+- Moved Dailies into a JSON-backed rotating catalog of 30 daily activities and raised the daily challenge reward to feel more worthwhile.
+- Added a casino favicon and optimized large table/mobile art with WebP fallbacks to cut initial page weight.
+- Included stock market low/high history in targeted Firebase room-settlement saves so recorded extremes are preserved across multiplayer writes.
+
 ## V1.11.1 - 2026-06-30 - Stock/Asset Polish and Money Audit Fixes
 
 ### Fixed

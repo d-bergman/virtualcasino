@@ -72,18 +72,15 @@
     const ASSET_CATALOGS = {garage: VEHICLE_CATALOG, properties: PROPERTY_CATALOG, gemstones: GEMSTONE_CATALOG, airplanes: AIRCRAFT_CATALOG, boats: BOAT_CATALOG};
     const ASSET_CATEGORY_LABELS = {garage:"Garage", properties:"Properties", gemstones:"Gemstones", airplanes:"Airplanes", boats:"Boats"};
     const ASSET_MARKET_TITLES = {garage:"Vehicle Market", properties:"Property Market", gemstones:"Gemstone Exchange", airplanes:"Aircraft Market", boats:"Boat Market"};
-    const DAILY_CLICKABLES = [
-      {id:"coin", icon:"🪙", title:"House Coin", description:"Call the gold coin flip.", reward:{type:"money", min:15, max:80}, chance:0.58},
-      {id:"dice", icon:"🎲", title:"Loaded Dice", description:"Roll casino dice for a bankroll bump.", reward:{type:"money", min:20, max:120}, chance:0.5},
-      {id:"vault", icon:"🔐", title:"Mini Vault", description:"Crack a tiny vault for money or XP.", reward:{type:"mixed", min:25, max:150}, chance:0.45},
-      {id:"cards", icon:"🃏", title:"Card Draw", description:"Draw a lucky card for XP.", reward:{type:"xp", min:25, max:140}, chance:0.62},
-      {id:"ticket", icon:"🎟️", title:"Ticket Booth", description:"Try for a free Casino Ticket.", reward:{type:"ticket", min:1, max:1}, chance:0.34}
-    ];
+    const DAILY_CHALLENGE_REWARD = 500;
+    const DAILY_CLICKABLES = await loadDailyClickableCatalog();
     const levels = [{level:1,xp:0},{level:2,xp:100},{level:3,xp:250},{level:4,xp:450},{level:5,xp:700},{level:6,xp:1000},{level:7,xp:1400},{level:8,xp:1900},{level:9,xp:2500},{level:10,xp:3200},{level:11,xp:4100},{level:12,xp:5200},{level:13,xp:6500}];
     const standard = {white:10,red:10,blue:8,green:5,black:2};
     const blank = {white:0,red:0,blue:0,green:0,black:0};
     const CHIP_COLORS = ["white", "red", "blue", "green", "black"];
     const CHIP_LABELS = {white:"White", red:"Red", blue:"Blue", green:"Green", black:"Black"};
+    const CARD_DEAL_DELAY_MS = 260;
+    const CARD_DEAL_SETTLE_MS = 900;
     const STAKE_MODES = {
       low: {label:"Low Stakes", values:{white:1, red:5, blue:10, green:25, black:100}},
       mid: {label:"Mid Stakes", values:{white:100, red:500, blue:1000, green:2500, black:10000}},
@@ -389,6 +386,37 @@
           icon:item.icon || ""
         };
       });
+    }
+
+    async function loadDailyClickableCatalog() {
+      const fallback = [
+        {id:"coin", icon:"🪙", title:"House Coin", description:"Call the gold coin flip.", reward:{type:"money", min:35, max:160}, chance:0.58},
+        {id:"dice", icon:"🎲", title:"Loaded Dice", description:"Roll casino dice for a bankroll bump.", reward:{type:"money", min:45, max:220}, chance:0.5},
+        {id:"vault", icon:"🔐", title:"Mini Vault", description:"Crack a tiny vault for money or XP.", reward:{type:"mixed", min:60, max:260}, chance:0.45},
+        {id:"cards", icon:"🃏", title:"Card Draw", description:"Draw a lucky card for XP.", reward:{type:"xp", min:45, max:180}, chance:0.62},
+        {id:"ticket", icon:"🎟️", title:"Ticket Booth", description:"Try for a free Casino Ticket.", reward:{type:"ticket", min:1, max:1}, chance:0.34}
+      ];
+      try {
+        const response = await fetch("data/dailies.json", {cache:"no-store"});
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const items = await response.json();
+        if (!Array.isArray(items)) throw new Error("Dailies catalog must be an array.");
+        return items.map((item, index) => ({
+          id:String(item.id || `daily-${index}`).trim(),
+          icon:String(item.icon || "🎲"),
+          title:String(item.title || "Daily Activity"),
+          description:String(item.description || "Try your luck."),
+          reward:{
+            type:String(item.reward?.type || "money"),
+            min:Math.max(0, Number(item.reward?.min || 0)),
+            max:Math.max(0, Number(item.reward?.max || item.reward?.min || 0))
+          },
+          chance:Math.max(0, Math.min(1, Number(item.chance ?? 0.5)))
+        })).filter((item) => item.id);
+      } catch (error) {
+        console.warn("Could not load daily clickable catalog.", error);
+        return fallback;
+      }
     }
 
     const defaultState = normalize(decodeSave(attachedSaveText));
@@ -1256,12 +1284,9 @@
       const element = $(id);
       if (!element) return;
       const current = element.value;
-      const linked = currentPlayer();
-      const restrictedLoan = id === "borrowPlayer" && linked && !isDarrenAdmin();
-      const players = restrictedLoan ? [linked] : state.players;
+      const players = state.players;
       element.innerHTML = players.map((p) => `<option value="${escapeAttr(p.name)}">${escapeHtml(displayNameForPlayer(p.name))}</option>`).join("");
       if (current && state.players.some((p) => p.name === current)) element.value = current;
-      if (restrictedLoan) element.value = linked.name;
     }
 
     function fillStaticSelects() {
@@ -1535,7 +1560,7 @@
       document.querySelectorAll("[data-game]").forEach((button) => button.classList.toggle("active", button.dataset.game === activeGame));
       document.querySelectorAll("[data-achievement-tab]").forEach((button) => button.classList.toggle("active", button.dataset.achievementTab === activeAchievementTab));
       document.querySelectorAll("[data-blackjack-mode]").forEach((button) => button.classList.toggle("active", button.dataset.blackjackMode === blackjackMode));
-      ["borrowPlayer","manualPlayer","buyinPlayer","chipPlayer","handPlayer","potPlayer","blackjackPlayer","unoPlayer","blackjackMoneyPlayer","transferToPlayer"].forEach(fillSelect);
+      ["manualPlayer","handPlayer","potPlayer","blackjackPlayer","unoPlayer","blackjackMoneyPlayer","transferToPlayer"].forEach(fillSelect);
       fillSelect("profilePlayerName");
 
       const ranked = rankedPlayers();
@@ -1554,23 +1579,19 @@
       $("leaderboard").innerHTML = ranked.map((p, i) => renderLeaderboardRow(p, i)).join("");
       $("playerAdminBoard").innerHTML = state.players.map((p) => renderAdminPlayerRow(p)).join("");
       document.querySelectorAll(".admin-link").forEach((item) => item.hidden = !isDarrenAdmin());
-      renderLinkageAdminBoard();
-      $("bankStatus").innerHTML = [
-        renderListRow("&#9878;", "Total Loans Outstanding", "", money(state.players.reduce((sum, p) => sum + p.bankDebt, 0))),
-        renderListRow("&#9888;", "Players In Debt", "", state.players.filter((p) => p.bankDebt > 0).length)
-      ].join("");
+      if (activeView === "admin") renderLinkageAdminBoard();
       $("recentActivity").innerHTML = (state.log.length ? state.log : ["No activity yet."]).slice(0, 5).map((item, index) => renderListRow(index + 1, item, "", "")).join("");
-      renderHistoryBoard();
+      if (activeView === "history") renderHistoryBoard();
       const unlocked = unlockedAchievementRows();
       $("recentAchievements").innerHTML = unlocked.length
         ? unlocked.slice(0, 3).map((item) => renderAchievementRow(item.definition, item.unlock)).join("")
         : renderListRow("&#9733;", "No achievements unlocked yet", "Complete tracked milestones to unlock achievements.", "");
-      renderAchievementBoards();
-      renderBankDashboard();
-      renderStockMarket();
-      renderAssets();
-      renderLocalSettlementDesk();
-      renderBlackjackBankroll();
+      if (activeView === "achievements") renderAchievementBoards();
+      if (activeView === "bank") renderBankDashboard();
+      if (activeView === "stocks") renderStockMarket();
+      if (activeView === "assets") renderAssets();
+      if (activeView === "sessions") renderLocalSettlementDesk();
+      if (activeView === "online") renderBlackjackBankroll();
       $("gameGrid").innerHTML = ["poker","blackjack","uno"].map(renderGameCard).join("");
       document.querySelectorAll("[data-game-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.gamePanel === activeGame));
       const room = activeRoom();
@@ -1586,17 +1607,21 @@
       $("blackjackSoloPanel").hidden = blackjackMode !== "solo";
       $("blackjackMultiPanel").classList.toggle("active", blackjackMode === "multi");
       $("blackjackMultiPanel").hidden = blackjackMode !== "multi";
-      renderBlackjackTable();
-      renderBlackjackControls();
-      renderBlackjackRooms();
-      renderPokerRooms();
-      renderActiveRoom();
-      renderSlots();
-      renderCraps();
-      renderDailyRewards();
-      renderLuckyWheel();
+      if (activeView === "online") {
+        renderBlackjackTable();
+        renderBlackjackControls();
+        renderBlackjackRooms();
+        renderPokerRooms();
+        renderActiveRoom();
+        renderSlots();
+        renderCraps();
+      }
+      if (activeView === "dailies") {
+        renderDailyRewards();
+        renderLuckyWheel();
+      }
       renderSessionOverview();
-      renderChangelog();
+      if (activeView === "changelog") renderChangelog();
       maybePromptProfileLink();
     }
 
@@ -2368,10 +2393,25 @@
       return state.daily.activities[playerName];
     }
 
+    function dailyClickablePool(count = 5) {
+      const catalog = DAILY_CLICKABLES.length ? DAILY_CLICKABLES : [];
+      const seed = hashCode(`${todayKey()}-daily-clickables`);
+      return [...catalog]
+        .map((activity, index) => ({activity, sort: seededSortValue(seed, index, activity.id)}))
+        .sort((a, b) => a.sort - b.sort)
+        .slice(0, Math.min(count, catalog.length))
+        .map((item) => item.activity);
+    }
+
+    function seededSortValue(seed, index, id) {
+      const value = Math.sin((seed + index + 1) * 999 + hashCode(id)) * 10000;
+      return value - Math.floor(value);
+    }
+
     function renderDailyActivityCards(player) {
       const record = dailyActivityRecord(player.name);
       const reset = dailyResetText();
-      return DAILY_CLICKABLES.map((activity) => {
+      return dailyClickablePool(5).map((activity) => {
         const done = Boolean(record.played[activity.id]);
         return `<button class="daily-card bonus-card ${done ? "cooldown" : "ready"}" type="button" data-action="play-daily-activity" data-daily-activity="${escapeAttr(activity.id)}">
           <span>${activity.icon}</span>
@@ -2383,7 +2423,7 @@
 
     function playDailyActivity(activityId) {
       const player = currentPlayer();
-      const activity = DAILY_CLICKABLES.find((item) => item.id === activityId);
+      const activity = dailyClickablePool(5).find((item) => item.id === activityId) || DAILY_CLICKABLES.find((item) => item.id === activityId);
       if (!player || !activity) return toast("Choose a daily activity.");
       const record = dailyActivityRecord(player.name);
       if (record.played[activity.id]) return toast(`${activity.title} is already claimed today.`);
@@ -2439,7 +2479,7 @@
       $("dailyChallengeBoard").innerHTML = `
         <div class="daily-card-grid">
           <button class="daily-card ${complete && !record.claimed ? "ready" : ""}" type="button" data-action="claim-daily-challenge">
-            <span>👑</span><strong>Daily Challenge</strong><small>${record.claimed ? "Claimed" : complete ? "Reward ready: $150" : "Complete all tasks"}</small>
+            <span>👑</span><strong>Daily Challenge</strong><small>${record.claimed ? "Claimed" : complete ? `Reward ready: ${money(DAILY_CHALLENGE_REWARD)}` : "Complete all tasks"}</small>
           </button>
           <button class="daily-card ${wheelDone ? "cooldown" : "ready"}" type="button" data-action="spin-lucky-wheel">
             <span>🎡</span><strong>Lucky Wheel</strong><small>${wheelDone ? `Cooldown: ${reset.countdown}` : "Ready to spin"}</small>
@@ -2652,7 +2692,7 @@
           index === 1 && hideDealerHole,
           table.dealerAnimateIndexes?.includes(index),
           table.dealerFlipIndexes?.includes(index),
-          Math.max(0, table.dealerAnimateIndexes?.indexOf(index) || 0) * 800
+          Math.max(0, table.dealerAnimateIndexes?.indexOf(index) || 0) * CARD_DEAL_DELAY_MS
         )).join("")
         : `<div class="sync-pill">No dealer hand</div>`;
       $("multiDealerTotal").textContent = table.dealerHand.length
@@ -2671,7 +2711,7 @@
           ? seatHands.map((seatHand, handIndex) => {
             const animatedKey = `${handIndex}`;
             const indexes = animated[animatedKey] || [];
-            const cards = seatHand.cards.map((card, index) => renderPlayingCard(card, false, indexes.includes(index), false, Math.max(0, indexes.indexOf(index)) * 800)).join("");
+            const cards = seatHand.cards.map((card, index) => renderPlayingCard(card, false, indexes.includes(index), false, Math.max(0, indexes.indexOf(index)) * CARD_DEAL_DELAY_MS)).join("");
             const status = seatHand.result || (seatHand.stood ? "Stand" : key === table.activeSeatKey && handIndex === Number(hand?.activeHand || 0) ? "Active" : "Queued");
             return `<div class="blackjack-hand ${key === table.activeSeatKey && handIndex === Number(hand?.activeHand || 0) ? "active" : ""}">
               <div class="blackjack-hand-meta"><strong>Hand ${handIndex + 1}</strong><span>${money(seatHand.bet || table.bet)} - ${escapeHtml(status)}${seatHand.doubled ? " / Double" : ""}${seatHand.delta ? ` / ${signedMoney(seatHand.delta)}` : ""}</span></div>
@@ -2868,7 +2908,7 @@
           index === 1 && hideDealerHole,
           soloBlackjack.dealerAnimateIndexes?.includes(index),
           soloBlackjack.dealerFlipIndexes?.includes(index),
-          Math.max(0, soloBlackjack.dealerAnimateIndexes?.indexOf(index) || 0) * 800
+          Math.max(0, soloBlackjack.dealerAnimateIndexes?.indexOf(index) || 0) * CARD_DEAL_DELAY_MS
         )).join("")
         : `<div class="sync-pill">No dealer hand</div>`;
       $("playerHand").innerHTML = hands.length
@@ -2952,7 +2992,7 @@
     function renderBlackjackHand(hand, index) {
       const active = soloBlackjack.phase === "playing" && index === soloBlackjack.activeHand;
       const animated = soloBlackjack.playerAnimateIndexes?.[index] || [];
-      const cards = hand.cards.map((card, cardIndex) => renderPlayingCard(card, false, animated.includes(cardIndex), false, Math.max(0, animated.indexOf(cardIndex)) * 800)).join("");
+      const cards = hand.cards.map((card, cardIndex) => renderPlayingCard(card, false, animated.includes(cardIndex), false, Math.max(0, animated.indexOf(cardIndex)) * CARD_DEAL_DELAY_MS)).join("");
       const flags = [
         active ? "Active" : "",
         hand.doubled ? "Double" : "",
@@ -3460,7 +3500,7 @@
           soloBlackjack.message = `Bet ${money(bet)}. Hit, stand, split a pair, or double down.`;
           render();
         }
-      }, 1900);
+      }, CARD_DEAL_SETTLE_MS);
     }
 
     function hitSoloBlackjack() {
@@ -3563,7 +3603,7 @@
         setTimeout(() => {
           clearBlackjackAnimations();
           settleSoloBlackjack();
-        }, Math.max(850, animatedIndexes.length * 800 + 120));
+        }, Math.max(650, animatedIndexes.length * CARD_DEAL_DELAY_MS + 360));
       }, 500);
     }
 
@@ -3934,7 +3974,7 @@
         if (!latest?.table) return;
         latest.table.handAnimateIndexes = {};
         saveRoom(latest);
-      }, 1900);
+      }, CARD_DEAL_SETTLE_MS);
     }
 
     function pokerSeatEntries(room) {
@@ -4245,7 +4285,7 @@
         latest.table.dealerAnimateIndexes = [];
         latest.table.handAnimateIndexes = {};
         saveRoom(latest);
-      }, 1900);
+      }, CARD_DEAL_SETTLE_MS);
     }
 
     async function hitMultiplayerBlackjack() {
@@ -4374,7 +4414,7 @@
         latestTable.dealerFlipIndexes = [];
         latestTable.dealerAnimateIndexes = animated;
         saveRoom(latest);
-        setTimeout(() => settleMultiplayerBlackjack(latest), Math.max(850, animated.length * 800 + 120));
+        setTimeout(() => settleMultiplayerBlackjack(latest), Math.max(650, animated.length * CARD_DEAL_DELAY_MS + 360));
       }, 500);
     }
 
@@ -4458,6 +4498,7 @@
         players: state.players,
         gameStats: state.gameStats,
         counters: state.counters,
+        stockMarket: state.stockMarket,
         log: state.log,
         history: state.history,
         [`onlineRooms/${room.id}`]: room,
@@ -4946,10 +4987,10 @@
       if (record.blackjackWins < 5 || record.slotSpins < 5 || record.xpEarned < 200) return toast("Finish all daily challenge tasks first.");
       record.claimed = true;
       unlockAchievement("daily-first-clear", player.name);
-      grantDailyMoney(player, 150, "daily challenge reward");
-      log(`${player.name} claimed the daily challenge for $150.`);
+      grantDailyMoney(player, DAILY_CHALLENGE_REWARD, "daily challenge reward");
+      log(`${player.name} claimed the daily challenge for ${money(DAILY_CHALLENGE_REWARD)}.`);
       save();
-      resultToast("Daily challenge claimed", "+$150");
+      resultToast("Daily challenge claimed", `+${money(DAILY_CHALLENGE_REWARD)}`);
     }
 
     function spinLuckyWheel() {
@@ -5456,20 +5497,6 @@
         if (els.confirmDialog.open) els.confirmDialog.close();
         save();
         return;
-      }
-      if (action === "borrow") {
-        const player = playerByName($("borrowPlayer").value);
-        const amount = Number($("borrowAmount").value || 0);
-        if (!player || amount <= 0) return toast("Enter a loan amount.");
-        const chips = chipSetup(amount);
-        player.bankDebt += amount;
-        player.chips = addChips(player.chips, chips);
-        state.counters.loansTaken += 1;
-        unlockAchievement("debt-borrower", player.name);
-        log(`${player.name} borrowed $${amount} from the bank.`);
-        addSystemHistory("Loan Issued", `${player.name} was issued a ${money(amount)} loan from the overview bank panel.`, {player:player.name, amount});
-        save();
-        toast(`${player.name} borrowed ${money(amount)}. Chips added: ${chipText(chips)}.`);
       }
       if (action === "bank-borrow") {
         const player = currentPlayer();

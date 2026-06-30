@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Virtual Casino | Family Card RPG</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260629-1" />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="stylesheet" href="css/styles.css?v=20260630-2" />
 </head>
 <body class="auth-checking">
   <div id="appLoader" class="app-loader" role="status" aria-live="polite">
@@ -116,15 +117,6 @@
             </article>
           </div>
           <aside class="side-stack">
-            <article class="panel panel-pad">
-              <div class="section-title"><span>Bank</span></div>
-              <div class="form-grid">
-                <div class="full"><label for="borrowPlayer">Player</label><select id="borrowPlayer"></select></div>
-                <div class="full"><label for="borrowAmount">Custom Amount</label><input id="borrowAmount" type="number" inputmode="numeric" value="100" /></div>
-              </div>
-              <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="borrow">Issue Loan</button>
-              <div id="bankStatus" class="history-list" style="margin-top:14px;"></div>
-            </article>
             <article class="panel panel-pad">
               <div class="section-title"><span>Recent Achievements</span></div>
               <div id="recentAchievements" class="achievement-list"></div>
@@ -296,37 +288,7 @@
         </article>
 
         <div class="game-controls active" data-game-panel="poker">
-          <article class="panel panel-pad">
-            <div class="section-title"><span>Poker Session</span></div>
-            <div class="action-grid">
-              <button class="primary-btn" type="button" data-action="new-session">New Poker Session</button>
-              <button class="ghost-btn" type="button" data-action="end-session">End Session / Cash Out</button>
-            </div>
-            <div class="form-grid" style="margin-top:12px;">
-              <div><label for="buyinPlayer">Buy-in Player</label><select id="buyinPlayer"></select></div>
-              <div><label for="buyinAmount">Buy-in Amount</label><input id="buyinAmount" type="number" inputmode="numeric" value="465" /></div>
-            </div>
-            <div class="action-grid">
-              <button class="primary-btn" type="button" data-action="standard-buyin">Standard $465 Stack</button>
-              <button class="ghost-btn" type="button" data-action="custom-buyin">Custom Buy-in</button>
-            </div>
-            <div id="chipRecommendation" class="sync-pill" style="margin-top:12px;">10W / 10R / 8B / 5G / 2Black = $465</div>
-          </article>
-
-          <article class="panel panel-pad" style="margin-top:18px;">
-            <div class="section-title"><span>Poker Chip Counter</span></div>
-            <div class="form-grid">
-              <div><label for="chipPlayer">Player</label><select id="chipPlayer"></select></div>
-              <div><label for="w">White</label><input id="w" type="number" inputmode="numeric" placeholder="0" /></div>
-              <div><label for="r">Red</label><input id="r" type="number" inputmode="numeric" placeholder="0" /></div>
-              <div><label for="b">Blue</label><input id="b" type="number" inputmode="numeric" placeholder="0" /></div>
-              <div><label for="g">Green</label><input id="g" type="number" inputmode="numeric" placeholder="0" /></div>
-              <div><label for="k">Black</label><input id="k" type="number" inputmode="numeric" placeholder="0" /></div>
-            </div>
-            <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="save-chips">Save Chip Count</button>
-          </article>
-
-          <article class="panel panel-pad" style="margin-top:18px;">
+          <article class="panel panel-pad local-calculator-panel">
             <div class="section-title"><span>Poker XP & Pots</span></div>
             <div class="form-grid">
               <div><label for="handPlayer">Poker Winner</label><select id="handPlayer"></select></div>
@@ -582,29 +544,53 @@
               </span>
             </div>
             <div id="blackjackRoomPlayers" class="room-player-grid"></div>
-            <div class="blackjack-table">
-              <div class="hand-zone">
-                <div class="section-title"><span>Dealer</span><span id="multiDealerTotal" class="sync-pill">0</span></div>
-                <div id="multiDealerHand" class="playing-card-row"></div>
+            <div class="blackjack-play-layout multiplayer-blackjack-layout">
+              <div class="blackjack-table-column">
+                <div class="blackjack-table premium-blackjack-table multiplayer-premium-table">
+                  <div class="blackjack-felt-copy" aria-hidden="true">
+                    <span>Blackjack Pays 3 To 2</span>
+                    <span>Dealer Must Hit Soft 17</span>
+                    <span>Insurance Pays 2 To 1</span>
+                  </div>
+                  <div class="hand-zone dealer-zone">
+                    <div class="section-title"><span>Dealer</span><span id="multiDealerTotal" class="sync-pill">0</span></div>
+                    <div id="multiDealerHand" class="playing-card-row"></div>
+                  </div>
+                  <div class="hand-zone player-zone multiplayer-player-zone">
+                    <div class="section-title"><span>Player Hands</span><span id="multiActiveSeat" class="sync-pill">Waiting</span></div>
+                    <div id="multiBlackjackHands" class="leaderboard-list"></div>
+                  </div>
+                </div>
               </div>
-              <div class="hand-zone">
-                <div class="section-title"><span>Player Hands</span><span id="multiActiveSeat" class="sync-pill">Waiting</span></div>
-                <div id="multiBlackjackHands" class="leaderboard-list"></div>
-              </div>
-            </div>
-            <div class="form-grid">
-              <div><label for="multiBjBetAmount">Shared Bet</label><input id="multiBjBetAmount" type="number" inputmode="numeric" min="1" value="5" /></div>
-            </div>
-            <div id="multiBlackjackStatus" class="blackjack-status">Start a shared round when players have joined.</div>
-            <div class="action-grid">
-              <button class="primary-btn" type="button" data-action="multi-blackjack-ready">Ready</button>
-              <button class="primary-btn" type="button" data-action="multi-blackjack-deal">Start Round</button>
-              <button class="ghost-btn" type="button" data-action="multi-blackjack-hit">Hit</button>
-              <button class="ghost-btn" type="button" data-action="multi-blackjack-stand">Stand</button>
-              <button class="ghost-btn" type="button" data-action="multi-blackjack-split">Split Pair</button>
-              <button class="ghost-btn" type="button" data-action="multi-blackjack-double">Double Down</button>
-              <button class="ghost-btn" type="button" data-action="leave-active-room">Leave Session</button>
-              <button id="closeBlackjackRoomBtn" class="primary-btn danger-btn" type="button" data-action="close-active-room">Close Room</button>
+              <aside class="blackjack-side-panel">
+                <article class="blackjack-side-card">
+                  <h3>Table Controls</h3>
+                  <div class="form-grid compact-form">
+                    <div><label for="multiBjBetAmount">Shared Bet</label><input id="multiBjBetAmount" type="number" inputmode="numeric" min="1" value="5" /></div>
+                  </div>
+                  <div class="action-grid">
+                    <button class="primary-btn" type="button" data-action="multi-blackjack-ready">Ready</button>
+                    <button class="primary-btn" type="button" data-action="multi-blackjack-deal">Start Round</button>
+                  </div>
+                </article>
+                <article class="blackjack-side-card">
+                  <h3>Player Actions</h3>
+                  <div class="action-grid">
+                    <button class="ghost-btn" type="button" data-action="multi-blackjack-hit">Hit</button>
+                    <button class="ghost-btn" type="button" data-action="multi-blackjack-stand">Stand</button>
+                    <button class="ghost-btn" type="button" data-action="multi-blackjack-split">Split Pair</button>
+                    <button class="ghost-btn" type="button" data-action="multi-blackjack-double">Double Down</button>
+                  </div>
+                </article>
+                <article class="blackjack-side-card">
+                  <h3>Game Message</h3>
+                  <div id="multiBlackjackStatus" class="blackjack-status">Start a shared round when players have joined.</div>
+                  <div class="action-grid" style="margin-top:12px;">
+                    <button class="ghost-btn" type="button" data-action="leave-active-room">Leave Session</button>
+                    <button id="closeBlackjackRoomBtn" class="primary-btn danger-btn" type="button" data-action="close-active-room">Close Room</button>
+                  </div>
+                </article>
+              </aside>
             </div>
           </article>
         </div>
@@ -1226,6 +1212,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=20260617-4"></script>
+  <script type="module" src="js/app.js?v=20260630-2"></script>
 </body>
 </html>

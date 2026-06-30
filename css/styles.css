@@ -501,6 +501,7 @@
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
+      min-height: 304px;
     }
 
     .player-card {
@@ -606,7 +607,12 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
       margin-top: 18px;
+      min-height: 292px;
     }
+
+    #sessionOverview { min-height: 390px; }
+    #recentAchievements { min-height: 235px; }
+    #recentActivity { min-height: 235px; }
 
     .game-card {
       overflow: hidden;
@@ -834,7 +840,10 @@
       border-radius: 14px;
       background:
         linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.55)),
-        url("../assets/blackjack-table-bg.png") center / cover no-repeat,
+        image-set(
+          url("../assets/blackjack-table-bg.webp") type("image/webp"),
+          url("../assets/blackjack-table-bg.png") type("image/png")
+        ) center / cover no-repeat,
         radial-gradient(circle at center, rgba(16,92,42,.7), rgba(5,9,8,.94));
       box-shadow:
         inset 0 0 80px rgba(0,0,0,.48),
@@ -875,6 +884,19 @@
       width: min(760px, 84%);
       transform: translateX(-50%);
       text-align: center;
+    }
+
+    .multiplayer-blackjack-layout {
+      margin-top: 16px;
+    }
+
+    .multiplayer-premium-table {
+      min-height: clamp(620px, 60vw, 820px);
+    }
+
+    .premium-blackjack-table .multiplayer-player-zone {
+      bottom: 7%;
+      width: min(1040px, 92%);
     }
 
     .premium-blackjack-table .section-title {
@@ -1288,6 +1310,7 @@
       grid-template-columns: repeat(3, minmax(220px, 1fr));
       gap: 14px;
       align-items: stretch;
+      width: 100%;
     }
 
     .multi-blackjack-seat-grid.count-2 .seat-1 { grid-column: 1; }
@@ -1308,6 +1331,8 @@
         linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.02));
       padding: 12px;
       min-height: 170px;
+      text-align: left;
+      backdrop-filter: blur(2px);
     }
 
     .multi-blackjack-seat.active-room-hand {
@@ -1815,8 +1840,10 @@
     }
 
     .dealt-card {
-      animation: dealCard 800ms ease both;
+      animation: dealCard 520ms ease-out both;
       animation-delay: var(--deal-delay, 0ms);
+      will-change: transform;
+      backface-visibility: hidden;
     }
 
     .flip-card {
@@ -3043,7 +3070,10 @@
       body::before {
         background:
           linear-gradient(rgba(0,0,0,0.62), rgba(0,0,0,0.86)),
-          url("../assets/mobile-concept.png") top center / cover no-repeat;
+          image-set(
+            url("../assets/mobile-concept.webp") type("image/webp"),
+            url("../assets/mobile-concept.png") type("image/png")
+          ) top center / cover no-repeat;
         opacity: 0.13;
       }
       .casino-shell { padding: 16px 12px 84px; }
