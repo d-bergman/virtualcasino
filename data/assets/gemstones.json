@@ -1,0 +1,18 @@
+[
+  {"id":"amethyst-cluster","name":"Royal Amethyst Cluster","rarity":"Common","type":"Gemstone","location":"Minas Gerais, Brazil","price":1200,"resaleRate":0.72},
+  {"id":"citrine-cut-stone","name":"Golden Citrine Cut Stone","rarity":"Common","type":"Gemstone","location":"Anahi Mine, Bolivia","price":1800,"resaleRate":0.72},
+  {"id":"garnet-set","name":"Mozambique Garnet Set","rarity":"Common","type":"Gemstone Set","location":"Niassa, Mozambique","price":3200,"resaleRate":0.73},
+  {"id":"aquamarine-crystal","name":"Santa Maria Aquamarine","rarity":"Uncommon","type":"Gemstone","location":"Minas Gerais, Brazil","price":9500,"resaleRate":0.76},
+  {"id":"opal-fire-cabochon","name":"Mexican Fire Opal","rarity":"Uncommon","type":"Gemstone","location":"Querétaro, Mexico","price":14500,"resaleRate":0.77},
+  {"id":"tanzanite-trilliant","name":"Tanzanite Trilliant","rarity":"Rare","type":"Gemstone","location":"Merelani Hills, Tanzania","price":42000,"resaleRate":0.8},
+  {"id":"burmese-ruby","name":"Burmese Pigeon's Blood Ruby","rarity":"Epic","type":"Ruby","location":"Mogok, Myanmar","price":275000,"resaleRate":0.86},
+  {"id":"kashmir-sapphire","name":"Kashmir Blue Sapphire","rarity":"Epic","type":"Sapphire","location":"Kashmir, India","price":360000,"resaleRate":0.87},
+  {"id":"colombian-emerald","name":"Colombian Muzo Emerald","rarity":"Epic","type":"Emerald","location":"Muzo, Colombia","price":410000,"resaleRate":0.88},
+  {"id":"pink-diamond","name":"Argyle Pink Diamond","rarity":"Legendary","type":"Diamond","location":"Kimberley, Australia","price":2400000,"resaleRate":0.92},
+  {"id":"blue-diamond","name":"Fancy Vivid Blue Diamond","rarity":"Legendary","type":"Diamond","location":"Cullinan Mine, South Africa","price":6500000,"resaleRate":0.93},
+  {"id":"black-opal","name":"Lightning Ridge Black Opal","rarity":"Legendary","type":"Opal","location":"New South Wales, Australia","price":980000,"resaleRate":0.9},
+  {"id":"alexandrite","name":"Imperial Alexandrite","rarity":"Rare","type":"Color-Change Gem","location":"Ural Mountains, Russia","price":180000,"resaleRate":0.85},
+  {"id":"paraiba-tourmaline","name":"Paraíba Neon Tourmaline","rarity":"Legendary","type":"Tourmaline","location":"Paraíba, Brazil","price":1250000,"resaleRate":0.91},
+  {"id":"red-diamond","name":"Crimson Red Diamond","rarity":"Mythic","type":"Diamond","location":"Private Vault Collection","price":38000000,"resaleRate":0.96},
+  {"id":"new-eden-star-gem","name":"New Eden Star Gem","rarity":"Mythic","type":"Legendary Gemstone","location":"New Eden Private Auction","price":75000000,"resaleRate":0.97}
+]

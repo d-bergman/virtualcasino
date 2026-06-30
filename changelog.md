@@ -8,14 +8,32 @@
 - Stopped admin Bankroll Grants from inflating lifetime P/L, and added an admin Lifetime P/L adjustment tool for cleanup cases like mistaken manual grants.
 
 ### Stocks and Assets
+- Added a true one-second Stock Market countdown display so the Next Pulse timer no longer jumps in 10-second chunks.
+- Reworked stock buy/sell persistence to avoid the full-page save/render path so portfolio updates land much faster after clicking Buy or Sell.
+- Added recorded low/high prices to every stock card.
 - Moved Market News out of the top stat tiles into a wide banner so the summary cards stay compact.
 - Increased stock market pulse volatility so LCN/BAWSAQ changes feel more alive while still respecting business-hours vs after-hours behavior.
 - Added rare market catalyst swings so headline stocks can technically surge or crash up to about 65% in a pulse.
 - Expanded portfolio rows to show share count, average buy price, current sell price, current value, and live unrealized P/L.
+- Added more Stock Market achievements for share count, whale portfolio value, unrealized gains, and big profitable exits.
+- Added Stocks and Assets filters/categories to History for new market and asset events.
 - Added a detailed Stock Market Field Guide explaining pulses, LCN vs BAWSAQ, portfolio P/L, and trading strategy.
 - Made purchased assets disappear from active listings immediately.
 - Added live Airplanes and Boats asset markets with helicopters, private jets, airliners, small boats, cruisers, yachts, and superyachts.
 - Moved cars, airplanes, and boats into validated JSON asset catalog files with stable IDs.
+- Added JSON-backed Properties and Gemstones asset markets, with Land renamed to Gemstones.
+- Redesigned the player asset viewer into a bragging-rights collection vault with summary stats.
+
+### Blackjack
+- Added a generated premium blackjack table background and redesigned the solo blackjack table surface, card placement, and action buttons around the new casino-table concept.
+- Replaced the solo blackjack preset dropdown with casino chip buttons, a custom bet stepper, a right-side stats/bet/message rail, more realistic card faces, and a non-flashing deal animation.
+- Moved the solo dealer zone higher on the felt, added visible bet chip stacks under player hands, and arranged multiplayer blackjack seats for two- and three-player tables.
+
+### Local Sessions
+- Added a Local Session Settlement Desk for Poker, Blackjack, and custom local games with Low/Mid/High/Elite/Custom stake modes.
+- Added per-player settlement rows, chip-count totals, blackjack chaining fields, review-before-submit bankroll previews, poker imbalance warnings with override, and clear/reset controls.
+- Added a standalone quick chip calculator based on Sarge's phone concept, upgraded to share the same stake-mode chip values.
+- Local settlements now apply only net profit/loss to virtual bankrolls and track local buy-ins, winnings, losses, net, and game-specific stats.
 
 ## V1.11.0 - 2026-06-29 12:00 PM CT - Admin Audit, Casino Tickets, Stocks, and Assets
 

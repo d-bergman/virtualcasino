@@ -180,20 +180,6 @@
           </div>
         </article>
         <article class="panel panel-pad" style="margin-top:18px;">
-          <div class="section-title"><span>&#9827; Local Blackjack Settlement</span></div>
-          <div class="form-grid">
-            <div><label for="localBjPlayer">Player</label><select id="localBjPlayer"></select></div>
-            <div><label for="localBjStart">Starting Bankroll</label><input id="localBjStart" type="number" inputmode="numeric" placeholder="ex: 297" /></div>
-            <div><label for="localBjWhite">White</label><input id="localBjWhite" type="number" inputmode="numeric" placeholder="0" /></div>
-            <div><label for="localBjRed">Red</label><input id="localBjRed" type="number" inputmode="numeric" placeholder="0" /></div>
-            <div><label for="localBjBlue">Blue</label><input id="localBjBlue" type="number" inputmode="numeric" placeholder="0" /></div>
-            <div><label for="localBjGreen">Green</label><input id="localBjGreen" type="number" inputmode="numeric" placeholder="0" /></div>
-            <div><label for="localBjBlack">Black</label><input id="localBjBlack" type="number" inputmode="numeric" placeholder="0" /></div>
-          </div>
-          <button class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="settle-local-blackjack">Settle Local Blackjack</button>
-          <div id="localBjPreview" class="blackjack-status">Enter ending chips to calculate profit/loss and pay debt first.</div>
-        </article>
-        <article class="panel panel-pad" style="margin-top:18px;">
           <div class="section-title"><span>&#9881; Account Linkage</span></div>
           <div id="linkageAdminBoard" class="leaderboard-list"></div>
         </article>
@@ -221,6 +207,93 @@
           <button class="game-tab" data-game="blackjack">&#9827; Blackjack</button>
           <button class="game-tab" data-game="uno">&#9635; Uno</button>
         </div>
+
+        <article class="panel panel-pad local-settlement-panel">
+          <div class="section-title">
+            <span>&#9878; Local Session Settlement Desk</span>
+            <span class="sync-pill">Physical chips &#8594; virtual bankroll</span>
+          </div>
+          <p class="auth-message">Use this for kitchen-table poker, blackjack after poker, or custom local sessions. It calculates every player, shows a review, then applies only the net profit/loss to bankroll.</p>
+          <div class="form-grid">
+            <div>
+              <label for="localGameType">Game Type</label>
+              <select id="localGameType">
+                <option value="poker">Poker</option>
+                <option value="blackjack">Blackjack</option>
+                <option value="custom">Other / Custom Session</option>
+              </select>
+            </div>
+            <div>
+              <label for="localStakeMode">Stake Mode</label>
+              <select id="localStakeMode" data-stake-mode="local">
+                <option value="low">Low Stakes</option>
+                <option value="mid">Mid Stakes</option>
+                <option value="high">High Stakes</option>
+                <option value="elite">Elite Stakes</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+          </div>
+          <div id="localStakeValues" class="chip-value-display"></div>
+          <div id="localCustomStakeValues" class="form-grid local-custom-stakes" hidden>
+            <div><label for="localStakeWhite">White Value</label><input id="localStakeWhite" type="number" inputmode="numeric" value="1" /></div>
+            <div><label for="localStakeRed">Red Value</label><input id="localStakeRed" type="number" inputmode="numeric" value="5" /></div>
+            <div><label for="localStakeBlue">Blue Value</label><input id="localStakeBlue" type="number" inputmode="numeric" value="10" /></div>
+            <div><label for="localStakeGreen">Green Value</label><input id="localStakeGreen" type="number" inputmode="numeric" value="25" /></div>
+            <div><label for="localStakeBlack">Black Value</label><input id="localStakeBlack" type="number" inputmode="numeric" value="100" /></div>
+          </div>
+          <div class="section-title settlement-subtitle"><span>Select Players</span></div>
+          <div id="localSettlementPlayers" class="player-picker-grid"></div>
+          <div id="localSettlementRows" class="settlement-row-grid"></div>
+          <div class="action-grid settlement-actions">
+            <button class="primary-btn" type="button" data-action="calculate-local-settlement">Calculate & Review</button>
+            <button class="ghost-btn" type="button" data-action="clear-local-settlement">Clear / Reset</button>
+            <button class="ghost-btn danger-btn" type="button" data-action="override-local-imbalance" hidden>Override Poker Imbalance</button>
+            <button class="primary-btn" type="button" data-action="submit-local-settlement" disabled>Submit To Bankrolls</button>
+          </div>
+          <div id="localSettlementReview" class="settlement-review blackjack-status">Choose players, enter buy-ins and chip counts, then calculate.</div>
+        </article>
+
+        <article class="panel panel-pad local-calculator-panel">
+          <div class="section-title">
+            <span>&#129689; Quick Chip Calculator</span>
+            <span class="sync-pill">Manual helper from Sarge, upgraded for stakes</span>
+          </div>
+          <div class="form-grid">
+            <div>
+              <label for="manualStakeMode">Stake Mode</label>
+              <select id="manualStakeMode" data-stake-mode="manual">
+                <option value="low">Low Stakes</option>
+                <option value="mid">Mid Stakes</option>
+                <option value="high">High Stakes</option>
+                <option value="elite">Elite Stakes</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div><label for="manualBjBet">3:2 Blackjack Bet</label><input id="manualBjBet" type="number" inputmode="numeric" placeholder="Bet amount" /></div>
+            <div><label for="manualBuyIn">Buy-In / Ante</label><input id="manualBuyIn" type="number" inputmode="numeric" placeholder="Example: 455" /></div>
+          </div>
+          <div id="manualStakeValues" class="chip-value-display"></div>
+          <div id="manualCustomStakeValues" class="form-grid local-custom-stakes" hidden>
+            <div><label for="manualStakeWhite">White Value</label><input id="manualStakeWhite" type="number" inputmode="numeric" value="1" /></div>
+            <div><label for="manualStakeRed">Red Value</label><input id="manualStakeRed" type="number" inputmode="numeric" value="5" /></div>
+            <div><label for="manualStakeBlue">Blue Value</label><input id="manualStakeBlue" type="number" inputmode="numeric" value="10" /></div>
+            <div><label for="manualStakeGreen">Green Value</label><input id="manualStakeGreen" type="number" inputmode="numeric" value="25" /></div>
+            <div><label for="manualStakeBlack">Black Value</label><input id="manualStakeBlack" type="number" inputmode="numeric" value="100" /></div>
+          </div>
+          <div class="form-grid chip-count-grid">
+            <div><label for="manualWhite">White Chips</label><input id="manualWhite" type="number" inputmode="numeric" value="0" /></div>
+            <div><label for="manualRed">Red Chips</label><input id="manualRed" type="number" inputmode="numeric" value="0" /></div>
+            <div><label for="manualBlue">Blue Chips</label><input id="manualBlue" type="number" inputmode="numeric" value="0" /></div>
+            <div><label for="manualGreen">Green Chips</label><input id="manualGreen" type="number" inputmode="numeric" value="0" /></div>
+            <div><label for="manualBlack">Black Chips</label><input id="manualBlack" type="number" inputmode="numeric" value="0" /></div>
+          </div>
+          <div class="action-grid">
+            <button class="primary-btn" type="button" data-action="calculate-manual-chip-tool">Calculate Manual Totals</button>
+            <button class="ghost-btn" type="button" data-action="clear-manual-chip-tool">Clear Calculator</button>
+          </div>
+          <div id="manualChipResult" class="blackjack-status">Enter chips or a blackjack bet to calculate.</div>
+        </article>
 
         <div class="game-controls active" data-game-panel="poker">
           <article class="panel panel-pad">
@@ -434,42 +507,58 @@
             </div>
 
             <div id="blackjackSoloPanel" class="blackjack-mode active">
-              <div class="form-grid">
-                <div>
-                  <label for="soloBetAmount">Bet Amount</label>
-                  <input id="soloBetAmount" type="number" inputmode="numeric" min="1" placeholder="Enter bet" />
+              <div class="blackjack-play-layout">
+                <div class="blackjack-table-column">
+                  <div class="blackjack-table premium-blackjack-table">
+                    <div class="blackjack-felt-copy" aria-hidden="true">
+                      <span>Blackjack Pays 3 to 2</span>
+                      <span>Dealer Must Hit Soft 17</span>
+                      <span>Insurance Pays 2 to 1</span>
+                    </div>
+                    <div class="hand-zone dealer-zone">
+                      <div class="section-title"><span>Dealer</span><span id="dealerTotal" class="sync-pill">0</span></div>
+                      <div id="dealerHand" class="playing-card-row"></div>
+                    </div>
+                    <div class="hand-zone player-zone">
+                      <div class="section-title"><span>You</span><span id="playerTotal" class="sync-pill">0</span></div>
+                      <div id="playerHand" class="playing-card-row"></div>
+                    </div>
+                  </div>
+                  <div class="action-grid blackjack-action-grid">
+                    <button class="primary-btn" type="button" data-action="solo-blackjack-deal">Deal</button>
+                    <button class="ghost-btn" type="button" data-action="solo-blackjack-hit">Hit</button>
+                    <button class="ghost-btn" type="button" data-action="solo-blackjack-stand">Stand</button>
+                    <button class="ghost-btn" type="button" data-action="solo-blackjack-split">Split</button>
+                    <button class="ghost-btn" type="button" data-action="solo-blackjack-double">Double</button>
+                    <button class="ghost-btn" type="button" data-action="solo-blackjack-reset">Clear</button>
+                  </div>
                 </div>
-                <div>
-                  <label for="soloBetPreset">Standard Bet</label>
-                  <select id="soloBetPreset">
-                    <option value="">Select preset</option>
-                    <option value="1">$1</option>
-                    <option value="5">$5</option>
-                    <option value="10">$10</option>
-                    <option value="25">$25</option>
-                    <option value="50">$50</option>
-                    <option value="100">$100</option>
-                  </select>
-                </div>
-              </div>
-              <div class="blackjack-table">
-                <div class="hand-zone">
-                  <div class="section-title"><span>Dealer</span><span id="dealerTotal" class="sync-pill">0</span></div>
-                  <div id="dealerHand" class="playing-card-row"></div>
-                </div>
-                <div class="hand-zone">
-                  <div class="section-title"><span>You</span><span id="playerTotal" class="sync-pill">0</span></div>
-                  <div id="playerHand" class="playing-card-row"></div>
-                </div>
-              </div>
-              <div id="blackjackStatus" class="blackjack-status">Place a bet and deal a hand.</div>
-              <div class="action-grid">
-                <button class="primary-btn" type="button" data-action="solo-blackjack-deal">Deal</button>
-                <button class="ghost-btn" type="button" data-action="solo-blackjack-hit">Hit</button>
-                <button class="ghost-btn" type="button" data-action="solo-blackjack-stand">Stand</button>
-                <button class="ghost-btn" type="button" data-action="solo-blackjack-split">Split Pair</button>
-                <button class="ghost-btn" type="button" data-action="solo-blackjack-double">Double Down</button>
-                <button class="ghost-btn" type="button" data-action="solo-blackjack-reset">Clear Table</button>
+                <aside class="blackjack-side-panel">
+                  <article class="blackjack-side-card">
+                    <h3>Game Stats</h3>
+                    <div id="blackjackQuickStats" class="blackjack-side-list"></div>
+                  </article>
+                  <article class="blackjack-side-card">
+                    <h3>Bet Controls</h3>
+                    <label for="soloBetAmount">Bet Amount</label>
+                    <div class="blackjack-chip-row" aria-label="Blackjack chip presets">
+                      <button class="casino-chip chip-1" type="button" data-action="set-solo-bet" data-bet="1">1</button>
+                      <button class="casino-chip chip-5" type="button" data-action="set-solo-bet" data-bet="5">5</button>
+                      <button class="casino-chip chip-25" type="button" data-action="set-solo-bet" data-bet="25">25</button>
+                      <button class="casino-chip chip-100" type="button" data-action="set-solo-bet" data-bet="100">100</button>
+                      <button class="casino-chip chip-500" type="button" data-action="set-solo-bet" data-bet="500">500</button>
+                    </div>
+                    <div class="blackjack-bet-stepper">
+                      <button class="mini-btn" type="button" data-action="adjust-solo-bet" data-delta="-5">−</button>
+                      <input id="soloBetAmount" type="number" inputmode="numeric" min="1" value="25" />
+                      <button class="mini-btn" type="button" data-action="adjust-solo-bet" data-delta="5">+</button>
+                    </div>
+                  </article>
+                  <article class="blackjack-side-card">
+                    <h3>Game Message</h3>
+                    <div id="blackjackStatus" class="blackjack-status">Place a bet and deal a hand.</div>
+                  </article>
+                </aside>
               </div>
             </div>
 
@@ -751,7 +840,7 @@
         <div class="asset-tabs">
           <button class="asset-tab active" type="button" data-action="asset-category" data-asset-category="garage">Garage</button>
           <button class="asset-tab" type="button" data-action="asset-category" data-asset-category="properties">Properties</button>
-          <button class="asset-tab" type="button" data-action="asset-category" data-asset-category="land">Land</button>
+          <button class="asset-tab" type="button" data-action="asset-category" data-asset-category="gemstones">Gemstones</button>
           <button class="asset-tab" type="button" data-action="asset-category" data-asset-category="airplanes">Airplanes</button>
           <button class="asset-tab" type="button" data-action="asset-category" data-asset-category="boats">Boats</button>
         </div>
@@ -834,6 +923,8 @@
               <button class="sub-tab" type="button" data-history-filter="slots">Slots</button>
               <button class="sub-tab" type="button" data-history-filter="craps">Craps</button>
               <button class="sub-tab" type="button" data-history-filter="bank">Bank</button>
+              <button class="sub-tab" type="button" data-history-filter="stocks">Stocks</button>
+              <button class="sub-tab" type="button" data-history-filter="assets">Assets</button>
               <button class="sub-tab" type="button" data-history-filter="achievements">Achievements</button>
               <button class="sub-tab" type="button" data-history-filter="dailies">Dailies</button>
               <button class="sub-tab" type="button" data-history-filter="system">System</button>
@@ -919,11 +1010,12 @@
   </dialog>
 
   <dialog id="assetViewDialog" class="profile-dialog wide-dialog">
-    <form method="dialog" class="profile-card">
+    <form method="dialog" class="profile-card asset-vault-card">
       <div class="section-title">
         <span id="assetViewTitle">Owned Assets</span>
         <button class="mini-btn" type="button" data-action="close-assets-dialog">Close</button>
       </div>
+      <div id="assetViewSummary" class="asset-vault-summary"></div>
       <div id="assetViewBoard" class="asset-grid"></div>
     </form>
   </dialog>

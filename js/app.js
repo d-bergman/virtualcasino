@@ -67,9 +67,11 @@
     const VEHICLE_CATALOG = loadedAssetCatalogs.garage;
     const AIRCRAFT_CATALOG = loadedAssetCatalogs.airplanes;
     const BOAT_CATALOG = loadedAssetCatalogs.boats;
-    const ASSET_CATALOGS = {garage: VEHICLE_CATALOG, airplanes: AIRCRAFT_CATALOG, boats: BOAT_CATALOG};
-    const ASSET_CATEGORY_LABELS = {garage:"Garage", properties:"Properties", land:"Land", airplanes:"Airplanes", boats:"Boats"};
-    const ASSET_MARKET_TITLES = {garage:"Vehicle Market", airplanes:"Aircraft Market", boats:"Boat Market"};
+    const PROPERTY_CATALOG = loadedAssetCatalogs.properties;
+    const GEMSTONE_CATALOG = loadedAssetCatalogs.gemstones;
+    const ASSET_CATALOGS = {garage: VEHICLE_CATALOG, properties: PROPERTY_CATALOG, gemstones: GEMSTONE_CATALOG, airplanes: AIRCRAFT_CATALOG, boats: BOAT_CATALOG};
+    const ASSET_CATEGORY_LABELS = {garage:"Garage", properties:"Properties", gemstones:"Gemstones", airplanes:"Airplanes", boats:"Boats"};
+    const ASSET_MARKET_TITLES = {garage:"Vehicle Market", properties:"Property Market", gemstones:"Gemstone Exchange", airplanes:"Aircraft Market", boats:"Boat Market"};
     const DAILY_CLICKABLES = [
       {id:"coin", icon:"🪙", title:"House Coin", description:"Call the gold coin flip.", reward:{type:"money", min:15, max:80}, chance:0.58},
       {id:"dice", icon:"🎲", title:"Loaded Dice", description:"Roll casino dice for a bankroll bump.", reward:{type:"money", min:20, max:120}, chance:0.5},
@@ -80,6 +82,15 @@
     const levels = [{level:1,xp:0},{level:2,xp:100},{level:3,xp:250},{level:4,xp:450},{level:5,xp:700},{level:6,xp:1000},{level:7,xp:1400},{level:8,xp:1900},{level:9,xp:2500},{level:10,xp:3200},{level:11,xp:4100},{level:12,xp:5200},{level:13,xp:6500}];
     const standard = {white:10,red:10,blue:8,green:5,black:2};
     const blank = {white:0,red:0,blue:0,green:0,black:0};
+    const CHIP_COLORS = ["white", "red", "blue", "green", "black"];
+    const CHIP_LABELS = {white:"White", red:"Red", blue:"Blue", green:"Green", black:"Black"};
+    const STAKE_MODES = {
+      low: {label:"Low Stakes", values:{white:1, red:5, blue:10, green:25, black:100}},
+      mid: {label:"Mid Stakes", values:{white:100, red:500, blue:1000, green:2500, black:10000}},
+      high: {label:"High Stakes", values:{white:1000, red:5000, blue:10000, green:25000, black:100000}},
+      elite: {label:"Elite Stakes", values:{white:10000, red:50000, blue:100000, green:250000, black:1000000}},
+      custom: {label:"Custom", values:{white:1, red:5, blue:10, green:25, black:100}}
+    };
     const colors = ["gold", "blue", "purple"];
     const icons = ["&#9824;", "&#9670;", "&#9829;", "&#9827;"];
     const ACHIEVEMENT_DEFINITIONS = [
@@ -179,10 +190,15 @@
       ["daily-wheel-spin","Wheel Spinner","Spin the Lucky Wheel","Common","Dailies","daily"],
       ["daily-scratch-card","Scratch Luck","Use the daily scratch-off","Common","Dailies","daily"],
       ["stock-first-buy","First Share","Buy your first stock share","Common","Stocks","stocks"],
+      ["stock-100-shares","Hundred Share Club","Own 100 total shares","Uncommon","Stocks","stocks"],
       ["stock-diversified","Diversified","Own shares in 5 different companies","Uncommon","Stocks","stocks"],
       ["stock-portfolio-1000","Market Regular","Reach a $1,000 stock portfolio value","Rare","Stocks","stocks"],
       ["stock-portfolio-10000","Market Mogul","Reach a $10,000 stock portfolio value","Epic","Stocks","stocks"],
+      ["stock-portfolio-100000","Market Whale","Reach a $100,000 stock portfolio value","Legendary","Stocks","stocks"],
+      ["stock-gain-25","Rocket Rider","Hold an unrealized stock gain of 25% or better","Rare","Stocks","stocks"],
+      ["stock-gain-50","To The Moon","Hold an unrealized stock gain of 50% or better","Legendary","Stocks","stocks"],
       ["stock-profit-sale","Green Trade","Sell stock for a profit","Rare","Stocks","stocks"],
+      ["stock-profit-sale-1000","Big Green Trade","Sell stock for at least $1,000 profit","Epic","Stocks","stocks"],
       ["asset-first-car","First Ride","Buy your first vehicle asset","Common","Assets","assets"],
       ["asset-garage-5","Garage Builder","Own 5 vehicles","Uncommon","Assets","assets"],
       ["asset-garage-10","Packed Garage","Own 10 vehicles","Rare","Assets","assets"],
@@ -331,12 +347,14 @@
     ];
 
     async function loadAssetCatalogs() {
-      const [garage, airplanes, boats] = await Promise.all([
+      const catalogs = await Promise.all([
         loadAssetCatalog("data/assets/cars.json", "garage"),
         loadAssetCatalog("data/assets/airplanes.json", "airplanes"),
-        loadAssetCatalog("data/assets/boats.json", "boats")
+        loadAssetCatalog("data/assets/boats.json", "boats"),
+        loadAssetCatalog("data/assets/properties.json", "properties"),
+        loadAssetCatalog("data/assets/gemstones.json", "gemstones")
       ]);
-      return {garage, airplanes, boats};
+      return {garage:catalogs[0], airplanes:catalogs[1], boats:catalogs[2], properties:catalogs[3], gemstones:catalogs[4]};
     }
 
     async function loadAssetCatalog(path, category) {
@@ -365,6 +383,7 @@
           name,
           rarity:String(item.rarity || "Common"),
           type:String(item.type || "Asset"),
+          location:String(item.location || ""),
           price:Math.max(1, Math.round(Number(item.price || 0))),
           resaleRate:Math.max(0.05, Math.min(1, Number(item.resaleRate || 0.7))),
           icon:item.icon || ""
@@ -401,6 +420,7 @@
     let pendingTicketUse = "";
     let assetViewPlayerName = "";
     let activeAssetCategory = "garage";
+    let localSettlement = {selectedPlayers: [], reviews: [], overrideImbalance: false};
     let changelogEntries = [];
     let changelogPage = 1;
     const changelogRowsPerPage = 5;
@@ -500,6 +520,19 @@
           portfolioCost: player.portfolioCost && typeof player.portfolioCost === "object" && !Array.isArray(player.portfolioCost) ? player.portfolioCost : {},
           ownedAssets: Array.isArray(player.ownedAssets) ? player.ownedAssets : [],
           sessionBuyIn: Number(player.sessionBuyIn || player.sessionStart || 0),
+          localStats: {
+            lifetimeLocalGamesPlayed: Number(player.localStats?.lifetimeLocalGamesPlayed || 0),
+            lifetimeLocalBuyIns: Number(player.localStats?.lifetimeLocalBuyIns || 0),
+            lifetimeLocalWinnings: Number(player.localStats?.lifetimeLocalWinnings || 0),
+            lifetimeLocalLosses: Number(player.localStats?.lifetimeLocalLosses || 0),
+            lifetimeLocalNet: Number(player.localStats?.lifetimeLocalNet || 0),
+            pokerGamesPlayed: Number(player.localStats?.pokerGamesPlayed || 0),
+            pokerNet: Number(player.localStats?.pokerNet || 0),
+            blackjackGamesPlayed: Number(player.localStats?.blackjackGamesPlayed || 0),
+            blackjackNet: Number(player.localStats?.blackjackNet || 0),
+            customGamesPlayed: Number(player.localStats?.customGamesPlayed || 0),
+            customNet: Number(player.localStats?.customNet || 0)
+          },
           gamesPlayed: Number(player.gamesPlayed || 0),
           favoriteAchievements: Array.isArray(player.favoriteAchievements) ? player.favoriteAchievements.slice(0, 3) : []
         };
@@ -558,6 +591,7 @@
       data.gameStats.uno = {...{played:0,wins:0,profit:0,biggest:0}, ...(data.gameStats.uno || {})};
       data.gameStats.slots = {...{played:0,wins:0,profit:0,biggest:0}, ...(data.gameStats.slots || {})};
       data.gameStats.craps = {...{played:0,wins:0,profit:0,biggest:0}, ...(data.gameStats.craps || {})};
+      data.gameStats.custom = {...{played:0,wins:0,profit:0,biggest:0}, ...(data.gameStats.custom || {})};
       data.daily = data.daily && typeof data.daily === "object" && !Array.isArray(data.daily) ? data.daily : {};
       data.daily.challenges = data.daily.challenges && typeof data.daily.challenges === "object" && !Array.isArray(data.daily.challenges) ? data.daily.challenges : {};
       data.daily.wheel = data.daily.wheel && typeof data.daily.wheel === "object" && !Array.isArray(data.daily.wheel) ? data.daily.wheel : {};
@@ -589,6 +623,8 @@
           ...company,
           price: Number(start.toFixed(2)),
           previous: Number(existing.previous || start),
+          recordedHigh: Number(existing.recordedHigh || Math.max(start, Number(existing.previous || start))),
+          recordedLow: Number(existing.recordedLow || Math.min(start, Number(existing.previous || start))),
           trend: Number(existing.trend || 0),
           network: existing.network || company.network,
           event: existing.event || ""
@@ -603,7 +639,7 @@
       if (Array.isArray(market.listings) && market.listings.length && !market.categories.garage) {
         market.categories.garage = {lastRefresh:Number(market.lastRefresh || 0), listings:market.listings};
       }
-      ["garage", "airplanes", "boats"].forEach((category) => {
+      Object.keys(ASSET_CATALOGS).forEach((category) => {
         const categoryMarket = market.categories[category] && typeof market.categories[category] === "object" && !Array.isArray(market.categories[category])
           ? market.categories[category]
           : {};
@@ -638,7 +674,7 @@
         changed = true;
         guard += 1;
       }
-      ["garage", "airplanes", "boats"].forEach((category) => {
+      Object.keys(ASSET_CATALOGS).forEach((category) => {
         const lastRefresh = Number(activeAssetMarket(category)?.lastRefresh || 0);
         if (now >= nextAssetRefreshTime(lastRefresh).getTime()) {
           refreshAssetCategoryMarket(state.assetMarket, category, false, state.players);
@@ -684,6 +720,8 @@
         company.previous = Number(company.price || company.base);
         company.price = Number(Math.max(1, company.previous * (1 + percent / 100)).toFixed(2));
         company.trend = Number(((company.price - company.previous) / company.previous * 100).toFixed(2));
+        company.recordedHigh = Number(Math.max(Number(company.recordedHigh || 0), company.price, company.previous).toFixed(2));
+        company.recordedLow = Number(Math.min(Number(company.recordedLow || company.price), company.price, company.previous).toFixed(2));
         company.event = company.symbol === eventCompany.symbol ? eventText : "";
       });
       market.news.unshift(`${eventCompany.network} / ${eventCompany.name} moved on ${eventDirection > 0 ? "buying pressure" : "selloff pressure"}${openHours ? " during business hours" : " after hours"}.`);
@@ -777,6 +815,7 @@
         name:vehicle.name,
         rarity:vehicle.rarity,
         type:vehicle.type,
+        location:vehicle.location || "",
         icon:vehicle.icon,
         price:Math.round(vehicle.price * premium),
         resaleRate:vehicle.resaleRate,
@@ -1054,6 +1093,13 @@
       if (cloud) queueCloudWrite();
     }
 
+    function saveFast(renderFn = null, {cloud = true} = {}) {
+      state.updatedAt = Date.now();
+      localStorage.setItem(localKey, JSON.stringify(state));
+      if (typeof renderFn === "function") renderFn();
+      if (cloud) queueCloudWrite();
+    }
+
     function runAchievementSweep({cloud = true, showNoUnlock = false} = {}) {
       state = normalize(state);
       const unlockedCount = evaluateAchievementUnlocks();
@@ -1225,6 +1271,260 @@
       $("manualLevel").innerHTML = levels.slice(0, 10).map((row) => `<option value="${row.level}">Level ${row.level}</option>`).join("");
     }
 
+    function stakeModeValues(mode, prefix = "local") {
+      const selected = STAKE_MODES[mode] ? mode : "low";
+      if (selected !== "custom") return {...STAKE_MODES[selected].values};
+      return CHIP_COLORS.reduce((values, color) => {
+        const id = `${prefix}Stake${color[0].toUpperCase()}${color.slice(1)}`;
+        values[color] = Math.max(0, Number($(id)?.value || STAKE_MODES.low.values[color] || 0));
+        return values;
+      }, {});
+    }
+
+    function chipStackValue(chips, values = STAKE_MODES.low.values) {
+      return CHIP_COLORS.reduce((sum, color) => sum + Number(chips?.[color] || 0) * Number(values[color] || 0), 0);
+    }
+
+    function chipStackFromPrefix(prefix) {
+      return CHIP_COLORS.reduce((chips, color) => {
+        const id = `${prefix}${color[0].toUpperCase()}${color.slice(1)}`;
+        chips[color] = Math.max(0, Number($(id)?.value || 0));
+        return chips;
+      }, {});
+    }
+
+    function renderStakeValues(prefix = "local") {
+      const mode = $(`${prefix}StakeMode`)?.value || "low";
+      const values = stakeModeValues(mode, prefix);
+      const customPanel = $(`${prefix}CustomStakeValues`);
+      if (customPanel) customPanel.hidden = mode !== "custom";
+      const target = $(`${prefix}StakeValues`);
+      if (!target) return;
+      target.innerHTML = CHIP_COLORS.map((color) => `
+        <span class="chip-value-pill chip-value-${color}">
+          <b>${escapeHtml(CHIP_LABELS[color])}</b>
+          <strong>${money(values[color])}</strong>
+        </span>
+      `).join("");
+    }
+
+    function renderLocalSettlementDesk() {
+      renderStakeValues("local");
+      renderStakeValues("manual");
+      const selected = new Set(localSettlement.selectedPlayers || []);
+      const picker = $("localSettlementPlayers");
+      if (picker) {
+        picker.innerHTML = state.players.map((player) => `
+          <label class="player-picker-card ${selected.has(player.name) ? "active" : ""}">
+            <input type="checkbox" data-action="toggle-local-player" data-player="${escapeAttr(player.name)}" ${selected.has(player.name) ? "checked" : ""} />
+            <span class="medal">${playerSymbol(player.name)}</span>
+            <span><strong>${escapeHtml(displayNameForPlayer(player.name))}</strong><small>Bankroll ${money(bankrollValue(player))}</small></span>
+          </label>
+        `).join("");
+      }
+      const rows = $("localSettlementRows");
+      if (rows) {
+        rows.innerHTML = localSettlement.selectedPlayers.length
+          ? localSettlement.selectedPlayers.map((name) => renderLocalSettlementRow(name)).join("")
+          : `<div class="blackjack-status">Select at least one player to create settlement rows.</div>`;
+      }
+      const submitButton = document.querySelector('[data-action="submit-local-settlement"]');
+      if (submitButton) submitButton.disabled = !(localSettlement.reviews || []).length;
+      const overrideButton = document.querySelector('[data-action="override-local-imbalance"]');
+      if (overrideButton) overrideButton.hidden = true;
+    }
+
+    function renderLocalSettlementRow(playerName) {
+      const safe = safeKey(playerName);
+      return `
+        <article class="settlement-player-card" data-settlement-player="${escapeAttr(playerName)}">
+          <div class="settlement-card-head">
+            <span class="medal">${playerSymbol(playerName)}</span>
+            <div><strong>${escapeHtml(displayNameForPlayer(playerName))}</strong><small>Net result only is applied to bankroll</small></div>
+          </div>
+          <div class="form-grid">
+            <div><label for="localBuyIn-${safe}">Buy-In / Ante</label><input id="localBuyIn-${safe}" data-local-field="buyIn" type="number" inputmode="numeric" placeholder="455" /></div>
+            <div><label for="localStarting-${safe}">Starting Value Before Blackjack</label><input id="localStarting-${safe}" data-local-field="starting" type="number" inputmode="numeric" placeholder="Optional" /></div>
+            <div><label for="localEndingTotal-${safe}">Ending Total After Blackjack</label><input id="localEndingTotal-${safe}" data-local-field="endingTotal" type="number" inputmode="numeric" placeholder="Optional" /></div>
+            <div><label for="localOriginalBuyIn-${safe}">Original Night Buy-In</label><input id="localOriginalBuyIn-${safe}" data-local-field="originalBuyIn" type="number" inputmode="numeric" placeholder="Optional" /></div>
+          </div>
+          <div class="form-grid chip-count-grid">
+            ${CHIP_COLORS.map((color) => `<div><label for="local-${safe}-${color}">${escapeHtml(CHIP_LABELS[color])} Chips</label><input id="local-${safe}-${color}" data-chip-color="${color}" type="number" inputmode="numeric" value="0" /></div>`).join("")}
+          </div>
+          <div class="field-note">Poker/custom uses Ending Chips - Buy-In. Blackjack can use Ending Total - Starting Value for chained sessions.</div>
+        </article>
+      `;
+    }
+
+    function safeKey(value) {
+      return String(value || "player").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "player";
+    }
+
+    function localRowData(playerName, values) {
+      const card = document.querySelector(`[data-settlement-player="${CSS.escape(playerName)}"]`);
+      if (!card) return null;
+      const field = (name) => Number(card.querySelector(`[data-local-field="${name}"]`)?.value || 0);
+      const chips = CHIP_COLORS.reduce((next, color) => {
+        next[color] = Math.max(0, Number(card.querySelector(`[data-chip-color="${color}"]`)?.value || 0));
+        return next;
+      }, {});
+      return {
+        playerName,
+        buyIn: field("buyIn"),
+        starting: field("starting"),
+        endingTotal: field("endingTotal"),
+        originalBuyIn: field("originalBuyIn"),
+        chips,
+        endingChipValue: chipStackValue(chips, values)
+      };
+    }
+
+    function calculateLocalSettlement() {
+      const gameType = $("localGameType")?.value || "poker";
+      const stakeMode = $("localStakeMode")?.value || "low";
+      const values = stakeModeValues(stakeMode, "local");
+      if (!localSettlement.selectedPlayers.length) return toast("Select at least one player.");
+      const reviews = [];
+      for (const playerName of localSettlement.selectedPlayers) {
+        const player = playerByName(playerName);
+        const row = localRowData(playerName, values);
+        if (!player || !row) return toast("A selected player row is missing.");
+        if ([row.buyIn, row.starting, row.endingTotal, row.originalBuyIn, row.endingChipValue].some((value) => !Number.isFinite(value) || value < 0)) {
+          return toast("Numbers cannot be negative or invalid.");
+        }
+        let sessionResult = row.endingChipValue - row.buyIn;
+        let formula = `${money(row.endingChipValue)} ending chips - ${money(row.buyIn)} buy-in`;
+        let overallNightResult = null;
+        if (gameType === "blackjack" && row.starting > 0 && row.endingTotal > 0) {
+          sessionResult = row.endingTotal - row.starting;
+          formula = `${money(row.endingTotal)} ending total - ${money(row.starting)} starting total`;
+          if (row.originalBuyIn > 0) overallNightResult = row.endingTotal - row.originalBuyIn;
+        }
+        const oldBankroll = bankrollValue(player);
+        reviews.push({
+          ...row,
+          gameType,
+          stakeMode,
+          stakeLabel: STAKE_MODES[stakeMode]?.label || "Custom",
+          chipValues: values,
+          sessionResult,
+          overallNightResult,
+          oldBankroll,
+          newBankroll: oldBankroll + sessionResult,
+          lifetimePreview: Number(player.lifetime || 0) + sessionResult,
+          formula
+        });
+      }
+      const imbalance = gameType === "poker" ? reviews.reduce((sum, row) => sum + Number(row.sessionResult || 0), 0) : 0;
+      localSettlement.reviews = reviews;
+      localSettlement.overrideImbalance = false;
+      renderLocalSettlementReview(reviews, imbalance);
+      toast("Local settlement calculated. Review before submitting.");
+    }
+
+    function renderLocalSettlementReview(reviews = localSettlement.reviews || [], imbalance = 0) {
+      const target = $("localSettlementReview");
+      if (!target) return;
+      const gameType = $("localGameType")?.value || reviews[0]?.gameType || "poker";
+      const needsOverride = gameType === "poker" && Math.abs(imbalance) > 1 && !localSettlement.overrideImbalance;
+      const overrideButton = document.querySelector('[data-action="override-local-imbalance"]');
+      if (overrideButton) overrideButton.hidden = !needsOverride;
+      const submitButton = document.querySelector('[data-action="submit-local-settlement"]');
+      if (submitButton) submitButton.disabled = !reviews.length || needsOverride;
+      if (!reviews.length) {
+        target.innerHTML = "Choose players, enter buy-ins and chip counts, then calculate.";
+        return;
+      }
+      target.innerHTML = `
+        ${needsOverride ? `<div class="settlement-warning">Poker results are ${signedMoney(imbalance)} out of balance. Fix chip counts or click Override Poker Imbalance if this reflects real added/removed money.</div>` : ""}
+        <div class="settlement-review-grid">
+          ${reviews.map((row) => `
+            <article class="settlement-review-card ${row.sessionResult >= 0 ? "win" : "loss"}">
+              <h3>${escapeHtml(displayNameForPlayer(row.playerName))}</h3>
+              <p>${escapeHtml(row.gameType.toUpperCase())} / ${escapeHtml(row.stakeLabel)}</p>
+              <div><span>Buy-In / Ante</span><strong>${money(row.buyIn)}</strong></div>
+              <div><span>Ending Chip Value</span><strong>${money(row.endingChipValue)}</strong></div>
+              <div><span>Profit/Loss</span><strong class="${row.sessionResult >= 0 ? "money" : "loss"}">${signedMoney(row.sessionResult)}</strong></div>
+              ${row.overallNightResult !== null ? `<div><span>Overall Night Result</span><strong class="${row.overallNightResult >= 0 ? "money" : "loss"}">${signedMoney(row.overallNightResult)}</strong></div>` : ""}
+              <div><span>Bankroll Preview</span><strong>${money(row.oldBankroll)} → ${money(row.newBankroll)}</strong></div>
+              <div><span>Lifetime P/L Preview</span><strong class="${row.lifetimePreview >= 0 ? "money" : "loss"}">${signedMoney(row.lifetimePreview)}</strong></div>
+              <small>${escapeHtml(row.formula)}</small>
+            </article>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function submitLocalSettlement() {
+      const reviews = localSettlement.reviews || [];
+      if (!reviews.length) return toast("Calculate a settlement before submitting.");
+      reviews.forEach((row) => {
+        const player = playerByName(row.playerName);
+        if (!player) return;
+        adjustPlayerBankroll(player, row.sessionResult);
+        player.lifetime = Number(player.lifetime || 0) + Number(row.sessionResult || 0);
+        player.chips = chipSetup(Math.max(0, row.endingChipValue));
+        player.gamesPlayed = Number(player.gamesPlayed || 0) + 1;
+        const stats = player.localStats || {};
+        stats.lifetimeLocalGamesPlayed = Number(stats.lifetimeLocalGamesPlayed || 0) + 1;
+        stats.lifetimeLocalBuyIns = Number(stats.lifetimeLocalBuyIns || 0) + Number(row.buyIn || 0);
+        stats.lifetimeLocalWinnings = Number(stats.lifetimeLocalWinnings || 0) + Math.max(Number(row.sessionResult || 0), 0);
+        stats.lifetimeLocalLosses = Number(stats.lifetimeLocalLosses || 0) + Math.abs(Math.min(Number(row.sessionResult || 0), 0));
+        stats.lifetimeLocalNet = Number(stats.lifetimeLocalNet || 0) + Number(row.sessionResult || 0);
+        const gameKey = row.gameType === "blackjack" ? "blackjack" : row.gameType === "custom" ? "custom" : "poker";
+        stats[`${gameKey}GamesPlayed`] = Number(stats[`${gameKey}GamesPlayed`] || 0) + 1;
+        stats[`${gameKey}Net`] = Number(stats[`${gameKey}Net`] || 0) + Number(row.sessionResult || 0);
+        player.localStats = stats;
+        state.gameStats[gameKey] = state.gameStats[gameKey] || {played:0,wins:0,profit:0,biggest:0};
+        state.gameStats[gameKey].played = Number(state.gameStats[gameKey].played || 0) + 1;
+        state.gameStats[gameKey].profit = Number(state.gameStats[gameKey].profit || 0) + Number(row.sessionResult || 0);
+        if (row.sessionResult > 0) state.gameStats[gameKey].wins = Number(state.gameStats[gameKey].wins || 0) + 1;
+        addHistoryEvent({
+          type:"local-session-settlement",
+          category:row.gameType === "blackjack" ? "Blackjack" : row.gameType === "custom" ? "System" : "Poker",
+          player:player.name,
+          title:"Local Session Settlement",
+          description:`${player.name} settled a local ${row.gameType} session for ${signedMoney(row.sessionResult)}.`,
+          amount:row.sessionResult,
+          details:{gameType:row.gameType, stakeMode:row.stakeMode, buyIn:row.buyIn, endingChipValue:row.endingChipValue, oldBankroll:row.oldBankroll, newBankroll:row.newBankroll, overallNightResult:row.overallNightResult}
+        }, {legacyLog:true});
+      });
+      state.counters.sessionsPlayed = Number(state.counters.sessionsPlayed || 0) + 1;
+      localSettlement = {selectedPlayers: [], reviews: [], overrideImbalance: false};
+      save();
+      toast("Local session settlement submitted to bankrolls.");
+    }
+
+    function clearLocalSettlement() {
+      localSettlement = {selectedPlayers: [], reviews: [], overrideImbalance: false};
+      if ($("localSettlementReview")) $("localSettlementReview").innerHTML = "Choose players, enter buy-ins and chip counts, then calculate.";
+      renderLocalSettlementDesk();
+      toast("Local settlement desk cleared.");
+    }
+
+    function calculateManualChipTool() {
+      const values = stakeModeValues($("manualStakeMode")?.value || "low", "manual");
+      const chips = chipStackFromPrefix("manual");
+      const endingValue = chipStackValue(chips, values);
+      const buyIn = Math.max(0, Number($("manualBuyIn")?.value || 0));
+      const bet = Math.max(0, Number($("manualBjBet")?.value || 0));
+      const sessionResult = endingValue - buyIn;
+      const blackjackProfit = bet * 1.5;
+      const blackjackReturn = bet + blackjackProfit;
+      $("manualChipResult").innerHTML = `
+        <div>Ending Value: <strong>${money(endingValue)}</strong></div>
+        <div>Buy-In: <strong>${money(buyIn)}</strong></div>
+        <div>Profit/Loss: <strong class="${sessionResult >= 0 ? "money" : "loss"}">${signedMoney(sessionResult)}</strong></div>
+        ${bet > 0 ? `<div>3:2 Blackjack Profit: <strong class="money">${money(blackjackProfit)}</strong></div><div>Total Return With Original Bet: <strong>${money(blackjackReturn)}</strong></div>` : ""}
+      `;
+    }
+
+    function clearManualChipTool() {
+      ["manualBjBet","manualBuyIn"].forEach((id) => { if ($(id)) $(id).value = ""; });
+      ["manualWhite","manualRed","manualBlue","manualGreen","manualBlack"].forEach((id) => { if ($(id)) $(id).value = 0; });
+      if ($("manualChipResult")) $("manualChipResult").textContent = "Enter chips or a blackjack bet to calculate.";
+    }
+
     function render() {
       document.body.classList.toggle("auth-locked", !isSignedIn() && !document.body.classList.contains("auth-checking"));
       if (isSignedIn()) maybeAdvanceMarkets();
@@ -1235,7 +1535,7 @@
       document.querySelectorAll("[data-game]").forEach((button) => button.classList.toggle("active", button.dataset.game === activeGame));
       document.querySelectorAll("[data-achievement-tab]").forEach((button) => button.classList.toggle("active", button.dataset.achievementTab === activeAchievementTab));
       document.querySelectorAll("[data-blackjack-mode]").forEach((button) => button.classList.toggle("active", button.dataset.blackjackMode === blackjackMode));
-      ["borrowPlayer","manualPlayer","buyinPlayer","chipPlayer","handPlayer","potPlayer","blackjackPlayer","unoPlayer","blackjackMoneyPlayer","localBjPlayer","transferToPlayer"].forEach(fillSelect);
+      ["borrowPlayer","manualPlayer","buyinPlayer","chipPlayer","handPlayer","potPlayer","blackjackPlayer","unoPlayer","blackjackMoneyPlayer","transferToPlayer"].forEach(fillSelect);
       fillSelect("profilePlayerName");
 
       const ranked = rankedPlayers();
@@ -1269,6 +1569,7 @@
       renderBankDashboard();
       renderStockMarket();
       renderAssets();
+      renderLocalSettlementDesk();
       renderBlackjackBankroll();
       $("gameGrid").innerHTML = ["poker","blackjack","uno"].map(renderGameCard).join("");
       document.querySelectorAll("[data-game-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.gamePanel === activeGame));
@@ -1345,6 +1646,8 @@
         Slots:{key:"slots",icon:"&#127920;"},
         Craps:{key:"craps",icon:"&#127922;"},
         Bank:{key:"bank",icon:"&#9878;"},
+        Stocks:{key:"stocks",icon:"&#128200;"},
+        Assets:{key:"assets",icon:"&#128663;"},
         Achievements:{key:"achievements",icon:"&#127942;"},
         Dailies:{key:"dailies",icon:"&#127873;"},
         System:{key:"system",icon:"&#9881;"}
@@ -1730,18 +2033,25 @@
     function checkStockAchievements(player) {
       if (!player) return;
       const holdingCount = Object.values(player.portfolio || {}).filter((shares) => Number(shares || 0) > 0).length;
+      const totalShares = Object.values(player.portfolio || {}).reduce((sum, shares) => sum + Number(shares || 0), 0);
       const value = portfolioValue(player);
-      unlockAchievement("stock-first-buy", player.name);
+      const cost = portfolioCost(player);
+      const gainPercent = cost > 0 ? (value - cost) / cost * 100 : 0;
+      if (totalShares > 0) unlockAchievement("stock-first-buy", player.name);
+      if (totalShares >= 100) unlockAchievement("stock-100-shares", player.name);
       if (holdingCount >= 5) unlockAchievement("stock-diversified", player.name);
       if (value >= 1000) unlockAchievement("stock-portfolio-1000", player.name);
       if (value >= 10000) unlockAchievement("stock-portfolio-10000", player.name);
+      if (value >= 100000) unlockAchievement("stock-portfolio-100000", player.name);
+      if (gainPercent >= 25) unlockAchievement("stock-gain-25", player.name);
+      if (gainPercent >= 50) unlockAchievement("stock-gain-50", player.name);
     }
 
     function checkAssetAchievements(player) {
       if (!player) return;
       const assets = player.ownedAssets || [];
       const rarityRank = {Starter:0, Common:1, Uncommon:2, Rare:3, Epic:4, Legendary:5, Mythic:6};
-      unlockAchievement("asset-first-car", player.name);
+      if (assets.length > 0) unlockAchievement("asset-first-car", player.name);
       if (assets.length >= 5) unlockAchievement("asset-garage-5", player.name);
       if (assets.length >= 10) unlockAchievement("asset-garage-10", player.name);
       if (assets.some((asset) => Number(rarityRank[asset.rarity] || 0) >= rarityRank.Rare)) unlockAchievement("asset-rare-vehicle", player.name);
@@ -1770,7 +2080,7 @@
         ["bankroll","💵","Bankroll",player ? money(bankrollValue(player)) : "Link profile","Cash available"],
         ["lifetime","📈","Portfolio",money(portfolio),"Current value"],
         ["safe","📊","Unrealized P/L",signedMoney(gain),cost > 0 ? `${gain >= 0 ? "Up" : "Down"} ${Math.abs(gain / cost * 100).toFixed(1)}%` : "No positions"],
-        ["worth","⏱️","Next Pulse",marketCountdown(market.nextTick),"LCN/BAWSAQ 30-45s"]
+        ["worth","⏱️","Next Pulse",`<span id="stockNextPulseValue">${marketCountdown(market.nextTick)}</span>`,"LCN/BAWSAQ 30-45s"]
       ].map(([tone, icon, label, value, note]) => `<article class="bank-summary-card ${tone}"><span class="bank-summary-icon">${icon}</span><div><span>${label}</span><strong>${value}</strong><small>${note}</small></div></article>`).join("");
       if ($("marketNewsBanner")) $("marketNewsBanner").innerHTML = `<span class="market-news-icon">📰</span><div><span>Market News</span><strong>${escapeHtml(market.news?.[0] || "Quiet trading day across LCN and BAWSAQ.")}</strong><small>${isStockBusinessHours() ? "Business hours: heavier swings, stronger sector reactions, faster volatility." : "After hours: lighter liquidity, but shocks can still move a favorite stock."}</small></div>`;
       $("marketClock").textContent = `Next ${marketCountdown(market.nextTick)} • ${isStockBusinessHours() ? "8A-4P CT active" : "after hours"}`;
@@ -1780,6 +2090,15 @@
       $("stockMarketBoard").innerHTML = Object.values(market.companies).map(renderStockCard).join("");
       $("portfolioBoard").innerHTML = player ? renderPortfolioRows(player) : `<div class="blackjack-status">Link your profile to trade.</div>`;
       updateTradePreview();
+      updateStockCountdownDisplay();
+    }
+
+    function updateStockCountdownDisplay() {
+      const market = state.stockMarket;
+      if (!market) return;
+      const countdown = marketCountdown(market.nextTick);
+      if ($("stockNextPulseValue")) $("stockNextPulseValue").textContent = countdown;
+      if ($("marketClock")) $("marketClock").textContent = `Next ${countdown} • ${isStockBusinessHours() ? "8A-4P CT active" : "after hours"}`;
     }
 
     function renderStockCard(stock) {
@@ -1790,6 +2109,7 @@
         <h3>${escapeHtml(stock.name)}</h3>
         <div class="market-price">${money(stock.price)}</div>
         <p class="${trendClass}">${Number(stock.trend || 0) >= 0 ? "+" : ""}${Number(stock.trend || 0).toFixed(2)}% (${signedMoney(movement)})</p>
+        <div class="stock-range"><span>Low ${money(stock.recordedLow || stock.price)}</span><span>High ${money(stock.recordedHigh || stock.price)}</span></div>
         ${stock.event ? `<small>${escapeHtml(stock.event)}</small>` : ""}
       </article>`;
     }
@@ -1844,7 +2164,7 @@
       if (!categoryMarket.listings?.length) refreshAssetCategoryMarket(market, activeAssetCategory, true);
       const activeMarket = activeAssetMarket();
       const marketTitle = ASSET_MARKET_TITLES[activeAssetCategory] || "Asset Market";
-      const ownedTitle = activeAssetCategory === "garage" ? "Your Garage" : activeAssetCategory === "airplanes" ? "Your Hangar" : "Your Marina";
+      const ownedTitle = {garage:"Your Garage", properties:"Your Portfolio", gemstones:"Your Gem Vault", airplanes:"Your Hangar", boats:"Your Marina"}[activeAssetCategory] || "Your Assets";
       $("assetCategoryPanels").innerHTML = `<article class="panel panel-pad asset-market-panel">
         <div class="section-title"><span>${escapeHtml(marketTitle)}</span><span id="assetMarketClock" class="sync-pill">Refreshing soon</span></div>
         <div id="assetMarketBoard" class="asset-grid"></div>
@@ -1865,6 +2185,7 @@
         <div class="asset-card-copy">
           <span class="asset-kicker">${escapeHtml(listing.rarity)}${listing.type ? ` • ${escapeHtml(listing.type)}` : ""}</span>
           <h3>${escapeHtml(listing.name)}</h3>
+          ${listing.location ? `<p class="asset-location">${escapeHtml(listing.location)}</p>` : ""}
           <p class="asset-msrp"><span>MSRP</span><strong>${money(listing.price)}</strong></p>
         </div>
         <button class="mini-btn asset-buy-btn" type="button" data-action="buy-asset" data-listing-id="${escapeAttr(listing.listingId)}">Buy</button>
@@ -1877,6 +2198,7 @@
         <div class="asset-card-copy">
           <span class="asset-kicker">${escapeHtml(asset.rarity || "Owned")}${asset.type ? ` • ${escapeHtml(asset.type)}` : ""}</span>
           <h3>${escapeHtml(asset.name)}</h3>
+          ${asset.location ? `<p class="asset-location">${escapeHtml(asset.location)}</p>` : ""}
           <p>Paid ${money(asset.pricePaid)} / sell value ${money(Math.round(Number(asset.pricePaid || 0) * Number(asset.resaleRate || 0.7)))}</p>
         </div>
         ${includeSell ? `<button class="mini-btn asset-buy-btn" type="button" data-action="sell-asset" data-asset-id="${escapeAttr(asset.assetId)}">Sell</button>` : ""}
@@ -1898,14 +2220,14 @@
       checkStockAchievements(player);
       addHistoryEvent({
         type:"stock-buy",
-        category:"Bank",
+        category:"Stocks",
         player:player.name,
         title:"Stock Purchase",
         description:`${player.name} bought ${shares} share${shares === 1 ? "" : "s"} of ${stock.name}.`,
         amount:-cost,
         details:{symbol, shares, price:stock.price}
       });
-      save();
+      saveFast(renderStockMarket);
       toast(`Bought ${shares} ${symbol} share${shares === 1 ? "" : "s"}.`);
     }
 
@@ -1928,18 +2250,20 @@
         player.portfolioCost[symbol] = Math.max(0, oldCost - costSold);
       }
       adjustPlayerBankroll(player, payout);
-      if (payout > costSold) unlockAchievement("stock-profit-sale", player.name);
+      const realizedGain = payout - costSold;
+      if (realizedGain > 0) unlockAchievement("stock-profit-sale", player.name);
+      if (realizedGain >= 1000) unlockAchievement("stock-profit-sale-1000", player.name);
       checkStockAchievements(player);
       addHistoryEvent({
         type:"stock-sell",
-        category:"Bank",
+        category:"Stocks",
         player:player.name,
         title:"Stock Sale",
         description:`${player.name} sold ${shares} share${shares === 1 ? "" : "s"} of ${stock.name}.`,
         amount:payout,
-        details:{symbol, shares, price:stock.price, gain:payout - costSold}
+        details:{symbol, shares, price:stock.price, gain:realizedGain}
       });
-      save();
+      saveFast(renderStockMarket);
       toast(`Sold ${shares} ${symbol} share${shares === 1 ? "" : "s"}.`);
     }
 
@@ -1964,7 +2288,7 @@
       if (activeAssetCategory === "garage") state.assetMarket.listings = categoryMarket.listings;
       addHistoryEvent({
         type:"asset-buy",
-        category:"Bank",
+        category:"Assets",
         player:player.name,
         title:"Asset Purchased",
         description:`${player.name} bought ${asset.name}.`,
@@ -1984,7 +2308,7 @@
       adjustPlayerBankroll(player, payout);
       addHistoryEvent({
         type:"asset-sell",
-        category:"Bank",
+        category:"Assets",
         player:player.name,
         title:"Asset Sold",
         description:`${player.name} sold ${asset.name}.`,
@@ -2000,6 +2324,16 @@
       if (!player) return toast("Player not found.");
       assetViewPlayerName = player.name;
       $("assetViewTitle").textContent = `${displayNameForPlayer(player.name)}'s Assets`;
+      const assets = player.ownedAssets || [];
+      const totalValue = assetValue(player);
+      const rareCount = assets.filter((asset) => ["Rare", "Epic", "Legendary", "Mythic"].includes(asset.rarity)).length;
+      const categories = [...new Set(assets.map((asset) => ASSET_CATEGORY_LABELS[asset.category || "garage"] || "Assets"))].join(" • ") || "No categories yet";
+      $("assetViewSummary").innerHTML = [
+        ["Collection", `${assets.length} owned`],
+        ["Sell Value", money(totalValue)],
+        ["Rare+", rareCount],
+        ["Categories", categories]
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("");
       $("assetViewBoard").innerHTML = renderOwnedAssets(player, false);
       els.assetViewDialog.showModal();
     }
@@ -2328,7 +2662,8 @@
       $("multiActiveSeat").textContent = activeSeat ? `${activeSeat.name}'s turn` : "Waiting";
       $("multiBlackjackStatus").textContent = table.message || "Start a shared round when players have joined.";
       const hands = table.hands || {};
-      $("multiBlackjackHands").innerHTML = Object.entries(seats).map(([key, seat]) => {
+      const seatEntries = Object.entries(seats);
+      $("multiBlackjackHands").innerHTML = seatEntries.length ? `<div class="multi-blackjack-seat-grid count-${Math.min(3, seatEntries.length)}">` + seatEntries.map(([key, seat], seatIndex) => {
         const hand = hands[key];
         const animated = table.handAnimateIndexes?.[key] || [];
         const seatHands = multiSeatHands(hand);
@@ -2341,12 +2676,13 @@
             return `<div class="blackjack-hand ${key === table.activeSeatKey && handIndex === Number(hand?.activeHand || 0) ? "active" : ""}">
               <div class="blackjack-hand-meta"><strong>Hand ${handIndex + 1}</strong><span>${money(seatHand.bet || table.bet)} - ${escapeHtml(status)}${seatHand.doubled ? " / Double" : ""}${seatHand.delta ? ` / ${signedMoney(seatHand.delta)}` : ""}</span></div>
               <div class="playing-card-row compact">${cards}</div>
+              ${renderBetChipStack(seatHand.bet || table.bet)}
             </div>`;
           }).join("")
           : `<span class="sync-pill">Waiting for round</span>`;
         const total = activeMultiSeatHand(hand) ? handValue(activeMultiSeatHand(hand).cards) : 0;
         const status = multiSeatSummary(hand, key === table.activeSeatKey ? "Active" : table.phase === "waiting" ? "Waiting" : "Queued");
-        return `<div class="list-row ${key === table.activeSeatKey ? "active-room-hand" : ""}">
+        return `<div class="multi-blackjack-seat seat-${seatIndex + 1} ${key === table.activeSeatKey ? "active-room-hand" : ""}">
           <span class="medal ${medalClass(seat.playerName || seat.name)}">${playerSymbol(seat.playerName || seat.name)}</span>
           <div>
             <strong>${escapeHtml(seat.name)}</strong>
@@ -2354,7 +2690,7 @@
             <div style="color:var(--muted);font-size:.82rem;">Total ${total} - ${escapeHtml(status)}${hand?.delta ? ` - ${signedMoney(hand.delta)}` : ""}</div>
           </div>
         </div>`;
-      }).join("") || `<div class="blackjack-status">No players seated.</div>`;
+      }).join("") + `</div>` : `<div class="blackjack-status">No players seated.</div>`;
       const currentKey = currentProfileKey();
       const isActive = table.phase === "player" && table.activeSeatKey === currentKey;
       const activeHand = isActive ? activeMultiSeatHand(table.hands?.[currentKey]) : null;
@@ -2437,7 +2773,10 @@
       const bankroll = Math.max(0, bankrollValue(player));
       const debt = Math.max(0, Number(player?.bankDebt || 0));
       const stockPortfolio = Math.max(0, portfolioValue(player));
+      const stockCost = Math.max(0, portfolioCost(player));
       const stockCompanies = Object.values(player?.portfolio || {}).filter((shares) => Number(shares || 0) > 0).length;
+      const stockShares = Object.values(player?.portfolio || {}).reduce((sum, shares) => sum + Number(shares || 0), 0);
+      const stockGainPercent = stockCost > 0 ? Math.max(0, (stockPortfolio - stockCost) / stockCost * 100) : 0;
       const ownedAssets = player?.ownedAssets?.length || 0;
       const garageValue = assetValue(player);
       const progress = (current, target, suffix = "") => ({
@@ -2457,8 +2796,12 @@
         "wealth-casino-king": progress(bankroll, 10000, "$"),
         "debt-deep": progress(debt, 500, "$"),
         "stock-diversified": progress(stockCompanies, 5, " companies"),
+        "stock-100-shares": progress(stockShares, 100, " shares"),
         "stock-portfolio-1000": progress(stockPortfolio, 1000, "$"),
         "stock-portfolio-10000": progress(stockPortfolio, 10000, "$"),
+        "stock-portfolio-100000": progress(stockPortfolio, 100000, "$"),
+        "stock-gain-25": progress(stockGainPercent, 25, "% gain"),
+        "stock-gain-50": progress(stockGainPercent, 50, "% gain"),
         "asset-garage-5": progress(ownedAssets, 5, " vehicles"),
         "asset-garage-10": progress(ownedAssets, 10, " vehicles"),
         "asset-million-garage": progress(garageValue, 1000000, "$"),
@@ -2536,6 +2879,21 @@
         : "0";
       $("playerTotal").textContent = hands.length ? hands.map((hand, index) => `H${index + 1}: ${handValue(hand.cards)}`).join(" / ") : "0";
       $("blackjackStatus").textContent = soloBlackjack.message;
+      renderBlackjackQuickStats();
+    }
+
+    function renderBlackjackQuickStats() {
+      if (!$("blackjackQuickStats")) return;
+      const stats = state.gameStats.blackjack || {};
+      const played = Number(stats.played || 0);
+      const wins = Number(stats.wins || 0);
+      const winRate = played > 0 ? `${(wins / played * 100).toFixed(1)}%` : "0%";
+      $("blackjackQuickStats").innerHTML = [
+        ["Hands Played", played],
+        ["Hands Won", wins],
+        ["Win Rate", winRate],
+        ["Best Win", money(stats.biggest || 0)]
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("");
     }
 
     function renderBlackjackControls() {
@@ -2566,6 +2924,31 @@
       return blackjackHands()[soloBlackjack.activeHand] || null;
     }
 
+    function renderBetChipStack(amount) {
+      let remaining = Math.max(0, Math.round(Number(amount || 0)));
+      if (!remaining) return "";
+      const denominations = [
+        {value:500, className:"chip-500"},
+        {value:100, className:"chip-100"},
+        {value:25, className:"chip-25"},
+        {value:5, className:"chip-5"},
+        {value:1, className:"chip-1"}
+      ];
+      const chips = [];
+      denominations.forEach((chip) => {
+        const count = Math.floor(remaining / chip.value);
+        remaining -= count * chip.value;
+        for (let index = 0; index < Math.min(count, 4); index += 1) chips.push(chip);
+        if (count > 4) chips.push({...chip, extra: count - 4});
+      });
+      return `<div class="table-bet-stack" title="Bet ${money(amount)}">
+        <div class="table-chip-pile">
+          ${chips.slice(0, 9).map((chip, index) => `<span class="casino-chip table-chip ${chip.className}" style="--chip-offset:${index};">${chip.extra ? `+${chip.extra}` : chip.value}</span>`).join("")}
+        </div>
+        <strong>${money(amount)}</strong>
+      </div>`;
+    }
+
     function renderBlackjackHand(hand, index) {
       const active = soloBlackjack.phase === "playing" && index === soloBlackjack.activeHand;
       const animated = soloBlackjack.playerAnimateIndexes?.[index] || [];
@@ -2579,15 +2962,20 @@
       return `<div class="blackjack-hand ${active ? "active" : ""}">
         <div class="blackjack-hand-meta"><strong>Hand ${index + 1}</strong><span>${money(hand.bet || soloBlackjack.bet)} ${flags ? "- " + escapeHtml(flags) : ""}</span></div>
         <div class="playing-card-row compact">${cards}</div>
+        ${renderBetChipStack(hand.bet || soloBlackjack.bet)}
       </div>`;
     }
 
     function renderPlayingCard(card, hidden = false, animate = false, flip = false, delayMs = 0) {
       const animationClass = [animate ? "dealt-card" : "", flip ? "flip-card" : ""].filter(Boolean).join(" ");
       const style = animate && delayMs ? ` style="--deal-delay:${delayMs}ms"` : "";
-      if (hidden) return `<span class="playing-card hidden-card ${animationClass}"${style}>?</span>`;
+      if (hidden) return `<span class="playing-card hidden-card ${animationClass}"${style}><span class="card-back-mark">♠</span></span>`;
       const red = card.suit === "♥" || card.suit === "♦";
-      return `<span class="playing-card ${animationClass} ${red ? "red" : ""}"${style}>${escapeHtml(card.rank)}${escapeHtml(card.suit)}</span>`;
+      return `<span class="playing-card ${animationClass} ${red ? "red" : ""}"${style}>
+        <span class="card-corner top"><b>${escapeHtml(card.rank)}</b><i>${escapeHtml(card.suit)}</i></span>
+        <span class="card-suit-center">${escapeHtml(card.suit)}</span>
+        <span class="card-corner bottom"><b>${escapeHtml(card.rank)}</b><i>${escapeHtml(card.suit)}</i></span>
+      </span>`;
     }
 
     function renderBlackjackRooms() {
@@ -3026,9 +3414,17 @@
     }
 
     function selectedBet() {
-      const preset = Number($("soloBetPreset").value || 0);
       const manual = Number($("soloBetAmount").value || 0);
-      return Math.max(0, preset || manual);
+      return Math.max(0, manual);
+    }
+
+    function setSoloBetAmount(amount) {
+      const next = Math.max(1, Math.round(Number(amount || 0)));
+      if ($("soloBetAmount")) $("soloBetAmount").value = String(next);
+    }
+
+    function adjustSoloBet(delta) {
+      setSoloBetAmount(Number($("soloBetAmount")?.value || 0) + Number(delta || 0));
     }
 
     function startSoloBlackjack() {
@@ -4495,6 +4891,10 @@
       const today = new Date().toISOString().slice(0, 10);
       const todayGames = state.counters.gamesWithXpToday[today] || {};
       if (todayGames.poker && todayGames.blackjack && todayGames.uno) unlock("rivalry-triple-threat");
+      const beforeMarketAssetSweep = Object.keys(state.unlockedAchievements || {}).length;
+      checkStockAchievements(linkedPlayer);
+      checkAssetAchievements(linkedPlayer);
+      unlockedCount += Math.max(0, Object.keys(state.unlockedAchievements || {}).length - beforeMarketAssetSweep);
       return unlockedCount;
     }
 
@@ -4838,6 +5238,14 @@
       }
       if (action === "solo-blackjack-deal") {
         startSoloBlackjack();
+        return;
+      }
+      if (action === "set-solo-bet") {
+        setSoloBetAmount(target?.dataset.bet || 25);
+        return;
+      }
+      if (action === "adjust-solo-bet") {
+        adjustSoloBet(target?.dataset.delta || 0);
         return;
       }
       if (action === "solo-blackjack-hit") {
@@ -5205,9 +5613,7 @@
         toast(`${player.name} can spin the wheel again.`);
       }
       if (action === "settle-local-blackjack") {
-        if (!isDarrenAdmin()) return toast("Only Darren can settle local blackjack.");
-        addSystemHistory("Local Blackjack Settlement", `Admin settled a local blackjack session for ${$("localBjPlayer").value}.`, {player:$("localBjPlayer").value});
-        settleLocalBlackjack();
+        return toast("Use the Local Session Settlement Desk for blackjack settlements.");
       }
       if (action === "clear-linkage") {
         if (!isDarrenAdmin()) return toast("Only Darren can edit linkages.");
@@ -5290,6 +5696,28 @@
         $("blackjackNetAmount").value = "";
         save();
       }
+      if (action === "toggle-local-player") {
+        const name = target?.dataset.player || "";
+        if (!playerByName(name)) return;
+        const selected = new Set(localSettlement.selectedPlayers || []);
+        if (target.checked) selected.add(name);
+        else selected.delete(name);
+        localSettlement.selectedPlayers = [...selected];
+        localSettlement.reviews = [];
+        localSettlement.overrideImbalance = false;
+        renderLocalSettlementDesk();
+      }
+      if (action === "calculate-local-settlement") calculateLocalSettlement();
+      if (action === "submit-local-settlement") submitLocalSettlement();
+      if (action === "clear-local-settlement") clearLocalSettlement();
+      if (action === "override-local-imbalance") {
+        localSettlement.overrideImbalance = true;
+        const imbalance = (localSettlement.reviews || []).reduce((sum, row) => sum + Number(row.sessionResult || 0), 0);
+        renderLocalSettlementReview(localSettlement.reviews, imbalance);
+        toast("Poker imbalance override enabled for this settlement.");
+      }
+      if (action === "calculate-manual-chip-tool") calculateManualChipTool();
+      if (action === "clear-manual-chip-tool") clearManualChipTool();
       if (action === "export") {
         $("saveText").value = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
         toast("Save text exported.");
@@ -5823,8 +6251,19 @@
         toast("Relink unlocked.");
       }
     });
-    $("soloBetPreset").addEventListener("change", () => {
-      if ($("soloBetPreset").value) $("soloBetAmount").value = $("soloBetPreset").value;
+    $("soloBetAmount")?.addEventListener("input", () => {
+      if (Number($("soloBetAmount").value || 0) < 1) $("soloBetAmount").value = "1";
+    });
+    $("localStakeMode")?.addEventListener("change", () => {
+      localSettlement.reviews = [];
+      renderLocalSettlementDesk();
+    });
+    $("manualStakeMode")?.addEventListener("change", () => renderStakeValues("manual"));
+    ["localStakeWhite","localStakeRed","localStakeBlue","localStakeGreen","localStakeBlack"].forEach((id) => $(id)?.addEventListener("input", () => renderStakeValues("local")));
+    ["manualStakeWhite","manualStakeRed","manualStakeBlue","manualStakeGreen","manualStakeBlack"].forEach((id) => $(id)?.addEventListener("input", () => renderStakeValues("manual")));
+    $("localGameType")?.addEventListener("change", () => {
+      localSettlement.reviews = [];
+      if ($("localSettlementReview")) $("localSettlementReview").textContent = "Game type changed. Recalculate before submitting.";
     });
     $("slotBetPreset").addEventListener("change", () => {
       if ($("slotBetPreset").value) $("slotBetAmount").value = $("slotBetPreset").value;
@@ -5853,6 +6292,15 @@
     setInterval(() => {
       if (activeView === "dailies") renderDailyRewards();
     }, 30000);
+    setInterval(() => {
+      if (!isSignedIn() || activeView !== "stocks") return;
+      if (Date.now() >= Number(state.stockMarket?.nextTick || 0)) {
+        maybeAdvanceMarkets();
+        renderStockMarket();
+      } else {
+        updateStockCountdownDisplay();
+      }
+    }, 1000);
     setInterval(() => {
       if (!isSignedIn()) return;
       maybeAdvanceMarkets();
