@@ -53,6 +53,79 @@
     const colors = ["gold", "blue", "purple"];
     const icons = ["&#9824;", "&#9670;", "&#9829;", "&#9827;"];
     const ACHIEVEMENT_DEFINITIONS = await loadAchievementDefinitions();
+    let casinoAudioCtx = null;
+
+    function audioContext() {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return null;
+      casinoAudioCtx = casinoAudioCtx || new AudioContextClass();
+      if (casinoAudioCtx.state === "suspended") casinoAudioCtx.resume().catch(() => {});
+      return casinoAudioCtx;
+    }
+
+    function playTone(ctx, {frequency = 440, start = 0, duration = 0.12, type = "sine", gain = 0.045}) {
+      const osc = ctx.createOscillator();
+      const volume = ctx.createGain();
+      const now = ctx.currentTime;
+      osc.type = type;
+      osc.frequency.setValueAtTime(frequency, now + start);
+      volume.gain.setValueAtTime(0.0001, now + start);
+      volume.gain.exponentialRampToValueAtTime(gain, now + start + 0.015);
+      volume.gain.exponentialRampToValueAtTime(0.0001, now + start + duration);
+      osc.connect(volume).connect(ctx.destination);
+      osc.start(now + start);
+      osc.stop(now + start + duration + 0.03);
+    }
+
+    function playNoise(ctx, {start = 0, duration = 0.18, gain = 0.035, filter = 900}) {
+      const now = ctx.currentTime;
+      const buffer = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * duration)), ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+      const source = ctx.createBufferSource();
+      const band = ctx.createBiquadFilter();
+      const volume = ctx.createGain();
+      source.buffer = buffer;
+      band.type = "bandpass";
+      band.frequency.value = filter;
+      volume.gain.setValueAtTime(gain, now + start);
+      volume.gain.exponentialRampToValueAtTime(0.0001, now + start + duration);
+      source.connect(band).connect(volume).connect(ctx.destination);
+      source.start(now + start);
+    }
+
+    function playCasinoSound(kind) {
+      try {
+        const ctx = audioContext();
+        if (!ctx) return;
+        if (kind === "slot-spin") {
+          [0, .08, .16, .24, .32, .40].forEach((start, index) => playTone(ctx, {frequency:180 + index * 28, start, duration:.045, type:"square", gain:.025}));
+          return;
+        }
+        if (kind === "slot-win") {
+          [523, 659, 784, 1046].forEach((frequency, index) => playTone(ctx, {frequency, start:index * .08, duration:.16, type:"triangle", gain:.045}));
+          return;
+        }
+        if (kind === "slot-jackpot") {
+          [523, 659, 784, 1046, 1318, 1568].forEach((frequency, index) => playTone(ctx, {frequency, start:index * .075, duration:.22, type:"triangle", gain:.06}));
+          return;
+        }
+        if (kind === "cards") {
+          playNoise(ctx, {duration:.16, gain:.03, filter:1350});
+          playTone(ctx, {frequency:220, start:.02, duration:.08, type:"triangle", gain:.025});
+          return;
+        }
+        if (kind === "shuffle") {
+          [0, .06, .12, .18].forEach((start) => playNoise(ctx, {start, duration:.12, gain:.022, filter:900 + Math.random() * 800}));
+          return;
+        }
+        if (kind === "achievement") {
+          [740, 988, 1318].forEach((frequency, index) => playTone(ctx, {frequency, start:index * .09, duration:.2, type:"sine", gain:.045}));
+        }
+      } catch (error) {
+        console.warn("Casino audio unavailable", error);
+      }
+    }
 
     function createEmptyBlackjackGame() {
       return {
@@ -718,7 +791,7 @@
 
     function isStockBusinessHours(date = new Date()) {
       const parts = centralParts(date);
-      return parts.hour >= 8 && parts.hour < 16;
+      return parts.hour >= 8 && parts.hour < 18;
     }
 
     function advanceStockMarketTick(now = Date.now()) {
@@ -1112,6 +1185,7 @@
 
     function achievementToast(definition, rewardXP = 0) {
       if (!definition) return;
+      playCasinoSound("achievement");
       resultToast("Achievement Unlocked", `${definition.name} (+${rewardXP} XP)`);
     }
 
@@ -2146,7 +2220,7 @@
         ["worth","⏱️","Next Pulse",`<span id="stockNextPulseValue">${marketCountdown(market.nextTick)}</span>`,"LCN/BAWSAQ 30-45s"]
       ].map(([tone, icon, label, value, note]) => `<article class="bank-summary-card ${tone}"><span class="bank-summary-icon">${icon}</span><div><span>${label}</span><strong>${value}</strong><small>${note}</small></div></article>`).join("");
       if ($("marketNewsBanner")) $("marketNewsBanner").innerHTML = `<span class="market-news-icon">📰</span><div><span>Market News</span><strong>${escapeHtml(market.news?.[0] || "Quiet trading day across LCN and BAWSAQ.")}</strong><small>${isStockBusinessHours() ? "Business hours: heavier swings, stronger sector reactions, faster volatility." : "After hours: lighter liquidity, but shocks can still move a favorite stock."}</small></div>`;
-      $("marketClock").textContent = `Next ${marketCountdown(market.nextTick)} • ${isStockBusinessHours() ? "8A-4P CT active" : "after hours"}`;
+      $("marketClock").textContent = `Next ${marketCountdown(market.nextTick)} • ${isStockBusinessHours() ? "8A-6P CT active" : "after hours"}`;
       renderStockFilters();
       const currentSymbol = $("stockSymbol")?.value;
       $("stockSymbol").innerHTML = Object.values(market.companies).map((stock) => `<option value="${stock.symbol}">${stock.symbol} - ${escapeHtml(stock.name)} (${money(stock.price)})</option>`).join("");
@@ -2154,6 +2228,7 @@
       const stocks = filteredStocks();
       $("stockMarketBoard").innerHTML = stocks.length ? stocks.map(renderStockCard).join("") : `<div class="blackjack-status">No stocks match those filters.</div>`;
       $("portfolioBoard").innerHTML = player ? renderPortfolioRows(player) : `<div class="blackjack-status">Link your profile to trade.</div>`;
+      renderShareTransferPanel();
       updateTradePreview();
       updateStockCountdownDisplay();
     }
@@ -2184,7 +2259,7 @@
       if (!market) return;
       const countdown = marketCountdown(market.nextTick);
       if ($("stockNextPulseValue")) $("stockNextPulseValue").textContent = countdown;
-      if ($("marketClock")) $("marketClock").textContent = `Next ${countdown} • ${isStockBusinessHours() ? "8A-4P CT active" : "after hours"}`;
+      if ($("marketClock")) $("marketClock").textContent = `Next ${countdown} • ${isStockBusinessHours() ? "8A-6P CT active" : "after hours"}`;
     }
 
     function renderStockCard(stock) {
@@ -2229,6 +2304,84 @@
       const stock = state.stockMarket?.companies?.[$("stockSymbol")?.value];
       const shares = Math.max(1, Math.round(Number($("stockShares")?.value || 1)));
       if ($("tradePreview")) $("tradePreview").textContent = stock ? `${shares} share(s) of ${stock.name}: ${money(shares * stock.price)}` : "Pick a stock and shares.";
+    }
+
+    function renderShareTransferPanel() {
+      const symbolSelect = $("shareTransferSymbol");
+      const playerSelect = $("shareTransferPlayer");
+      if (!symbolSelect || !playerSelect) return;
+      const player = currentPlayer();
+      const currentSymbol = symbolSelect.value;
+      const owned = player ? Object.entries(player.portfolio || {}).filter(([, shares]) => Number(shares || 0) > 0) : [];
+      symbolSelect.innerHTML = owned.length
+        ? owned.map(([symbol, shares]) => {
+          const stock = state.stockMarket.companies[symbol];
+          return `<option value="${escapeAttr(symbol)}" ${symbol === currentSymbol ? "selected" : ""}>${escapeHtml(symbol)} — ${escapeHtml(stock?.name || symbol)} (${Number(shares).toLocaleString()})</option>`;
+        }).join("")
+        : `<option value="">No shares owned</option>`;
+      if (currentSymbol && owned.some(([symbol]) => symbol === currentSymbol)) symbolSelect.value = currentSymbol;
+      const currentTarget = playerSelect.value;
+      const recipients = player ? state.players.filter((item) => item.name !== player.name) : state.players;
+      playerSelect.innerHTML = recipients.length
+        ? recipients.map((item) => `<option value="${escapeAttr(item.name)}" ${item.name === currentTarget ? "selected" : ""}>${escapeHtml(displayNameForPlayer(item.name))}</option>`).join("")
+        : `<option value="">No other players</option>`;
+      if (currentTarget && recipients.some((item) => item.name === currentTarget)) playerSelect.value = currentTarget;
+      updateShareTransferPreview();
+    }
+
+    function updateShareTransferPreview() {
+      const preview = $("shareTransferPreview");
+      if (!preview) return;
+      const player = currentPlayer();
+      const symbol = $("shareTransferSymbol")?.value || "";
+      const shares = Math.max(1, Math.round(Number($("shareTransferAmount")?.value || 1)));
+      const owned = Number(player?.portfolio?.[symbol] || 0);
+      const stock = state.stockMarket?.companies?.[symbol];
+      if (!player) {
+        preview.textContent = "Link your profile to transfer shares.";
+      } else if (!symbol || !stock) {
+        preview.textContent = "Only shares you own appear here.";
+      } else {
+        preview.textContent = `${shares.toLocaleString()} / ${owned.toLocaleString()} ${symbol} share${owned === 1 ? "" : "s"} available. Current value ${money(shares * Number(stock.price || 0))}.`;
+      }
+    }
+
+    function transferStockShares() {
+      const sender = currentPlayer();
+      const symbol = $("shareTransferSymbol")?.value || "";
+      const recipient = playerByName($("shareTransferPlayer")?.value || "");
+      const shares = Math.max(1, Math.round(Number($("shareTransferAmount")?.value || 1)));
+      const stock = state.stockMarket?.companies?.[symbol];
+      if (!sender) return toast("Link your profile to transfer shares.");
+      if (!stock) return toast("Choose a stock you own.");
+      if (!recipient || recipient.name === sender.name) return toast("Choose another player to receive the shares.");
+      const ownedShares = Number(sender.portfolio?.[symbol] || 0);
+      if (ownedShares < shares) return toast(`You only own ${ownedShares.toLocaleString()} ${symbol} shares.`);
+      const oldCost = Number(sender.portfolioCost?.[symbol] || 0);
+      const costMoved = ownedShares > 0 ? Math.round(oldCost * (shares / ownedShares)) : 0;
+      sender.portfolio[symbol] = ownedShares - shares;
+      sender.portfolioCost = sender.portfolioCost || {};
+      if (sender.portfolio[symbol] <= 0) {
+        delete sender.portfolio[symbol];
+        delete sender.portfolioCost[symbol];
+      } else {
+        sender.portfolioCost[symbol] = Math.max(0, oldCost - costMoved);
+      }
+      recipient.portfolio = recipient.portfolio || {};
+      recipient.portfolioCost = recipient.portfolioCost || {};
+      recipient.portfolio[symbol] = Number(recipient.portfolio[symbol] || 0) + shares;
+      recipient.portfolioCost[symbol] = Number(recipient.portfolioCost[symbol] || 0) + costMoved;
+      addHistoryEvent({
+        type:"stock-transfer",
+        category:"Stocks",
+        player:sender.name,
+        title:"Share Transfer",
+        description:`${sender.name} transferred ${shares.toLocaleString()} ${symbol} share${shares === 1 ? "" : "s"} to ${recipient.name}.`,
+        amount:0,
+        details:{symbol, shares, from:sender.name, to:recipient.name, costBasis:costMoved, currentValue:Math.round(shares * Number(stock.price || 0))}
+      });
+      saveFast(renderStockMarket);
+      toast(`Transferred ${shares.toLocaleString()} ${symbol} share${shares === 1 ? "" : "s"} to ${recipient.name}.`);
     }
 
     function renderAssets() {
@@ -3594,6 +3747,7 @@
       if (!player) return toast("Link your profile to a player before playing slots.");
       if (lineBet <= 0) return toast("Enter a bet per line or choose a preset.");
       if (bankrollValue(player) < wager) return toast(`You need ${money(wager)} for 9 active lines.`);
+      playCasinoSound("slot-spin");
       slotMachine.spinning = true;
       slotMachine.lastWin = 0;
       slotMachine.lastWager = wager;
@@ -3637,6 +3791,7 @@
       slotMachine.message = result.totalWin > 0
         ? `${result.wins.length} winning line${result.wins.length === 1 ? "" : "s"}. Net ${signedMoney(net)}.`
         : `No winning lines. Net ${signedMoney(net)}.`;
+      if (result.totalWin > 0) playCasinoSound(slotMachine.jackpot ? "slot-jackpot" : "slot-win");
       adjustPlayerBankroll(player, net);
       if (net !== 0) applyMoneyResult(player, net, "slots", {silent:true, bankrollAlreadyAdjusted:true});
       state.gameStats.slots.played = Number(state.gameStats.slots.played || 0) + 1;
@@ -3733,6 +3888,7 @@
       if (bet <= 0) return toast("Enter a bet or choose a standard bet.");
       if (bankrollValue(player) < bet) return toast("Not enough bankroll for that bet.");
       soloBlackjack = createEmptyBlackjackGame();
+      playCasinoSound("shuffle");
       soloBlackjack.deck = createDeck();
       soloBlackjack.bet = bet;
       soloBlackjack.phase = "dealing";
@@ -3765,6 +3921,7 @@
       if (soloBlackjack.phase !== "playing") return toast("Deal a hand first.");
       const hand = activeBlackjackHand();
       if (!hand) return;
+      playCasinoSound("cards");
       hand.cards.push(drawCard(soloBlackjack));
       soloBlackjack.playerAnimateIndexes = {[soloBlackjack.activeHand]: [hand.cards.length - 1]};
       soloBlackjack.dealerAnimateIndexes = [];
@@ -3795,6 +3952,7 @@
       if (soloBlackjack.splits >= 3 || blackjackHands().length >= 4) return toast("Split limit reached: four hands maximum.");
       if (bankrollValue(player) < totalBlackjackExposure() + hand.bet) return toast("Not enough bankroll to cover the split.");
       unlockAchievement("blackjack-perfect-pair", player.name);
+      playCasinoSound("cards");
       const splitCard = hand.cards.pop();
       hand.fromSplit = true;
       hand.cards.push(drawCard(soloBlackjack));
@@ -3815,6 +3973,7 @@
       const player = currentPlayer();
       if (!hand || hand.cards.length !== 2) return toast("Double down is only available on your first two cards.");
       if (bankrollValue(player) < totalBlackjackExposure() + hand.bet) return toast("Not enough bankroll to double down.");
+      playCasinoSound("cards");
       hand.bet *= 2;
       hand.doubled = true;
       hand.cards.push(drawCard(soloBlackjack));
@@ -3843,6 +4002,7 @@
 
     function revealDealerAndSettle() {
       soloBlackjack.phase = "dealing";
+      playCasinoSound("cards");
       soloBlackjack.revealDealer = true;
       soloBlackjack.dealerAnimateIndexes = [];
       soloBlackjack.dealerFlipIndexes = [1];
@@ -4515,6 +4675,7 @@
       });
       if (brokeSeat) return toast(`${brokeSeat[1].name} needs enough linked bankroll for ${money(brokeSeat[1].readyBet || 0)}.`);
       const table = createEmptyMultiplayerBlackjackTable();
+      playCasinoSound("shuffle");
       table.deck = createDeck();
       table.bet = Math.max(...entries.map(([, seat]) => Number(seat.readyBet || 0)));
       table.roundId = Date.now();
@@ -4555,6 +4716,7 @@
       const seatHand = table.hands?.[key];
       const hand = activeMultiSeatHand(seatHand);
       if (!seatHand || !hand) return;
+      playCasinoSound("cards");
       hand.cards.push(drawCard(table));
       table.handAnimateIndexes = {[key]: {[String(seatHand.activeHand || 0)]: [hand.cards.length - 1]}};
       table.dealerAnimateIndexes = [];
@@ -4592,6 +4754,7 @@
       if (Number(seatHand.splits || 0) >= 3 || multiSeatHands(seatHand).length >= 4) return toast("Split limit reached: four hands maximum.");
       const totalExposure = multiSeatHands(seatHand).reduce((sum, item) => sum + Number(item.bet || table.bet || 0), 0);
       if (!player || bankrollValue(player) < totalExposure + Number(hand.bet || table.bet || 0)) return toast("Not enough bankroll to cover the split.");
+      playCasinoSound("cards");
       const splitCard = hand.cards.pop();
       hand.fromSplit = true;
       hand.cards.push(drawCard(table));
@@ -4614,6 +4777,7 @@
       if (!seatHand || !hand || hand.cards.length !== 2) return toast("Double down is only available on your first two cards.");
       const totalExposure = multiSeatHands(seatHand).reduce((sum, item) => sum + Number(item.bet || table.bet || 0), 0);
       if (!player || bankrollValue(player) < totalExposure + Number(hand.bet || table.bet || 0)) return toast("Not enough bankroll to double down.");
+      playCasinoSound("cards");
       hand.bet = Number(hand.bet || table.bet || 0) * 2;
       hand.doubled = true;
       hand.cards.push(drawCard(table));
@@ -4655,6 +4819,7 @@
     function revealMultiplayerDealer(room) {
       const table = room.table;
       table.phase = "dealer";
+      playCasinoSound("cards");
       table.revealDealer = true;
       table.dealerFlipIndexes = [1];
       table.dealerAnimateIndexes = [];
@@ -5478,6 +5643,10 @@
       }
       if (action === "sell-stock") {
         sellStock();
+        return;
+      }
+      if (action === "transfer-stock-shares") {
+        transferStockShares();
         return;
       }
       if (action === "buy-asset") {
@@ -6684,6 +6853,9 @@
     $("slotBetAmount").addEventListener("input", renderSlots);
     $("stockSymbol")?.addEventListener("change", updateTradePreview);
     $("stockShares")?.addEventListener("input", updateTradePreview);
+    $("shareTransferSymbol")?.addEventListener("change", updateShareTransferPreview);
+    $("shareTransferPlayer")?.addEventListener("change", updateShareTransferPreview);
+    $("shareTransferAmount")?.addEventListener("input", updateShareTransferPreview);
     $("stockNetworkFilter")?.addEventListener("change", () => {
       stockNetworkFilter = $("stockNetworkFilter").value || "all";
       renderStockMarket();

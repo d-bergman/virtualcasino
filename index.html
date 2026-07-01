@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Virtual Casino | Family Card RPG</title>
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
-  <link rel="stylesheet" href="css/styles.css?v=20260701-1" />
+  <link rel="stylesheet" href="css/styles.css?v=20260701-2" />
 </head>
 <body class="auth-checking">
   <div id="appLoader" class="app-loader" role="status" aria-live="polite">
@@ -657,15 +657,6 @@
                   </div>
                 </article>
                 <article class="blackjack-side-card">
-                  <h3>Player Actions</h3>
-                  <div class="action-grid blackjack-action-grid">
-                    <button class="ghost-btn" type="button" data-action="multi-blackjack-hit">Hit</button>
-                    <button class="ghost-btn" type="button" data-action="multi-blackjack-stand">Stand</button>
-                    <button class="ghost-btn" type="button" data-action="multi-blackjack-split">Split</button>
-                    <button class="ghost-btn" type="button" data-action="multi-blackjack-double">Double</button>
-                  </div>
-                </article>
-                <article class="blackjack-side-card">
                   <h3>Game Message</h3>
                   <div id="multiBlackjackStatus" class="blackjack-status">Start a shared round when players have joined.</div>
                   <div class="action-grid" style="margin-top:12px;">
@@ -674,6 +665,12 @@
                   </div>
                 </article>
               </aside>
+              <div class="action-grid blackjack-action-grid multiplayer-action-row">
+                <button class="primary-btn" type="button" data-action="multi-blackjack-hit">Hit</button>
+                <button class="ghost-btn" type="button" data-action="multi-blackjack-stand">Stand</button>
+                <button class="ghost-btn" type="button" data-action="multi-blackjack-split">Split</button>
+                <button class="ghost-btn" type="button" data-action="multi-blackjack-double">Double</button>
+              </div>
             </div>
           </article>
         </div>
@@ -878,6 +875,17 @@
               </div>
               <div id="tradePreview" class="blackjack-status">Pick a stock and shares.</div>
             </article>
+            <article class="panel panel-pad">
+              <div class="section-title"><span>Share Transfer</span></div>
+              <label for="shareTransferSymbol">Company</label>
+              <select id="shareTransferSymbol"></select>
+              <label for="shareTransferPlayer">Send To</label>
+              <select id="shareTransferPlayer"></select>
+              <label for="shareTransferAmount">Shares</label>
+              <input id="shareTransferAmount" type="number" inputmode="numeric" min="1" value="1" />
+              <button class="primary-btn w-full" type="button" data-action="transfer-stock-shares">Transfer Shares</button>
+              <div id="shareTransferPreview" class="blackjack-status">Only shares you own appear here.</div>
+            </article>
           </aside>
         </div>
         <article class="panel panel-pad stock-guide-panel">
@@ -886,7 +894,7 @@
             <section>
               <h3>How the market breathes</h3>
               <p>Every pulse updates all listed companies. One company becomes the headline event, then its sector and network ripple outward. The featured company moves the hardest, similar-sector companies tend to follow, and the opposite side of the market may barely twitch.</p>
-              <p>Business hours run from 8:00 AM to 4:00 PM Central. During those hours, movement is sharper and news has more bite. After hours still moves, but it is more like thin trading: smaller background drift with occasional ugly surprises.</p>
+              <p>Business hours run from 8:00 AM to 6:00 PM Central. During those hours, movement is sharper and news has more bite. After hours still moves, but it is more like thin trading: smaller background drift with occasional ugly surprises.</p>
             </section>
             <section>
               <h3>LCN vs BAWSAQ</h3>
@@ -1308,6 +1316,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=20260701-1"></script>
+  <script type="module" src="js/app.js?v=20260701-2"></script>
 </body>
 </html>

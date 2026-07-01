@@ -817,7 +817,7 @@
 
     .blackjack-play-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+      grid-template-columns: minmax(0, 1fr) minmax(270px, 320px);
       gap: 14px;
       align-items: start;
     }
@@ -888,10 +888,25 @@
 
     .multiplayer-blackjack-layout {
       margin-top: 16px;
+      grid-template-areas:
+        "table side"
+        "actions side";
     }
 
     .multiplayer-premium-table {
-      min-height: clamp(620px, 60vw, 820px);
+      min-height: clamp(520px, 50vw, 720px);
+    }
+
+    .multiplayer-blackjack-layout .blackjack-table-column { grid-area: table; }
+    .multiplayer-blackjack-layout > .blackjack-side-panel {
+      grid-area: side;
+      min-width: 0;
+      align-self: start;
+    }
+    .multiplayer-action-row {
+      grid-area: actions;
+      margin-top: 0;
+      grid-template-columns: repeat(4, minmax(110px, 1fr));
     }
 
     .premium-blackjack-table .multiplayer-player-zone {
@@ -1307,7 +1322,7 @@
 
     .multi-blackjack-seat-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
       align-items: stretch;
       width: 100%;
@@ -1330,9 +1345,10 @@
         radial-gradient(circle at 50% 0%, rgba(255,216,107,.1), transparent 42%),
         linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.02));
       padding: 12px;
-      min-height: 170px;
+      min-height: 145px;
       text-align: left;
       backdrop-filter: blur(2px);
+      min-width: 0;
     }
 
     .multi-blackjack-seat.active-room-hand {
@@ -3102,8 +3118,29 @@
     }
     #linkageAdminBoard {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 10px;
+    }
+    .linkage-row {
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: stretch;
+    }
+    .linkage-row > div {
+      min-width: 0;
+    }
+    .linkage-row select {
+      width: 100%;
+      max-width: 100%;
+      margin-top: 8px;
+    }
+    .linkage-actions {
+      grid-column: 2;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .linkage-actions .mini-btn {
+      flex: 1 1 120px;
     }
     .admin-room-failsafe {
       max-width: 460px;
@@ -3232,7 +3269,14 @@
       .stock-layout { grid-template-columns: 1fr; }
       .stock-guide-grid { grid-template-columns: 1fr; }
       .blackjack-play-layout { grid-template-columns: 1fr; }
+      .multiplayer-blackjack-layout {
+        grid-template-areas:
+          "table"
+          "actions"
+          "side";
+      }
       .blackjack-side-panel { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .multiplayer-action-row { grid-template-columns: repeat(2, minmax(110px, 1fr)); }
       .multi-blackjack-seat-grid,
       .multi-blackjack-seat-grid.count-2,
       .multi-blackjack-seat-grid.count-3 { grid-template-columns: 1fr; }

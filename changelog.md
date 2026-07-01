@@ -1,5 +1,23 @@
 # Virtual Casino Changelog
 
+## V1.2.0 - 2026-07-01 - Blackjack Layout Fixes, Audio, and Share Transfers
+
+### Blackjack
+- Reworked multiplayer blackjack to mirror the solo blackjack layout more closely, with player actions below the table and the right rail reserved for stats, bet controls, and game messages.
+- Tightened multiplayer blackjack table sizing so the side rail stays inside the page instead of forcing horizontal scrolling.
+- Added synthesized card/shuffle audio hooks for solo and multiplayer blackjack deals, hits, splits, doubles, and dealer reveals.
+
+### Slots and Audio
+- Added lightweight synthesized slot audio for reel spins, regular wins, jackpots, and achievement unlocks without adding third-party audio files.
+
+### Stocks
+- Added Share Transfer to the stock side rail so players can send owned shares to another player without selling them.
+- Share transfers preserve proportional cost basis for portfolio gain/loss tracking and log to Stocks history.
+- Extended stock market business hours to 8:00 AM-6:00 PM Central.
+
+### Admin
+- Reworked Account Linkage cards so long email/account rows wrap cleanly instead of spilling into a horizontal-scroll strip.
+
 ## V1.11.4 - 2026-07-01 - Premium Slots, Farkle, and Daily Challenge Rotation
 
 ### Casino Games
