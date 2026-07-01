@@ -1,0 +1,194 @@
+[
+  {
+    "symbol": "NED",
+    "name": "New Eden Resorts",
+    "sector": "Casino & Hospitality",
+    "base": 42,
+    "volatility": 1.1,
+    "network": "LCN"
+  },
+  {
+    "symbol": "CRWN",
+    "name": "Crownline Gaming",
+    "sector": "Casino Tech",
+    "base": 68,
+    "volatility": 1.35,
+    "network": "BAWSAQ"
+  },
+  {
+    "symbol": "VLT",
+    "name": "Vault National Bank",
+    "sector": "Banking",
+    "base": 55,
+    "volatility": 0.82,
+    "network": "LCN"
+  },
+  {
+    "symbol": "LUX",
+    "name": "Luxor Motors",
+    "sector": "Vehicles",
+    "base": 124,
+    "volatility": 1.25,
+    "network": "BAWSAQ"
+  },
+  {
+    "symbol": "ATOM",
+    "name": "Atomica Energy",
+    "sector": "Energy",
+    "base": 37,
+    "volatility": 1.55,
+    "network": "LCN"
+  },
+  {
+    "symbol": "SKY",
+    "name": "Skybridge Air",
+    "sector": "Travel",
+    "base": 88,
+    "volatility": 1.22,
+    "network": "BAWSAQ"
+  },
+  {
+    "symbol": "CHIP",
+    "name": "Royal Chipworks",
+    "sector": "Manufacturing",
+    "base": 24,
+    "volatility": 1.45,
+    "network": "LCN"
+  },
+  {
+    "symbol": "ACE",
+    "name": "Ace Analytics",
+    "sector": "Software",
+    "base": 76,
+    "volatility": 1.5,
+    "network": "BAWSAQ"
+  },
+  {
+    "symbol": "DIAM",
+    "name": "Diamond Coast Realty",
+    "sector": "Real Estate",
+    "base": 112,
+    "volatility": 0.96,
+    "network": "LCN"
+  },
+  {
+    "symbol": "FIZZ",
+    "name": "FizzPop Drinks",
+    "sector": "Consumer",
+    "base": 18,
+    "volatility": 1.72,
+    "network": "BAWSAQ"
+  },
+  {
+    "symbol": "BLK",
+    "name": "Black Card Security",
+    "sector": "Security",
+    "base": 63,
+    "volatility": 1.05,
+    "network": "LCN"
+  },
+  {
+    "symbol": "SUN",
+    "name": "Sunset Studios",
+    "sector": "Entertainment",
+    "base": 31,
+    "volatility": 1.6,
+    "network": "BAWSAQ"
+  },
+  {
+    "symbol": "RIV",
+    "name": "Riverline Logistics",
+    "sector": "Shipping",
+    "base": 49,
+    "volatility": 1,
+    "network": "LCN"
+  },
+  {
+    "symbol": "MED",
+    "name": "Medallion Health",
+    "sector": "Health",
+    "base": 71,
+    "volatility": 0.9,
+    "network": "BAWSAQ"
+  },
+  {
+    "symbol": "ROBO",
+    "name": "RoboJack Systems",
+    "sector": "Automation",
+    "base": 96,
+    "volatility": 1.9,
+    "network": "LCN"
+  },
+  {
+    "symbol": "FARM",
+    "name": "Lucky Clover Foods",
+    "sector": "Food",
+    "base": 29,
+    "volatility": 0.74,
+    "network": "BAWSAQ"
+  },
+  {
+    "symbol": "GEM",
+    "name": "Gemini Mining",
+    "sector": "Materials",
+    "base": 53,
+    "volatility": 1.85,
+    "network": "LCN"
+  },
+  {
+    "symbol": "PIX",
+    "name": "Pixel Palace Media",
+    "sector": "Media",
+    "base": 44,
+    "volatility": 1.4,
+    "network": "BAWSAQ"
+  },
+  {
+    "symbol": "SPRK",
+    "name": "Sparkline Telecom",
+    "sector": "Telecom",
+    "base": 61,
+    "volatility": 0.88,
+    "network": "LCN"
+  },
+  {
+    "symbol": "DRFT",
+    "name": "Drift King Customs",
+    "sector": "Vehicles",
+    "base": 33,
+    "volatility": 1.75,
+    "network": "BAWSAQ"
+  },
+  {
+    "symbol": "AQUA",
+    "name": "AquaLux Marine",
+    "sector": "Luxury",
+    "base": 102,
+    "volatility": 1.3,
+    "network": "LCN"
+  },
+  {
+    "symbol": "NOVA",
+    "name": "Nova Pharmaceuticals",
+    "sector": "Health",
+    "base": 84,
+    "volatility": 1.65,
+    "network": "BAWSAQ"
+  },
+  {
+    "symbol": "ORBT",
+    "name": "Orbit Freight",
+    "sector": "Space Logistics",
+    "base": 117,
+    "volatility": 2,
+    "network": "LCN"
+  },
+  {
+    "symbol": "CASH",
+    "name": "Cashmere Holdings",
+    "sector": "Finance",
+    "base": 150,
+    "volatility": 1.08,
+    "network": "BAWSAQ"
+  }
+]

@@ -19,50 +19,12 @@
     const blackjackXP = {"Win Hand":10,"Natural Blackjack":50,"Five Card Charlie":50,"Win Session":100,"Biggest Blackjack Win":50};
     const unoXP = {"Win Round":50,"Win Session":200,"Successful Draw 4 Challenge":100,"Uno Denied":50,"Mercy Elimination":100};
     const crapsXP = {"First Roll":10,"Pass Line Win":20,"Field Hit":15,"Hardway Hit":35,"Point Made":50};
-    const LUCKY_WHEEL_REWARDS = [
-      {label:"$10", type:"money", value:10, weight:22},
-      {label:"10 XP", type:"xp", value:10, weight:20},
-      {label:"$25", type:"money", value:25, weight:20},
-      {label:"25 XP", type:"xp", value:25, weight:18},
-      {label:"$50", type:"money", value:50, weight:17},
-      {label:"50 XP", type:"xp", value:50, weight:14},
-      {label:"$100", type:"money", value:100, weight:12},
-      {label:"$250", type:"money", value:250, weight:7},
-      {label:"250 XP", type:"xp", value:250, weight:5},
-      {label:"$500", type:"money", value:500, weight:3},
-      {label:"500 XP", type:"xp", value:500, weight:2},
-      {label:"$1000", type:"money", value:1000, weight:1},
-      {label:"1000 XP", type:"xp", value:1000, weight:1},
-      {label:"JACKPOT", type:"money", value:5000, weight:0.2, golden:true}
-    ];
+    const dailyRewardConfig = await loadDailyRewardConfig();
+    const LUCKY_WHEEL_REWARDS = dailyRewardConfig.luckyWheel;
+    const SCRATCH_OFF_REWARDS = dailyRewardConfig.scratchOff;
     const STOCK_TICK_MIN_MS = 30 * 1000;
     const STOCK_TICK_MAX_MS = 45 * 1000;
-    const STOCK_COMPANIES = [
-      ["NED","New Eden Resorts","Casino & Hospitality",42,1.1],
-      ["CRWN","Crownline Gaming","Casino Tech",68,1.35],
-      ["VLT","Vault National Bank","Banking",55,0.82],
-      ["LUX","Luxor Motors","Vehicles",124,1.25],
-      ["ATOM","Atomica Energy","Energy",37,1.55],
-      ["SKY","Skybridge Air","Travel",88,1.22],
-      ["CHIP","Royal Chipworks","Manufacturing",24,1.45],
-      ["ACE","Ace Analytics","Software",76,1.5],
-      ["DIAM","Diamond Coast Realty","Real Estate",112,0.96],
-      ["FIZZ","FizzPop Drinks","Consumer",18,1.72],
-      ["BLK","Black Card Security","Security",63,1.05],
-      ["SUN","Sunset Studios","Entertainment",31,1.6],
-      ["RIV","Riverline Logistics","Shipping",49,1.0],
-      ["MED","Medallion Health","Health",71,0.9],
-      ["ROBO","RoboJack Systems","Automation",96,1.9],
-      ["FARM","Lucky Clover Foods","Food",29,0.74],
-      ["GEM","Gemini Mining","Materials",53,1.85],
-      ["PIX","Pixel Palace Media","Media",44,1.4],
-      ["SPRK","Sparkline Telecom","Telecom",61,0.88],
-      ["DRFT","Drift King Customs","Vehicles",33,1.75],
-      ["AQUA","AquaLux Marine","Luxury",102,1.3],
-      ["NOVA","Nova Pharmaceuticals","Health",84,1.65],
-      ["ORBT","Orbit Freight","Space Logistics",117,2.0],
-      ["CASH","Cashmere Holdings","Finance",150,1.08]
-    ].map(([symbol, name, sector, base, volatility], index) => ({symbol, name, sector, base, volatility, network: index % 2 === 0 ? "LCN" : "BAWSAQ"}));
+    const STOCK_COMPANIES = await loadStockCompanies();
     const loadedAssetCatalogs = await loadAssetCatalogs();
     const VEHICLE_CATALOG = loadedAssetCatalogs.garage;
     const AIRCRAFT_CATALOG = loadedAssetCatalogs.airplanes;
@@ -73,7 +35,7 @@
     const ASSET_CATEGORY_LABELS = {garage:"Garage", properties:"Properties", gemstones:"Gemstones", airplanes:"Airplanes", boats:"Boats"};
     const ASSET_MARKET_TITLES = {garage:"Vehicle Market", properties:"Property Market", gemstones:"Gemstone Exchange", airplanes:"Aircraft Market", boats:"Boat Market"};
     const DAILY_CHALLENGE_REWARD = 500;
-    const DAILY_CLICKABLES = await loadDailyClickableCatalog();
+    const DAILY_CLICKABLES = dailyRewardConfig.activities;
     const levels = [{level:1,xp:0},{level:2,xp:100},{level:3,xp:250},{level:4,xp:450},{level:5,xp:700},{level:6,xp:1000},{level:7,xp:1400},{level:8,xp:1900},{level:9,xp:2500},{level:10,xp:3200},{level:11,xp:4100},{level:12,xp:5200},{level:13,xp:6500}];
     const standard = {white:10,red:10,blue:8,green:5,black:2};
     const blank = {white:0,red:0,blue:0,green:0,black:0};
@@ -90,135 +52,7 @@
     };
     const colors = ["gold", "blue", "purple"];
     const icons = ["&#9824;", "&#9670;", "&#9829;", "&#9827;"];
-    const ACHIEVEMENT_DEFINITIONS = [
-      ["poker-first-hand","First Hand","Play your first poker hand","Common","Poker","poker"],
-      ["poker-first-victory","First Victory","Win your first poker hand","Common","Poker","poker"],
-      ["poker-pocket-pair","Pocket Pair","Receive a pocket pair","Common","Poker","poker"],
-      ["poker-showdown-survivor","Showdown Survivor","Win at showdown","Common","Poker","poker"],
-      ["poker-bluff-master","Bluff Master","Win a hand without showdown","Uncommon","Poker","poker"],
-      ["poker-two-pair-club","Two Pair Club","Win with Two Pair","Common","Poker","poker"],
-      ["poker-trip-trouble","Trip Trouble","Win with Three of a Kind","Common","Poker","poker"],
-      ["poker-straight-shooter","Straight Shooter","Win with a Straight","Uncommon","Poker","poker"],
-      ["poker-flush-fever","Flush Fever","Win with a Flush","Uncommon","Poker","poker"],
-      ["poker-full-house-resident","Full House Resident","Win with a Full House","Rare","Poker","poker"],
-      ["poker-quads","Quads!","Get Four of a Kind","Epic","Poker","poker"],
-      ["poker-steel-wheel","Steel Wheel","A-2-3-4-5 Straight","Rare","Poker","poker"],
-      ["poker-straight-flush","Straight Flush","Get a Straight Flush","Legendary","Poker","poker"],
-      ["poker-royalty","Royalty","Get a Royal Flush","Mythic","Poker","poker"],
-      ["poker-unbelievable","Unbelievable","Get two Straight Flushes","Mythic","Poker","poker"],
-      ["poker-hot-streak","Hot Streak","Win 3 hands in a row","Uncommon","Poker","poker"],
-      ["poker-heater","Heater","Win 5 hands in a row","Rare","Poker","poker"],
-      ["poker-untouchable","Untouchable","Win 10 hands in a row","Legendary","Poker","poker"],
-      ["poker-comeback-kid","Comeback Kid","Recover from under $100 bankroll","Rare","Poker","poker"],
-      ["poker-chip-leader","Chip Leader","Reach #1 in chips","Uncommon","Poker","poker"],
-      ["poker-big-pot-hunter","Big Pot Hunter","Win a $250+ pot","Common","Poker","poker"],
-      ["poker-whale-catcher","Whale Catcher","Win a $500+ pot","Rare","Poker","poker"],
-      ["poker-high-roller-pot","High Roller","Win a $1,000+ pot","Epic","Poker","poker"],
-      ["poker-mountain-mover","Mountain Mover","Win a $2,000+ pot","Legendary","Poker","poker"],
-      ["poker-biggest-pot-ever","Biggest Pot Ever","Hold the all-time largest pot record","Legendary","Poker","poker"],
-      ["blackjack-lucky-21","Lucky 21","Hit exactly 21","Common","Blackjack","blackjack"],
-      ["blackjack-natural-talent","Natural Talent","Get a Natural Blackjack","Rare","Blackjack","blackjack"],
-      ["blackjack-first-win","First Win","Win first blackjack hand","Common","Blackjack","blackjack"],
-      ["blackjack-dealer-down","Dealer Down","Beat dealer 5 times","Common","Blackjack","blackjack"],
-      ["blackjack-dealer-slayer","Dealer Slayer","Beat dealer 25 times","Rare","Blackjack","blackjack"],
-      ["blackjack-five-card-charlie","Five Card Charlie","Win with 5 cards","Rare","Blackjack","blackjack"],
-      ["blackjack-six-card-miracle","Six Card Miracle","Win with 6 cards","Epic","Blackjack","blackjack"],
-      ["blackjack-risk-taker","Risk Taker","Hit on 16 and survive","Uncommon","Blackjack","blackjack"],
-      ["blackjack-double-trouble","Double Trouble","Win after doubling down","Rare","Blackjack","blackjack"],
-      ["blackjack-perfect-pair","Perfect Pair","Win with matching starting cards","Rare","Blackjack","blackjack"],
-      ["blackjack-champion","Blackjack Champion","Win a blackjack session","Rare","Blackjack","blackjack"],
-      ["blackjack-lucky-streak","Lucky Streak","Win 5 blackjack hands in a row","Rare","Blackjack","blackjack"],
-      ["blackjack-casino-legend","Casino Legend","Win 10 blackjack hands in a row","Legendary","Blackjack","blackjack"],
-      ["slots-first-spin","First Spin","Spin any slot machine","Common","Slots","slots"],
-      ["slots-first-win","First Slot Win","Win money on slots","Common","Slots","slots"],
-      ["slots-jackpot-hunter","Jackpot Hunter","Hit any slot jackpot","Rare","Slots","slots"],
-      ["slots-grand-vault","Grand Vault","Hit the Treasure Vault Grand Jackpot","Legendary","Slots","slots"],
-      ["slots-family-fortune","Family Fortune","Trigger a family symbol bonus","Rare","Slots","slots"],
-      ["uno-first-win","First Uno Win","Win first Uno round","Common","Uno","uno"],
-      ["uno-session-champion","Session Champion","Win an Uno session","Common","Uno","uno"],
-      ["uno-card-shark","Card Shark","Win 10 Uno rounds","Uncommon","Uno","uno"],
-      ["uno-veteran","Uno Veteran","Win 50 Uno rounds","Rare","Uno","uno"],
-      ["uno-legend","Uno Legend","Win 100 Uno rounds","Legendary","Uno","uno"],
-      ["uno-denied","Uno Denied","Stop someone from going out","Uncommon","Uno","uno"],
-      ["uno-party-crasher","Party Crasher","Stop 5 Uno attempts","Rare","Uno","uno"],
-      ["uno-rule-lawyer","Rule Lawyer","Successfully challenge a Draw Four","Rare","Uno","uno"],
-      ["uno-gotcha","Gotcha!","Successfully challenge 10 Draw Fours","Epic","Uno","uno"],
-      ["uno-reverse-psychology","Reverse Psychology","Reverse a game-winning move","Epic","Uno","uno"],
-      ["uno-executioner","Executioner","Eliminate a player","Uncommon","Uno","uno"],
-      ["uno-merciless","Merciless","Eliminate 5 players","Rare","Uno","uno"],
-      ["uno-no-survivors","No Survivors","Eliminate all opponents in one session","Legendary","Uno","uno"],
-      ["level-2","Level 2","Reach Level 2","Common","Progression","progression"],
-      ["level-5","Level 5","Reach Level 5","Rare","Progression","progression"],
-      ["level-10","Level 10","Reach Level 10","Legendary","Progression","progression"],
-      ["first-prestige","First Prestige","Earn first Prestige Star","Legendary","Progression","progression"],
-      ["double-prestige","Double Prestige","Earn two Prestige Stars","Mythic","Progression","progression"],
-      ["triple-prestige","Triple Prestige","Earn three Prestige Stars","Mythic","Progression","progression"],
-      ["xp-1000","1,000 XP Earned","Earn 1,000 XP","Common","Progression","progression"],
-      ["xp-5000","5,000 XP Earned","Earn 5,000 XP","Rare","Progression","progression"],
-      ["xp-10000","10,000 XP Earned","Earn 10,000 XP","Epic","Progression","progression"],
-      ["xp-25000","25,000 XP Earned","Earn 25,000 XP","Legendary","Progression","progression"],
-      ["xp-50000","50,000 XP Earned","Earn 50,000 XP","Mythic","Progression","progression"],
-      ["activity-dedicated-player","Dedicated Player","Play 10 sessions","Common","Activity","activity"],
-      ["activity-regular","Regular","Play 25 sessions","Uncommon","Activity","activity"],
-      ["activity-addicted","Addicted","Play 50 sessions","Rare","Activity","activity"],
-      ["activity-casino-resident","Casino Resident","Play 100 sessions","Legendary","Activity","activity"],
-      ["wealth-first-fortune","First Fortune","Reach $500 bankroll","Common","Wealth","wealth"],
-      ["wealth-four-digits","Four Digits","Reach $1,000 bankroll","Rare","Wealth","wealth"],
-      ["wealth-high-roller","High Roller","Reach $2,500 bankroll","Epic","Wealth","wealth"],
-      ["wealth-tycoon","Tycoon","Reach $5,000 bankroll","Legendary","Wealth","wealth"],
-      ["wealth-casino-king","Casino King","Reach $10,000 bankroll","Mythic","Wealth","wealth"],
-      ["bank-first-deposit","First Deposit","Deposit bankroll into the bank","Common","Banking","banking"],
-      ["bank-safe-stack","Bank Stack","Keep $10,000 in the Bank","Rare","Banking","banking"],
-      ["bankroll-transfer","Generous Banker","Transfer bankroll to another player","Common","Banking","banking"],
-      ["debt-borrower","Borrower","Take first loan","Common","Debt","debt"],
-      ["debt-deep","Deep in Debt","Owe $500+","Rare","Debt","debt"],
-      ["debt-recovery","Financial Recovery","Pay off all debt","Rare","Debt","debt"],
-      ["debt-destroyer","Debt Destroyer","Repay $1,000+ total debt","Epic","Debt","debt"],
-      ["debt-brink","Back From The Brink","Recover from negative lifetime profit/loss","Legendary","Debt","debt"],
-      ["rivalry-crown-holder","Crown Holder","Hold #1 rank for 10 sessions","Rare","Family Rivalry","rivalry"],
-      ["rivalry-queens-return","Queen's Return","Win a session after busting","Epic","Family Rivalry","rivalry"],
-      ["rivalry-underdog","Underdog","Win a session while ranked last","Rare","Family Rivalry","rivalry"],
-      ["rivalry-family-champion","Family Champion","Win Poker, Blackjack, and Uno","Legendary","Family Rivalry","rivalry"],
-      ["rivalry-triple-threat","Triple Threat","Earn XP in Poker, Blackjack, and Uno on the same day","Epic","Family Rivalry","rivalry"],
-      ["rivalry-marathon-night","Marathon Night","Play all three games in a single session","Epic","Family Rivalry","rivalry"],
-      ["rivalry-house-favorite","House Favorite","Reach #1 in total XP","Rare","Family Rivalry","rivalry"],
-      ["rivalry-legend","Legend of the Casino","Unlock 50 achievements","Mythic","Family Rivalry","rivalry"],
-      ["daily-first-clear","Daily Grinder","Complete a daily challenge","Common","Dailies","daily"],
-      ["daily-wheel-spin","Wheel Spinner","Spin the Lucky Wheel","Common","Dailies","daily"],
-      ["daily-scratch-card","Scratch Luck","Use the daily scratch-off","Common","Dailies","daily"],
-      ["stock-first-buy","First Share","Buy your first stock share","Common","Stocks","stocks"],
-      ["stock-100-shares","Hundred Share Club","Own 100 total shares","Uncommon","Stocks","stocks"],
-      ["stock-diversified","Diversified","Own shares in 5 different companies","Uncommon","Stocks","stocks"],
-      ["stock-portfolio-1000","Market Regular","Reach a $1,000 stock portfolio value","Rare","Stocks","stocks"],
-      ["stock-portfolio-10000","Market Mogul","Reach a $10,000 stock portfolio value","Epic","Stocks","stocks"],
-      ["stock-portfolio-100000","Market Whale","Reach a $100,000 stock portfolio value","Legendary","Stocks","stocks"],
-      ["stock-gain-25","Rocket Rider","Hold an unrealized stock gain of 25% or better","Rare","Stocks","stocks"],
-      ["stock-gain-50","To The Moon","Hold an unrealized stock gain of 50% or better","Legendary","Stocks","stocks"],
-      ["stock-profit-sale","Green Trade","Sell stock for a profit","Rare","Stocks","stocks"],
-      ["stock-profit-sale-1000","Big Green Trade","Sell stock for at least $1,000 profit","Epic","Stocks","stocks"],
-      ["asset-first-car","First Ride","Buy your first vehicle asset","Common","Assets","assets"],
-      ["asset-garage-5","Garage Builder","Own 5 vehicles","Uncommon","Assets","assets"],
-      ["asset-garage-10","Packed Garage","Own 10 vehicles","Rare","Assets","assets"],
-      ["asset-rare-vehicle","Rare Keys","Own a Rare or better vehicle","Rare","Assets","assets"],
-      ["asset-hypercar","Hypercar Royalty","Own a Mythic hypercar","Legendary","Assets","assets"],
-      ["asset-million-garage","Million-Dollar Garage","Reach $1,000,000 in owned vehicle resale value","Mythic","Assets","assets"],
-      ["craps-first-roll","Dice Rookie","Roll your first craps hand","Common","Craps","craps"],
-      ["craps-pass-line","Pass Line Winner","Win a Pass Line bet","Common","Craps","craps"],
-      ["craps-field-day","Field Day","Win a Field bet","Common","Craps","craps"],
-      ["craps-point-maker","Point Maker","Establish and make a point","Uncommon","Craps","craps"],
-      ["craps-hardway","Hardway Hero","Win a hardway bet","Rare","Craps","craps"],
-      ["craps-seven-out","Seven Out Survivor","Play through a seven-out","Common","Craps","craps"],
-      ["craps-hot-dice","Hot Dice","Win three craps bets","Rare","Craps","craps"],
-      ["craps-table-profit","Table Profit","Win $100+ from craps","Rare","Craps","craps"],
-      ["craps-comeback","Dice Comeback","Win craps while under $50 bankroll","Epic","Craps","craps"],
-      ["craps-high-roller","Craps High Roller","Place a $100+ craps bet","Epic","Craps","craps"],
-      ["hidden-royal-road","The Royal Road","Get a Royal Flush","Mythic","Hidden","hidden",true],
-      ["hidden-impossible-odds","Impossible Odds","Recover from zero chips and finish positive","Mythic","Hidden","hidden",true],
-      ["hidden-phoenix","Phoenix","Bust, borrow money, and finish profitable","Mythic","Hidden","hidden",true],
-      ["hidden-collector","The Collector","Unlock every achievement category","Mythic","Hidden","hidden",true],
-      ["hidden-lucky-devil","Lucky Devil","Win three different games in a row","Mythic","Hidden","hidden",true],
-      ["hidden-family-legend","Family Legend","Reach Prestige *****","Mythic","Hidden","hidden",true]
-    ].map(([id, name, requirement, rarity, category, game, hidden = false]) => ({id, name, requirement, rarity, category, game, hidden}));
+    const ACHIEVEMENT_DEFINITIONS = await loadAchievementDefinitions();
 
     function createEmptyBlackjackGame() {
       return {
@@ -388,35 +222,129 @@
       });
     }
 
-    async function loadDailyClickableCatalog() {
+    async function loadStockCompanies() {
       const fallback = [
-        {id:"coin", icon:"🪙", title:"House Coin", description:"Call the gold coin flip.", reward:{type:"money", min:35, max:160}, chance:0.58},
-        {id:"dice", icon:"🎲", title:"Loaded Dice", description:"Roll casino dice for a bankroll bump.", reward:{type:"money", min:45, max:220}, chance:0.5},
-        {id:"vault", icon:"🔐", title:"Mini Vault", description:"Crack a tiny vault for money or XP.", reward:{type:"mixed", min:60, max:260}, chance:0.45},
-        {id:"cards", icon:"🃏", title:"Card Draw", description:"Draw a lucky card for XP.", reward:{type:"xp", min:45, max:180}, chance:0.62},
-        {id:"ticket", icon:"🎟️", title:"Ticket Booth", description:"Try for a free Casino Ticket.", reward:{type:"ticket", min:1, max:1}, chance:0.34}
+        {symbol:"NOVA", name:"Nova Pharmaceuticals", sector:"Health", base:84, volatility:1.65, network:"BAWSAQ"}
       ];
+      try {
+        const response = await fetch("data/stocks.json", {cache:"no-store"});
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const items = await response.json();
+        return validateStockCompanies(items);
+      } catch (error) {
+        console.warn("Could not load stock company catalog.", error);
+        return fallback;
+      }
+    }
+
+    function validateStockCompanies(items) {
+      if (!Array.isArray(items)) throw new Error("data/stocks.json must be an array.");
+      const seen = new Set();
+      return items.map((item, index) => {
+        const symbol = String(item.symbol || "").trim().toUpperCase();
+        const name = String(item.name || "").trim();
+        if (!symbol || !name) throw new Error(`data/stocks.json item ${index + 1} is missing symbol or name.`);
+        if (seen.has(symbol)) throw new Error(`data/stocks.json has duplicate symbol ${symbol}.`);
+        seen.add(symbol);
+        return {
+          symbol,
+          name,
+          sector:String(item.sector || "General"),
+          base:Math.max(1, Number(item.base || 1)),
+          volatility:Math.max(0.1, Number(item.volatility || 1)),
+          network:String(item.network || (index % 2 === 0 ? "LCN" : "BAWSAQ")).toUpperCase() === "BAWSAQ" ? "BAWSAQ" : "LCN"
+        };
+      });
+    }
+
+    async function loadAchievementDefinitions() {
+      try {
+        const response = await fetch("data/achievements.json", {cache:"no-store"});
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const items = await response.json();
+        if (!Array.isArray(items)) throw new Error("data/achievements.json must be an array.");
+        return items.map((item, index) => {
+          const id = String(item.id || "").trim();
+          const name = String(item.name || "").trim();
+          if (!id || !name) throw new Error(`data/achievements.json item ${index + 1} is missing id or name.`);
+          return {
+            id,
+            name,
+            requirement:String(item.requirement || ""),
+            rarity:String(item.rarity || "Common"),
+            category:String(item.category || "General"),
+            game:String(item.game || item.icon || "general"),
+            hidden:Boolean(item.hidden || item.secret)
+          };
+        });
+      } catch (error) {
+        console.error("Could not load achievement definitions.", error);
+        return [];
+      }
+    }
+
+    async function loadDailyRewardConfig() {
+      const fallback = {
+        activities:[
+          {id:"coin", icon:"🪙", title:"House Coin", description:"Call the gold coin flip.", reward:{type:"money", min:35, max:160}, chance:0.58},
+          {id:"dice", icon:"🎲", title:"Loaded Dice", description:"Roll casino dice for a bankroll bump.", reward:{type:"money", min:45, max:220}, chance:0.5},
+          {id:"vault", icon:"🔐", title:"Mini Vault", description:"Crack a tiny vault for money or XP.", reward:{type:"mixed", min:60, max:260}, chance:0.45},
+          {id:"cards", icon:"🃏", title:"Card Draw", description:"Draw a lucky card for XP.", reward:{type:"xp", min:45, max:180}, chance:0.62},
+          {id:"ticket", icon:"🎟️", title:"Ticket Booth", description:"Try for a bundle of Casino Tickets.", reward:{type:"ticket", min:1, max:10}, chance:0.34}
+        ],
+        luckyWheel:[
+          {label:"$10", type:"money", value:10, weight:22},
+          {label:"10 XP", type:"xp", value:10, weight:20}
+        ],
+        scratchOff:[
+          {label:"Nothing", value:0, weight:45},
+          {label:"$25", value:25, weight:25},
+          {label:"$50", value:50, weight:16},
+          {label:"$100", value:100, weight:10},
+          {label:"$250", value:250, weight:4}
+        ]
+      };
       try {
         const response = await fetch("data/dailies.json", {cache:"no-store"});
         if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-        const items = await response.json();
-        if (!Array.isArray(items)) throw new Error("Dailies catalog must be an array.");
-        return items.map((item, index) => ({
-          id:String(item.id || `daily-${index}`).trim(),
-          icon:String(item.icon || "🎲"),
-          title:String(item.title || "Daily Activity"),
-          description:String(item.description || "Try your luck."),
-          reward:{
-            type:String(item.reward?.type || "money"),
-            min:Math.max(0, Number(item.reward?.min || 0)),
-            max:Math.max(0, Number(item.reward?.max || item.reward?.min || 0))
-          },
-          chance:Math.max(0, Math.min(1, Number(item.chance ?? 0.5)))
-        })).filter((item) => item.id);
+        const raw = await response.json();
+        const config = Array.isArray(raw) ? {...fallback, activities:raw} : {...fallback, ...raw};
+        return {
+          activities:validateDailyActivities(config.activities),
+          luckyWheel:validateWeightedRewards(config.luckyWheel, fallback.luckyWheel),
+          scratchOff:validateWeightedRewards(config.scratchOff, fallback.scratchOff)
+        };
       } catch (error) {
-        console.warn("Could not load daily clickable catalog.", error);
+        console.warn("Could not load daily reward config.", error);
         return fallback;
       }
+    }
+
+    function validateDailyActivities(items) {
+      if (!Array.isArray(items)) throw new Error("data/dailies.json activities must be an array.");
+      return items.map((item, index) => ({
+        id:String(item.id || `daily-${index}`).trim(),
+        icon:String(item.icon || "🎲"),
+        title:String(item.title || "Daily Activity"),
+        description:String(item.description || "Try your luck."),
+        reward:{
+          type:String(item.reward?.type || "money"),
+          min:Math.max(0, Number(item.reward?.min || 0)),
+          max:Math.max(0, Number(item.reward?.max || item.reward?.min || 0))
+        },
+        chance:Math.max(0, Math.min(1, Number(item.chance ?? 0.5)))
+      })).filter((item) => item.id);
+    }
+
+    function validateWeightedRewards(items, fallback) {
+      const source = Array.isArray(items) && items.length ? items : fallback;
+      return source.map((item) => ({
+        label:String(item.label || (item.type === "xp" ? `${Number(item.value || 0)} XP` : money(Number(item.value || 0)))),
+        type:String(item.type || "money"),
+        value:Math.max(0, Number(item.value || 0)),
+        weight:Math.max(0, Number(item.weight || 0)),
+        golden:Boolean(item.golden)
+      })).filter((item) => item.weight > 0 || item.value === 0);
     }
 
     const defaultState = normalize(decodeSave(attachedSaveText));
@@ -424,6 +352,8 @@
     let activeView = "overview";
     let activeGame = "poker";
     let skipNextCloudWrite = false;
+    let realtimeSnapshotApplied = false;
+    const hadLocalSaveAtBoot = Boolean(localStorage.getItem(localKey));
     let cloudWriteTimer = null;
     let localTestSignedIn = false;
     let activeAchievementTab = "unlocked";
@@ -567,6 +497,7 @@
       });
       data.version = 11;
       data.updatedAt = data.updatedAt || Date.now();
+      data.casinoVault = Math.max(0, Number(data.casinoVault || 0));
       data.pokerSessionActive = Boolean(data.pokerSessionActive);
       data.biggestPot = data.biggestPot || {player:"", value:0};
       data.log = Array.isArray(data.log) ? data.log.slice(0, 30) : [];
@@ -1112,10 +1043,31 @@
       return {Common:10, Uncommon:25, Rare:50, Epic:100, Legendary:250, Mythic:500}[rarity] || 10;
     }
 
+    function achievementToast(definition, rewardXP = 0) {
+      if (!definition) return;
+      resultToast("Achievement Unlocked", `${definition.name} (+${rewardXP} XP)`);
+    }
+
+    function snapshotUpdatedAt(value) {
+      return Math.max(0, Number(value?.updatedAt || 0));
+    }
+
+    function isIncomingSnapshotOlder(incoming, local = state) {
+      const incomingAt = snapshotUpdatedAt(incoming);
+      const localAt = snapshotUpdatedAt(local);
+      return incomingAt > 0 && localAt > 0 && incomingAt < localAt;
+    }
+
+    function isIncomingSnapshotNewer(incoming, local = state) {
+      const incomingAt = snapshotUpdatedAt(incoming);
+      const localAt = snapshotUpdatedAt(local);
+      return incomingAt > 0 && localAt > 0 && incomingAt > localAt;
+    }
+
     function save({cloud = true} = {}) {
       state.updatedAt = Date.now();
       state = normalize(state);
-      evaluateAchievementUnlocks();
+      safeEvaluateAchievementUnlocks();
       localStorage.setItem(localKey, JSON.stringify(state));
       render();
       if (cloud) queueCloudWrite();
@@ -1130,7 +1082,7 @@
 
     function runAchievementSweep({cloud = true, showNoUnlock = false} = {}) {
       state = normalize(state);
-      const unlockedCount = evaluateAchievementUnlocks();
+      const unlockedCount = safeEvaluateAchievementUnlocks();
       if (unlockedCount > 0) {
         state.updatedAt = Date.now();
         localStorage.setItem(localKey, JSON.stringify(state));
@@ -1140,6 +1092,16 @@
         toast(currentPlayer() ? "Profile linked. No new achievements yet." : "Link a player before achievements can unlock.");
       }
       return unlockedCount;
+    }
+
+    function safeEvaluateAchievementUnlocks() {
+      try {
+        return evaluateAchievementUnlocks();
+      } catch (error) {
+        console.error("Achievement sweep failed without blocking save.", error);
+        toast("Achievement check had an error, but your save still went through.");
+        return 0;
+      }
     }
 
     function startAchievementChecker() {
@@ -1158,7 +1120,12 @@
           const {dbRef, get, set, serverTimestamp} = firebaseState.modules;
           const stateRef = dbRef(firebaseState.db, `${databasePath}/state`);
           const latest = await get(stateRef).catch(() => null);
-          const latestRooms = latest?.val?.()?.onlineRooms;
+          const latestValue = latest?.val?.();
+          if (isIncomingSnapshotNewer(latestValue, state)) {
+            setSync("Newer cloud state exists; local write skipped", false);
+            return;
+          }
+          const latestRooms = latestValue?.onlineRooms;
           await set(dbRef(firebaseState.db, `${databasePath}/state`), {
             ...state,
             onlineRooms: latestRooms && typeof latestRooms === "object" ? latestRooms : state.onlineRooms,
@@ -2016,7 +1983,8 @@
         ["safe","&#9878;","Bank",money(banked),"Stored balance"],
         ["lifetime","&#8599;","Lifetime Profit / Loss",signedMoney(player.lifetime),"All time net"],
         ["debt","&#9888;","Bank Debt",money(debt),"Outstanding loans"],
-        ["worth","&#9670;","Net Worth",signedMoney(netWorth),"Bankroll + Bank - Debt"]
+        ["worth","&#9670;","Net Worth",signedMoney(netWorth),"Bankroll + Bank - Debt"],
+        ["vault","&#128142;","Casino Vault",money(state.casinoVault || 0),"Lifetime house earnings"]
       ].map(([tone, icon, label, value, note]) => `<article class="bank-summary-card ${tone}"><span class="bank-summary-icon">${icon}</span><div><span>${label}</span><strong>${value}</strong><small>${note}</small></div></article>`).join("");
       $("transferFromPlayer").innerHTML = `<strong>${escapeHtml(currentDisplayName())}</strong><span>${money(bankroll)} available</span>`;
       const transferSelect = $("transferToPlayer");
@@ -2396,11 +2364,15 @@
     function dailyClickablePool(count = 5) {
       const catalog = DAILY_CLICKABLES.length ? DAILY_CLICKABLES : [];
       const seed = hashCode(`${todayKey()}-daily-clickables`);
-      return [...catalog]
+      const ticketBooth = catalog.find((activity) => activity.id === "ticket");
+      const remainingCount = Math.max(0, count - (ticketBooth ? 1 : 0));
+      const selected = catalog
+        .filter((activity) => activity.id !== "ticket")
         .map((activity, index) => ({activity, sort: seededSortValue(seed, index, activity.id)}))
         .sort((a, b) => a.sort - b.sort)
-        .slice(0, Math.min(count, catalog.length))
+        .slice(0, Math.min(remainingCount, catalog.length))
         .map((item) => item.activity);
+      return ticketBooth ? [ticketBooth, ...selected].slice(0, count) : selected;
     }
 
     function seededSortValue(seed, index, id) {
@@ -4499,6 +4471,7 @@
         gameStats: state.gameStats,
         counters: state.counters,
         stockMarket: state.stockMarket,
+        casinoVault: state.casinoVault,
         log: state.log,
         history: state.history,
         [`onlineRooms/${room.id}`]: room,
@@ -4955,11 +4928,34 @@
         if (!options.silent) log(`${player.name} ${reason}: +$${value}. Paid bank $${debtPay}. Lifetime gained $${remaining}.`);
       } else if (value < 0) {
         if (!options.bankrollAlreadyAdjusted) adjustPlayerBankroll(player, value);
+        trackCasinoVaultLoss(Math.abs(value), reason, player);
         player.lifetime += value;
         if (!options.silent) log(`${player.name} ${reason}: -$${Math.abs(value)}.`);
       } else {
         if (!options.silent) log(`${player.name} ${reason}: $0.`);
       }
+    }
+
+    function trackCasinoVaultLoss(amount, reason = "", player = null) {
+      const value = Math.max(0, Math.round(Number(amount || 0)));
+      if (!value || !isCasinoHouseLossReason(reason)) return;
+      state.casinoVault = Math.max(0, Number(state.casinoVault || 0)) + value;
+      if (player?.name) {
+        addHistoryEvent({
+          type:"casino-vault",
+          category:"System",
+          player:player.name,
+          title:"Casino Vault",
+          description:`The Casino Vault gained ${money(value)} from ${player.name}'s ${reason} loss.`,
+          amount:value,
+          details:{reason}
+        });
+      }
+    }
+
+    function isCasinoHouseLossReason(reason = "") {
+      const text = String(reason).toLowerCase();
+      return text.includes("blackjack") || text.includes("slots") || text.includes("craps") || text.includes("roulette");
     }
 
     function trackDailyProgress(playerName, field, amount = 1) {
@@ -5057,9 +5053,7 @@
       const player = currentPlayer();
       if (!player) return toast("Link your profile to scratch.");
       if (state.daily.scratch[player.name] === todayKey()) return openTicketUseDialog("scratch");
-      const reward = weightedReward([
-        {value:0, weight:45}, {value:25, weight:25}, {value:50, weight:16}, {value:100, weight:10}, {value:250, weight:4}
-      ]);
+      const reward = weightedReward(SCRATCH_OFF_REWARDS);
       state.daily.scratch[player.name] = todayKey();
       unlockAchievement("daily-scratch-card", player.name);
       if (reward.value > 0) grantDailyMoney(player, reward.value, "daily scratch reward");
@@ -6041,11 +6035,18 @@
       if (firebaseState.roomsUnsubscribe) firebaseState.roomsUnsubscribe();
       firebaseState.unsubscribe = onValue(stateRef, (snap) => {
         if (!snap.exists()) return;
+        const incoming = normalize(snap.val());
+        const canApplyInitialCloud = !realtimeSnapshotApplied && !hadLocalSaveAtBoot;
+        if (!canApplyInitialCloud && isIncomingSnapshotOlder(incoming, state)) {
+          setSync("Ignored older cloud snapshot", true);
+          return;
+        }
         skipNextCloudWrite = true;
         const previousRooms = state.onlineRooms || {};
-        state = normalize(snap.val());
+        state = incoming;
         state.onlineRooms = previousRooms;
         localStorage.setItem(localKey, JSON.stringify(state));
+        realtimeSnapshotApplied = true;
         setSync("Live sync loaded", true);
         runAchievementSweep({cloud: false});
         render();

@@ -1,5 +1,22 @@
 # Virtual Casino Changelog
 
+## V1.11.3 - 2026-07-01 - Firebase Rollback Guard and JSON Catalogs
+
+### Fixed
+- Added an `updatedAt` guard to Firebase realtime sync so older cloud snapshots cannot overwrite newer local state after bank withdrawals, stock purchases, or other fresh transactions.
+- Added a cloud-write guard so an older local write will not clobber a newer Firebase state.
+- Added a missing achievement toast handler and wrapped achievement sweeps so achievement errors cannot interrupt saving.
+
+### Data and Dailies
+- Moved stock company definitions to `data/stocks.json` while preserving live recorded low/high prices from saved stock-market state.
+- Moved achievement definitions to `data/achievements.json`.
+- Expanded `data/dailies.json` to include rotating daily activities, Lucky Wheel rewards, and Scratch-Off rewards.
+- Restored Ticket Booth as a guaranteed daily card and raised its possible reward to 1-10 Casino Tickets.
+
+### Casino Vault
+- Added a Casino Vault lifetime stat on the Bank page for money the house earns from player losses.
+- Casino Vault now increases from blackjack, slots, craps, and future roulette losses, but ignores stocks, assets, bank movement, player transfers, loans, and local poker.
+
 ## V1.11.2 - 2026-06-30 - Multiplayer Blackjack, Dailies, and Performance Polish
 
 ### Changed

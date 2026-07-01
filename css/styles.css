@@ -2453,6 +2453,7 @@
     .bank-summary-card.lifetime,
     .bank-summary-card.worth { border-color: rgba(255,190,45,.35); background: linear-gradient(135deg, rgba(170,105,10,.18), rgba(0,0,0,.18)); }
     .bank-summary-card.debt { border-color: rgba(255,75,75,.3); background: linear-gradient(135deg, rgba(155,25,35,.18), rgba(0,0,0,.18)); }
+    .bank-summary-card.vault { border-color: rgba(120,210,255,.34); background: linear-gradient(135deg, rgba(35,120,170,.18), rgba(0,0,0,.18)); }
     .bank-summary-icon { font-size: 2rem; color: var(--gold); }
     .bank-summary-card span,
     .bank-summary-card strong,
