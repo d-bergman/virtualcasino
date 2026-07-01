@@ -1,5 +1,28 @@
 # Virtual Casino Changelog
 
+## V1.11.4 - 2026-07-01 - Premium Slots, Farkle, and Daily Challenge Rotation
+
+### Casino Games
+- Redesigned all slot machines into a premium cabinet layout with a generated casino background, animated winning symbols, richer side stats, chip-style bet controls, and machine-specific history details.
+- Added solo Farkle as a new online casino game with six-dice scoring, bankroll betting, result history, XP hooks, daily challenge progress, and Casino Vault loss tracking.
+- Harmonized multiplayer blackjack's right-side stats, chip buttons, bet stepper, and player action controls with the solo blackjack UI.
+
+### Stocks
+- Added Aurelius Aerospace, CruzLux Beverages, and Synapse Robotics AI to the stock catalog.
+- Added a single-row Stock Market filter bar for network and sector/category filtering.
+
+### Dailies
+- Added `data/daily-challenges.json` with a rotating three-challenge daily set, broader challenge types, and larger randomized completion rewards.
+- Added a daily rotation timer banner so players can see when clickables and challenges refresh.
+
+### Admin and History
+- Added admin reset tools for Scratch-Offs, rotating daily clickables, and full daily reset.
+- Polished Admin and History styling, added scroll containment for long admin player/linkage lists, and made the room failsafe module compact.
+- Removed the old Export / Import admin module now that Firebase is the normal persistence path.
+
+### Progression
+- Moved family level thresholds into `data/family-levels.json` for easier future tuning.
+
 ## V1.11.3 - 2026-07-01 - Firebase Rollback Guard and JSON Catalogs
 
 ### Fixed

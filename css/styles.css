@@ -2008,32 +2008,89 @@
       box-shadow: 0 10px 20px rgba(0,0,0,0.28);
     }
 
+    .premium-slots-panel { overflow: hidden; }
+    .slots-play-layout { align-items: stretch; margin-top: 16px; }
     .slot-machine {
-      margin-top: 18px;
-      border: 1px solid rgba(255,216,107,0.24);
-      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      min-height: clamp(620px, 55vw, 760px);
+      border: 1px solid rgba(255,216,107,0.32);
+      border-radius: 14px;
       background:
-        radial-gradient(circle at 50% 0%, rgba(255,216,107,0.18), transparent 36%),
-        linear-gradient(135deg, rgba(67,15,88,0.28), rgba(8,8,14,0.92));
-      padding: 16px;
-      box-shadow: inset 0 0 30px rgba(0,0,0,0.42);
+        linear-gradient(180deg, rgba(0,0,0,.03), rgba(0,0,0,.38)),
+        image-set(
+          url("../assets/slot-machine-bg.webp") type("image/webp"),
+          url("../assets/slot-machine-bg.png") type("image/png")
+        ) center / cover no-repeat,
+        radial-gradient(circle at center, rgba(90,32,0,.45), rgba(5,0,8,.96));
+      padding: clamp(18px, 3vw, 32px);
+      box-shadow: inset 0 0 90px rgba(0,0,0,.54), 0 20px 55px rgba(0,0,0,.42);
     }
-
+    .slot-machine::before {
+      content:"";
+      position:absolute;
+      inset:0;
+      background: radial-gradient(circle at 50% 42%, transparent 18%, rgba(0,0,0,.18) 50%, rgba(0,0,0,.68) 100%);
+      pointer-events:none;
+    }
+    .slot-marquee,
+    .slot-reel-window,
+    .slot-meter-row,
+    .slot-paytable { position: relative; z-index: 1; }
+    .slot-marquee {
+      width: min(620px, 78%);
+      margin: 0 auto clamp(70px, 10vw, 115px);
+      border: 1px solid rgba(255,216,107,.45);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(15,7,4,.86), rgba(0,0,0,.62));
+      padding: 14px 18px;
+      text-align: center;
+      box-shadow: inset 0 0 24px rgba(255,190,55,.18), 0 0 26px rgba(255,65,20,.22);
+    }
+    .slot-marquee span {
+      display:block;
+      color: var(--gold);
+      font-family: Georgia, serif;
+      font-size: clamp(1.6rem, 4vw, 3.1rem);
+      font-weight: 950;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      text-shadow: 0 0 16px rgba(255,65,20,.75);
+    }
+    .slot-marquee small { color: #fff0af; font-weight: 900; text-transform: uppercase; }
+    .slot-reel-window {
+      width: min(760px, 82%);
+      margin: 0 auto;
+      border: 1px solid rgba(255,216,107,.34);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255,244,200,.96), rgba(155,112,45,.84));
+      padding: 14px;
+      box-shadow: inset 0 0 25px rgba(0,0,0,.44), 0 18px 50px rgba(0,0,0,.48);
+    }
+    .slot-win-line {
+      position: absolute;
+      left: 5%;
+      right: 5%;
+      top: 50%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #ff3434, #ffd66b, #ff3434, transparent);
+      box-shadow: 0 0 14px rgba(255,56,56,.85);
+      pointer-events: none;
+    }
     .slot-reels {
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 14px;
+      gap: 8px;
     }
 
     .slot-reel {
       display: grid;
-      gap: 8px;
-      padding: 10px;
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 8px;
-      background: rgba(255,255,255,0.06);
-      min-height: 210px;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid rgba(60,28,8,0.35);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,.7), rgba(96,56,18,.24));
+      min-height: 232px;
       align-content: center;
       overflow: hidden;
     }
@@ -2046,13 +2103,18 @@
       display: grid;
       place-items: center;
       min-height: 56px;
-      border: 1px solid rgba(255,216,107,0.22);
+      border: 1px solid rgba(70,30,0,0.24);
       border-radius: 8px;
       background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(221,214,199,0.92));
       color: #170d17;
       font-weight: 900;
       font-size: 1.25rem;
       box-shadow: 0 12px 24px rgba(0,0,0,0.32);
+    }
+    .slot-symbol.win {
+      outline: 2px solid rgba(255,216,107,.8);
+      box-shadow: 0 0 20px rgba(255,216,107,.62), 0 12px 24px rgba(0,0,0,.32);
+      animation: slotWinGlow 950ms ease-in-out infinite alternate;
     }
 
     .slot-symbol.wild {
@@ -2089,10 +2151,94 @@
       font-size: .82rem;
       margin-top: 3px;
     }
+    .slot-meter-row {
+      width: min(860px, 92%);
+      margin: 18px auto 0;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .slot-meter-row div {
+      border: 1px solid rgba(255,216,107,.22);
+      border-radius: 10px;
+      background: rgba(0,0,0,.58);
+      padding: 12px;
+      text-align: center;
+    }
+    .slot-meter-row span { display:block; color: var(--gold); font-size:.75rem; font-weight:900; text-transform:uppercase; }
+    .slot-meter-row strong { display:block; margin-top:4px; font-size:1.2rem; }
+    .slot-side-panel .primary-btn,
+    .slot-side-panel .ghost-btn { width:100%; margin-top:10px; }
+    .stock-filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0 14px;
+      border: 1px solid rgba(255,216,107,.18);
+      border-radius: 12px;
+      background: rgba(255,255,255,.045);
+      padding: 10px;
+      overflow-x: auto;
+    }
+    .stock-filter-bar label { color: var(--gold); font-size:.75rem; font-weight:900; text-transform:uppercase; white-space:nowrap; }
+    .stock-filter-bar select { min-width: 170px; }
+    .farkle-table {
+      position: relative;
+      min-height: 560px;
+      border: 1px solid rgba(255,216,107,.3);
+      border-radius: 14px;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(18,95,42,.86), rgba(5,18,11,.95) 58%, rgba(0,0,0,.98)),
+        linear-gradient(135deg, rgba(255,216,107,.08), rgba(125,30,255,.08));
+      box-shadow: inset 0 0 80px rgba(0,0,0,.45);
+      padding: 28px;
+      display: grid;
+      align-content: center;
+      gap: 24px;
+      overflow: hidden;
+    }
+    .farkle-felt-copy {
+      position:absolute;
+      inset: 36px 36px auto;
+      display:flex;
+      justify-content:space-between;
+      color: rgba(255,216,107,.34);
+      font-family: Georgia, serif;
+      font-size: clamp(1.2rem, 3vw, 2.5rem);
+      font-weight:900;
+      text-transform: uppercase;
+      pointer-events:none;
+    }
+    .farkle-dice-row {
+      position: relative;
+      z-index: 1;
+      display:grid;
+      grid-template-columns: repeat(6, minmax(54px, 1fr));
+      gap: 14px;
+      width: min(780px, 94%);
+      margin: 0 auto;
+    }
+    .farkle-die {
+      display:grid;
+      place-items:center;
+      aspect-ratio: 1;
+      border: 1px solid rgba(0,0,0,.2);
+      border-radius: 18px;
+      background: linear-gradient(145deg, #fff, #d9d0bd);
+      color:#140d08;
+      font-size: clamp(2rem, 5vw, 4rem);
+      font-weight:950;
+      box-shadow: 0 18px 34px rgba(0,0,0,.38);
+    }
+    .farkle-meter-row { width: min(780px, 94%); }
 
     @keyframes slotPulse {
       from { transform: translateY(-6px); filter: brightness(1.25); }
       to { transform: translateY(6px); filter: brightness(0.85); }
+    }
+    @keyframes slotWinGlow {
+      from { transform: scale(1); }
+      to { transform: scale(1.04); filter: brightness(1.25); }
     }
 
     .wheel-stage {
@@ -2928,6 +3074,40 @@
     .bonus-card { min-height: 128px; }
     .ticket-card { border-color: rgba(180,80,255,.4); background: radial-gradient(circle at top, rgba(180,80,255,.22), transparent 46%), rgba(255,255,255,.04); }
     .daily-task-list { margin-top: 12px; }
+    .daily-rotation-note {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,216,107,.22);
+      border-radius: 14px;
+      background: linear-gradient(90deg, rgba(255,216,107,.12), rgba(117,24,207,.10));
+      color: var(--muted);
+      font-size: .9rem;
+    }
+    .daily-rotation-note strong { color: var(--gold); }
+
+    #adminView > .panel {
+      border-color: rgba(255,216,107,.18);
+      background: radial-gradient(circle at top left, rgba(255,216,107,.09), transparent 34%), radial-gradient(circle at bottom right, rgba(117,24,207,.13), transparent 42%), rgba(12,10,18,.86);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 18px 50px rgba(0,0,0,.24);
+    }
+    #playerAdminBoard,
+    #linkageAdminBoard {
+      max-height: 520px;
+      overflow: auto;
+      padding-right: 6px;
+    }
+    #linkageAdminBoard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 10px;
+    }
+    .admin-room-failsafe {
+      max-width: 460px;
+    }
 
     .history-header { display: flex; justify-content: space-between; gap: 18px; align-items: end; }
     .history-header h2 { margin: 0 0 4px; }
@@ -2944,9 +3124,11 @@
       border: 1px solid rgba(255,255,255,.1);
       border-radius: 10px;
       padding: 13px;
-      background: radial-gradient(circle at top left, rgba(255,216,107,.07), transparent 35%), rgba(255,255,255,.035);
+      background: linear-gradient(135deg, rgba(255,216,107,.06), rgba(117,24,207,.06) 45%, rgba(255,255,255,.035));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
     }
-    .history-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; color: var(--gold); background: rgba(255,255,255,.07); font-size: 1.2rem; }
+    .history-event:hover { border-color: rgba(255,216,107,.24); transform: translateY(-1px); }
+    .history-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; color: var(--gold); background: radial-gradient(circle at 35% 25%, #fff7b7, #c28b19 40%, #381c74 72%, #08050c); border: 1px solid rgba(255,216,107,.55); font-size: 1.2rem; box-shadow: 0 0 18px rgba(117,24,207,.26); }
     .history-meta { color: var(--gold); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; }
     .history-title { font-weight: 900; margin: 2px 0; }
     .history-description,

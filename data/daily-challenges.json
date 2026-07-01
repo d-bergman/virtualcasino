@@ -1,0 +1,28 @@
+{
+  "reward": {"type":"money","min":1500,"max":3500},
+  "count": 3,
+  "challenges": [
+    {"id":"blackjack-win-5","title":"Win 5 Blackjack Hands","description":"Beat the dealer five times today.","metric":"blackjackWins","target":5},
+    {"id":"blackjack-win-10","title":"Win 10 Blackjack Hands","description":"Go on a proper blackjack heater.","metric":"blackjackWins","target":10},
+    {"id":"blackjack-play-10","title":"Play 10 Blackjack Hands","description":"Sit at the blackjack table for ten hands.","metric":"blackjackHands","target":10},
+    {"id":"blackjack-play-20","title":"Play 20 Blackjack Hands","description":"Grind twenty blackjack hands.","metric":"blackjackHands","target":20},
+    {"id":"slots-spin-10","title":"Spin Any Slots 10 Times","description":"Run any slot machine ten times.","metric":"slotSpins","target":10},
+    {"id":"slots-spin-25","title":"Spin Any Slots 25 Times","description":"Give the reels a real workout.","metric":"slotSpins","target":25},
+    {"id":"slots-crown-10","title":"Spin Crown Line 10 Times","description":"Play Crown Line Slots ten times.","metric":"slotMachine:crownLine","target":10},
+    {"id":"slots-lucky-10","title":"Spin Lucky 7s 10 Times","description":"Play Lucky 7s Classic ten times.","metric":"slotMachine:lucky7s","target":10},
+    {"id":"slots-vault-10","title":"Spin Treasure Vault 10 Times","description":"Play Treasure Vault ten times.","metric":"slotMachine:treasureVault","target":10},
+    {"id":"slots-family-10","title":"Spin Family Fortune 10 Times","description":"Play Family Fortune ten times.","metric":"slotMachine:familyFortune","target":10},
+    {"id":"earn-xp-500","title":"Earn 500 XP","description":"Gain 500 XP from games and dailies.","metric":"xpEarned","target":500},
+    {"id":"earn-xp-1000","title":"Earn 1,000 XP","description":"Gain 1,000 XP today.","metric":"xpEarned","target":1000},
+    {"id":"casino-profit-2500","title":"Win $2,500 From Casino Games","description":"Net $2,500 from house games.","metric":"casinoProfit","target":2500},
+    {"id":"casino-profit-10000","title":"Win $10,000 From Casino Games","description":"Net $10,000 from casino games.","metric":"casinoProfit","target":10000},
+    {"id":"stock-buy-100","title":"Buy 100 Stock Shares","description":"Buy 100 total shares today.","metric":"stockSharesBought","target":100},
+    {"id":"stock-buy-500","title":"Buy 500 Stock Shares","description":"Buy 500 total shares today.","metric":"stockSharesBought","target":500},
+    {"id":"stock-sell-100","title":"Sell 100 Stock Shares","description":"Sell 100 total shares today.","metric":"stockSharesSold","target":100},
+    {"id":"stock-profit-1000","title":"Realize $1,000 Stock Profit","description":"Sell stock for $1,000 realized profit today.","metric":"stockProfit","target":1000},
+    {"id":"daily-click-3","title":"Complete 3 Daily Clickables","description":"Claim three rotating daily activities.","metric":"dailyActivities","target":3},
+    {"id":"ticket-earn-5","title":"Earn 5 Casino Tickets","description":"Collect five tickets today.","metric":"ticketsEarned","target":5},
+    {"id":"craps-roll-10","title":"Roll Craps 10 Times","description":"Roll at the craps table ten times.","metric":"crapsRolls","target":10},
+    {"id":"farkle-rounds-5","title":"Play 5 Farkle Rounds","description":"Roll Farkle five times.","metric":"farkleRounds","target":5}
+  ]
+}

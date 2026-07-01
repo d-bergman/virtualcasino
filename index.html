@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Virtual Casino | Family Card RPG</title>
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
-  <link rel="stylesheet" href="css/styles.css?v=20260630-2" />
+  <link rel="stylesheet" href="css/styles.css?v=20260701-1" />
 </head>
 <body class="auth-checking">
   <div id="appLoader" class="app-loader" role="status" aria-live="polite">
@@ -169,27 +169,19 @@
             <button class="ghost-btn" type="button" data-action="adjust-lifetime">Adjust Lifetime P/L</button>
             <button class="ghost-btn" type="button" data-action="grant-tickets">Grant Tickets</button>
             <button class="ghost-btn" type="button" data-action="reset-daily-wheel">Reset Daily Wheel</button>
+            <button class="ghost-btn" type="button" data-action="reset-daily-scratch">Reset Scratch-Off</button>
+            <button class="ghost-btn" type="button" data-action="reset-daily-clickables">Reset Clickables</button>
+            <button class="ghost-btn" type="button" data-action="reset-daily-all">Reset All Dailies</button>
           </div>
         </article>
         <article class="panel panel-pad" style="margin-top:18px;">
           <div class="section-title"><span>&#9881; Account Linkage</span></div>
           <div id="linkageAdminBoard" class="leaderboard-list"></div>
         </article>
-        <article class="panel panel-pad" style="margin-top:18px;">
+        <article class="panel panel-pad admin-room-failsafe" style="margin-top:18px;">
           <div class="section-title"><span>&#127922; Room Failsafe</span></div>
           <p class="auth-message">Use this if an online room gets stuck open.</p>
           <button class="primary-btn danger-btn" style="width:100%;" type="button" data-action="clear-all-rooms">Delete All Open Rooms</button>
-        </article>
-        <article class="panel panel-pad" style="margin-top:18px;">
-          <div class="section-title"><span>Export / Import</span></div>
-          <label for="saveText">Save Text</label>
-          <textarea id="saveText" style="width:100%;min-height:180px;border-radius:8px;background:rgba(255,255,255,0.06);color:var(--text);border:1px solid rgba(255,255,255,0.12);padding:12px;"></textarea>
-          <div class="action-grid">
-            <button class="primary-btn" type="button" data-action="export">Export Current Save</button>
-            <button class="ghost-btn" type="button" data-action="import">Import Save Text</button>
-            <button class="ghost-btn" type="button" data-action="seed-save">Load Attached Canada Save</button>
-            <button class="ghost-btn" type="button" data-action="reset">Reset Tracker</button>
-          </div>
         </article>
       </section>
 
@@ -366,10 +358,15 @@
               <strong>Craps</strong>
               <small>Solo dice table with pass line, field, and hardways.</small>
             </button>
+            <button class="online-game-tile farkle-tile" type="button" data-action="open-online-farkle">
+              <span class="tile-icon cards-icon" aria-hidden="true"><span>⚄</span><span>⚅</span></span>
+              <strong>Farkle</strong>
+              <small>Solo six-dice casino table with combos, straights, and hot rolls.</small>
+            </button>
           </div>
         </article>
         <div id="slotsOnlineArea" class="online-area" hidden>
-          <article class="panel panel-pad">
+          <article class="panel panel-pad premium-slots-panel">
             <div class="section-title">
               <span id="slotsTitle">&#127922; Crown Line Slots</span>
               <span>
@@ -378,36 +375,58 @@
               </span>
             </div>
             <div id="slotsBankroll" class="rule-strip"></div>
-            <div class="form-grid">
-              <div>
-                <label for="slotBetAmount">Bet Per Line</label>
-                <input id="slotBetAmount" type="number" inputmode="numeric" min="1" value="1" />
+            <div class="blackjack-play-layout slots-play-layout">
+              <div class="blackjack-table-column">
+                <div class="slot-machine premium-slot-machine">
+                  <div class="slot-marquee"><span id="slotMachineMarquee">Crown Line</span><small id="slotLineText">9 paylines</small></div>
+                  <div class="slot-reel-window">
+                    <div id="slotReels" class="slot-reels"></div>
+                    <div class="slot-win-line"></div>
+                  </div>
+                  <div class="slot-meter-row">
+                    <div><span>Last Win</span><strong id="slotLastWin">$0</strong></div>
+                    <div><span>Total Bet</span><strong id="slotTotalBet">$0</strong></div>
+                    <div><span>Credits</span><strong id="slotCredits">$0</strong></div>
+                  </div>
+                  <div class="slot-paytable">
+                    <div><strong>Wild</strong><span>Substitutes for regular symbols.</span></div>
+                    <div><strong>Scatter</strong><span>3+ stars pay bonus from total wager.</span></div>
+                    <div><strong>Jackpot</strong><span>5 crowns pays 1000x line bet.</span></div>
+                    <div><strong>Machine</strong><span id="slotMachineHint">Choose a machine and spin.</span></div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label for="slotBetPreset">Preset</label>
-                <select id="slotBetPreset">
-                  <option value="">Select preset</option>
-                  <option value="1">$1 x 9 lines</option>
-                  <option value="2">$2 x 9 lines</option>
-                  <option value="5">$5 x 9 lines</option>
-                  <option value="10">$10 x 9 lines</option>
-                  <option value="25">$25 x 9 lines</option>
-                </select>
-              </div>
-            </div>
-            <div class="slot-machine">
-              <div id="slotReels" class="slot-reels"></div>
-              <div id="slotStatus" class="blackjack-status">Choose a bet per line and spin.</div>
-            </div>
-            <div class="action-grid">
-              <button class="primary-btn" type="button" data-action="slots-spin">Spin</button>
-              <button class="ghost-btn" type="button" data-action="slots-reset">Clear Machine</button>
-            </div>
-            <div class="slot-paytable">
-              <div><strong id="slotLineText">9 paylines</strong><span>Total wager is bet per line x active lines.</span></div>
-              <div><strong>Wild</strong><span>Substitutes for regular symbols.</span></div>
-              <div><strong>Scatter</strong><span>3+ stars pay bonus from total wager.</span></div>
-              <div><strong>Jackpot</strong><span>5 crowns pays 1000x line bet.</span></div>
+              <aside class="blackjack-side-panel slot-side-panel">
+                <article class="blackjack-side-card">
+                  <h3>Game Stats</h3>
+                  <div id="slotStatsPanel" class="blackjack-side-list"></div>
+                </article>
+                <article class="blackjack-side-card">
+                  <h3>Bet Controls</h3>
+                  <label for="slotBetAmount">Bet Per Line</label>
+                  <div class="blackjack-chip-row" aria-label="Slot bet presets" id="slotPresetButtons"></div>
+                  <div class="blackjack-bet-stepper">
+                    <button type="button" data-action="slot-bet-minus">−</button>
+                    <input id="slotBetAmount" type="number" inputmode="numeric" min="1" value="1" />
+                    <button type="button" data-action="slot-bet-plus">+</button>
+                  </div>
+                  <label for="slotBetPreset">Preset</label>
+                  <select id="slotBetPreset">
+                    <option value="">Select preset</option>
+                    <option value="1">$1 x 9 lines</option>
+                    <option value="2">$2 x 9 lines</option>
+                    <option value="5">$5 x 9 lines</option>
+                    <option value="10">$10 x 9 lines</option>
+                    <option value="25">$25 x 9 lines</option>
+                  </select>
+                  <button class="primary-btn w-full" type="button" data-action="slots-spin">Spin</button>
+                  <button class="ghost-btn w-full" type="button" data-action="slots-reset">Clear Machine</button>
+                </article>
+                <article class="blackjack-side-card">
+                  <h3>Game Message</h3>
+                  <div id="slotStatus" class="blackjack-status">Choose a bet per line and spin.</div>
+                </article>
+              </aside>
             </div>
           </article>
         </div>
@@ -448,6 +467,56 @@
             <div class="action-grid">
               <button class="primary-btn" type="button" data-action="craps-roll">Roll Dice</button>
               <button class="ghost-btn" type="button" data-action="craps-reset">Reset Table</button>
+            </div>
+          </article>
+        </div>
+
+        <div id="farkleOnlineArea" class="online-area" hidden>
+          <article class="panel panel-pad premium-farkle-panel">
+            <div class="section-title">
+              <span>&#9861; Farkle Table</span>
+              <span><button class="mini-btn tiny-btn" type="button" data-action="back-online-games">Games</button></span>
+            </div>
+            <div id="farkleBankroll" class="rule-strip"></div>
+            <div class="blackjack-play-layout farkle-play-layout">
+              <div class="farkle-table">
+                <div class="farkle-felt-copy">
+                  <span>Six Dice</span><span>Score Combos</span><span>Beat the House</span>
+                </div>
+                <div id="farkleDice" class="farkle-dice-row"></div>
+                <div class="slot-meter-row farkle-meter-row">
+                  <div><span>Combo</span><strong id="farkleCombo">Ready</strong></div>
+                  <div><span>Score</span><strong id="farkleScore">0</strong></div>
+                  <div><span>Result</span><strong id="farkleNet">$0</strong></div>
+                </div>
+              </div>
+              <aside class="blackjack-side-panel">
+                <article class="blackjack-side-card">
+                  <h3>Bet Controls</h3>
+                  <label for="farkleBetAmount">Bet Amount</label>
+                  <div class="blackjack-bet-stepper">
+                    <button type="button" data-action="farkle-bet-minus">−</button>
+                    <input id="farkleBetAmount" type="number" inputmode="numeric" min="1" value="25" />
+                    <button type="button" data-action="farkle-bet-plus">+</button>
+                  </div>
+                  <button class="primary-btn w-full" type="button" data-action="farkle-roll">Roll Dice</button>
+                  <button class="ghost-btn w-full" type="button" data-action="farkle-reset">Clear Table</button>
+                </article>
+                <article class="blackjack-side-card">
+                  <h3>Scoring</h3>
+                  <div class="blackjack-side-list">
+                    <div><span>Straight 1-6</span><strong>1500</strong></div>
+                    <div><span>Three pairs</span><strong>1500</strong></div>
+                    <div><span>Six of a kind</span><strong>3000</strong></div>
+                    <div><span>Triple 1s / 2-6s</span><strong>1000 / face x100</strong></div>
+                    <div><span>Singles</span><strong>1=100, 5=50</strong></div>
+                  </div>
+                </article>
+                <article class="blackjack-side-card">
+                  <h3>Game Message</h3>
+                  <div id="farkleStatus" class="blackjack-status">Place a bet and roll.</div>
+                </article>
+              </aside>
             </div>
           </article>
         </div>
@@ -564,9 +633,23 @@
               </div>
               <aside class="blackjack-side-panel">
                 <article class="blackjack-side-card">
-                  <h3>Table Controls</h3>
-                  <div class="form-grid compact-form">
-                    <div><label for="multiBjBetAmount">Shared Bet</label><input id="multiBjBetAmount" type="number" inputmode="numeric" min="1" value="5" /></div>
+                  <h3>Game Stats</h3>
+                  <div id="multiBlackjackQuickStats" class="blackjack-side-list"></div>
+                </article>
+                <article class="blackjack-side-card">
+                  <h3>Bet Controls</h3>
+                  <label for="multiBjBetAmount">Shared Bet</label>
+                  <div class="blackjack-chip-row" aria-label="Multiplayer blackjack chip presets">
+                    <button class="casino-chip chip-1" type="button" data-action="set-multi-bet" data-bet="1">1</button>
+                    <button class="casino-chip chip-5" type="button" data-action="set-multi-bet" data-bet="5">5</button>
+                    <button class="casino-chip chip-25" type="button" data-action="set-multi-bet" data-bet="25">25</button>
+                    <button class="casino-chip chip-100" type="button" data-action="set-multi-bet" data-bet="100">100</button>
+                    <button class="casino-chip chip-500" type="button" data-action="set-multi-bet" data-bet="500">500</button>
+                  </div>
+                  <div class="blackjack-bet-stepper">
+                    <button class="mini-btn" type="button" data-action="adjust-multi-bet" data-delta="-5">−</button>
+                    <input id="multiBjBetAmount" type="number" inputmode="numeric" min="1" value="5" />
+                    <button class="mini-btn" type="button" data-action="adjust-multi-bet" data-delta="5">+</button>
                   </div>
                   <div class="action-grid">
                     <button class="primary-btn" type="button" data-action="multi-blackjack-ready">Ready</button>
@@ -575,11 +658,11 @@
                 </article>
                 <article class="blackjack-side-card">
                   <h3>Player Actions</h3>
-                  <div class="action-grid">
+                  <div class="action-grid blackjack-action-grid">
                     <button class="ghost-btn" type="button" data-action="multi-blackjack-hit">Hit</button>
                     <button class="ghost-btn" type="button" data-action="multi-blackjack-stand">Stand</button>
-                    <button class="ghost-btn" type="button" data-action="multi-blackjack-split">Split Pair</button>
-                    <button class="ghost-btn" type="button" data-action="multi-blackjack-double">Double Down</button>
+                    <button class="ghost-btn" type="button" data-action="multi-blackjack-split">Split</button>
+                    <button class="ghost-btn" type="button" data-action="multi-blackjack-double">Double</button>
                   </div>
                 </article>
                 <article class="blackjack-side-card">
@@ -761,6 +844,18 @@
         </header>
         <div id="stockSummaryGrid" class="bank-summary-grid"></div>
         <div id="marketNewsBanner" class="market-news-banner"></div>
+        <div class="stock-filter-bar">
+          <label for="stockNetworkFilter">Network</label>
+          <select id="stockNetworkFilter">
+            <option value="all">All Networks</option>
+            <option value="LCN">LCN</option>
+            <option value="BAWSAQ">BAWSAQ</option>
+          </select>
+          <label for="stockSectorFilter">Sector</label>
+          <select id="stockSectorFilter">
+            <option value="all">All Sectors</option>
+          </select>
+        </div>
         <div class="stock-layout">
           <article class="panel panel-pad">
             <div class="section-title"><span>Market Listings</span><span id="marketClock" class="sync-pill">Market closed</span></div>
@@ -907,6 +1002,7 @@
               <button class="sub-tab" type="button" data-history-filter="poker">Poker</button>
               <button class="sub-tab" type="button" data-history-filter="blackjack">Blackjack</button>
               <button class="sub-tab" type="button" data-history-filter="slots">Slots</button>
+              <button class="sub-tab" type="button" data-history-filter="farkle">Farkle</button>
               <button class="sub-tab" type="button" data-history-filter="craps">Craps</button>
               <button class="sub-tab" type="button" data-history-filter="bank">Bank</button>
               <button class="sub-tab" type="button" data-history-filter="stocks">Stocks</button>
@@ -1212,6 +1308,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=20260630-2"></script>
+  <script type="module" src="js/app.js?v=20260701-1"></script>
 </body>
 </html>

@@ -190,5 +190,29 @@
     "base": 150,
     "volatility": 1.08,
     "network": "BAWSAQ"
+  },
+  {
+    "symbol": "AERO",
+    "name": "Aurelius Aerospace",
+    "sector": "Aerospace",
+    "base": 210,
+    "volatility": 3.25,
+    "network": "BAWSAQ"
+  },
+  {
+    "symbol": "CRUZ",
+    "name": "CruzLux Beverages",
+    "sector": "Consumer",
+    "base": 27,
+    "volatility": 2.15,
+    "network": "LCN"
+  },
+  {
+    "symbol": "SYN",
+    "name": "Synapse Robotics AI",
+    "sector": "Robotics & AI",
+    "base": 138,
+    "volatility": 2.55,
+    "network": "BAWSAQ"
   }
 ]

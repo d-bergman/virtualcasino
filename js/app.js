@@ -34,9 +34,9 @@
     const ASSET_CATALOGS = {garage: VEHICLE_CATALOG, properties: PROPERTY_CATALOG, gemstones: GEMSTONE_CATALOG, airplanes: AIRCRAFT_CATALOG, boats: BOAT_CATALOG};
     const ASSET_CATEGORY_LABELS = {garage:"Garage", properties:"Properties", gemstones:"Gemstones", airplanes:"Airplanes", boats:"Boats"};
     const ASSET_MARKET_TITLES = {garage:"Vehicle Market", properties:"Property Market", gemstones:"Gemstone Exchange", airplanes:"Aircraft Market", boats:"Boat Market"};
-    const DAILY_CHALLENGE_REWARD = 500;
+    const DAILY_CHALLENGE_CONFIG = await loadDailyChallengeConfig();
     const DAILY_CLICKABLES = dailyRewardConfig.activities;
-    const levels = [{level:1,xp:0},{level:2,xp:100},{level:3,xp:250},{level:4,xp:450},{level:5,xp:700},{level:6,xp:1000},{level:7,xp:1400},{level:8,xp:1900},{level:9,xp:2500},{level:10,xp:3200},{level:11,xp:4100},{level:12,xp:5200},{level:13,xp:6500}];
+    const levels = await loadFamilyLevels();
     const standard = {white:10,red:10,blue:8,green:5,black:2};
     const blank = {white:0,red:0,blue:0,green:0,black:0};
     const CHIP_COLORS = ["white", "red", "blue", "green", "black"];
@@ -129,6 +129,16 @@
         betType: "pass",
         betAmount: 5,
         wins: 0
+      };
+    }
+
+    function createEmptyFarkleGame() {
+      return {
+        dice: [1, 1, 1, 1, 1, 1],
+        score: 0,
+        combo: "Ready to roll",
+        message: "Place a bet and roll six dice.",
+        lastNet: 0
       };
     }
 
@@ -347,6 +357,58 @@
       })).filter((item) => item.weight > 0 || item.value === 0);
     }
 
+    async function loadDailyChallengeConfig() {
+      const fallback = {
+        reward:{type:"money", min:1500, max:3500},
+        count:3,
+        challenges:[
+          {id:"blackjack-win-5", title:"Win 5 Blackjack Hands", description:"Beat the dealer five times today.", metric:"blackjackWins", target:5},
+          {id:"slots-spin-10", title:"Spin Any Slots 10 Times", description:"Run any slot machine ten times.", metric:"slotSpins", target:10},
+          {id:"earn-xp-500", title:"Earn 500 XP", description:"Gain 500 XP from games and dailies.", metric:"xpEarned", target:500}
+        ]
+      };
+      try {
+        const response = await fetch("data/daily-challenges.json", {cache:"no-store"});
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const raw = await response.json();
+        const config = {...fallback, ...raw};
+        return {
+          reward:config.reward || fallback.reward,
+          count:Math.max(1, Math.min(6, Number(config.count || fallback.count))),
+          challenges:validateDailyChallenges(config.challenges || fallback.challenges)
+        };
+      } catch (error) {
+        console.warn("Could not load daily challenge config.", error);
+        return fallback;
+      }
+    }
+
+    function validateDailyChallenges(items) {
+      if (!Array.isArray(items)) throw new Error("data/daily-challenges.json challenges must be an array.");
+      return items.map((item, index) => ({
+        id:String(item.id || `challenge-${index}`).trim(),
+        title:String(item.title || "Daily Challenge"),
+        description:String(item.description || ""),
+        metric:String(item.metric || "xpEarned"),
+        target:Math.max(1, Number(item.target || 1))
+      })).filter((item) => item.id);
+    }
+
+    async function loadFamilyLevels() {
+      const fallback = [{level:1,xp:0},{level:2,xp:100},{level:3,xp:250},{level:4,xp:450},{level:5,xp:700},{level:6,xp:1000},{level:7,xp:1400},{level:8,xp:1900},{level:9,xp:2500},{level:10,xp:3200},{level:11,xp:4100},{level:12,xp:5200},{level:13,xp:6500},{level:14,xp:8100},{level:15,xp:10000}];
+      try {
+        const response = await fetch("data/family-levels.json", {cache:"no-store"});
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const items = await response.json();
+        if (!Array.isArray(items)) throw new Error("data/family-levels.json must be an array.");
+        const rows = items.map((row) => ({level:Number(row.level || 1), xp:Number(row.xp || 0)})).filter((row) => row.level > 0).sort((a, b) => a.xp - b.xp);
+        return rows.length ? rows : fallback;
+      } catch (error) {
+        console.warn("Could not load family level table.", error);
+        return fallback;
+      }
+    }
+
     const defaultState = normalize(decodeSave(attachedSaveText));
     let state = normalize(JSON.parse(localStorage.getItem(localKey) || "null") || structuredClone(defaultState));
     let activeView = "overview";
@@ -360,6 +422,8 @@
     let achievementCategory = "all";
     let achievementSearch = "";
     let achievementSort = "unlocked";
+    let stockNetworkFilter = "all";
+    let stockSectorFilter = "all";
     let achievementCheckTimer = null;
     let roomPollTimer = null;
     let activeOnlineGame = "";
@@ -385,6 +449,7 @@
     let soloBlackjack = createEmptyBlackjackGame();
     let slotMachine = createEmptySlotMachine();
     let crapsGame = createEmptyCrapsGame();
+    let farkleGame = createEmptyFarkleGame();
     let localProfile = JSON.parse(localStorage.getItem("virtualCasinoProfileV1") || "null") || {
       email: "local@test",
       displayName: "Champion",
@@ -952,6 +1017,7 @@
       const description = String(item || "Activity");
       const lower = description.toLowerCase();
       const category = lower.includes("slot") ? "Slots"
+        : lower.includes("farkle") ? "Farkle"
         : lower.includes("poker") || lower.includes("hold'em") ? "Poker"
         : lower.includes("blackjack") ? "Blackjack"
         : lower.includes("bank") || lower.includes("loan") || lower.includes("debt") ? "Bank"
@@ -997,6 +1063,7 @@
       const tickets = Math.max(0, Math.round(Number(amount || 0)));
       if (!player || tickets <= 0) return 0;
       player.casinoTickets = Number(player.casinoTickets || 0) + tickets;
+      trackDailyProgress(player.name, "ticketsEarned", tickets);
       addHistoryEvent({
         type:"casino-ticket",
         category:"Dailies",
@@ -1539,7 +1606,7 @@
       $("familyLevel").textContent = fl;
       $("familyXpLabel").textContent = `${fxp.toLocaleString()} / ${nextLevelXP(fxp).toLocaleString()} XP`;
       $("familyXpFill").style.width = `${levelProgress(fxp)}%`;
-      $("familyPrestige").textContent = state.players.reduce((sum, p) => sum + Number(p.stars || 0), 0) || 1;
+      $("familyPrestige").textContent = state.players.reduce((sum, p) => sum + Number(p.stars || 0), 0);
 
       $("crewGrid").innerHTML = ranked.slice(0, 3).map(renderPlayerCard).join("");
       $("allPlayersDetailedBoard").innerHTML = state.players.map(renderDetailedPlayerCard).join("");
@@ -1568,6 +1635,7 @@
       $("pokerOnlineArea").hidden = activeOnlineGame !== "poker" || Boolean(room);
       $("slotsOnlineArea").hidden = activeOnlineGame !== "slots" || Boolean(room);
       $("crapsOnlineArea").hidden = activeOnlineGame !== "craps" || Boolean(room);
+      $("farkleOnlineArea").hidden = activeOnlineGame !== "farkle" || Boolean(room);
       $("blackjackRoomArea").hidden = !(room && room.game === "blackjack");
       $("pokerRoomArea").hidden = !(room && room.game === "poker");
       $("blackjackSoloPanel").classList.toggle("active", blackjackMode === "solo");
@@ -1582,6 +1650,7 @@
         renderActiveRoom();
         renderSlots();
         renderCraps();
+        renderFarkle();
       }
       if (activeView === "dailies") {
         renderDailyRewards();
@@ -1636,6 +1705,7 @@
         Poker:{key:"poker",icon:"&#9824;"},
         Blackjack:{key:"blackjack",icon:"&#9827;"},
         Slots:{key:"slots",icon:"&#127920;"},
+        Farkle:{key:"farkle",icon:"&#9861;"},
         Craps:{key:"craps",icon:"&#127922;"},
         Bank:{key:"bank",icon:"&#9878;"},
         Stocks:{key:"stocks",icon:"&#128200;"},
@@ -2077,13 +2147,36 @@
       ].map(([tone, icon, label, value, note]) => `<article class="bank-summary-card ${tone}"><span class="bank-summary-icon">${icon}</span><div><span>${label}</span><strong>${value}</strong><small>${note}</small></div></article>`).join("");
       if ($("marketNewsBanner")) $("marketNewsBanner").innerHTML = `<span class="market-news-icon">📰</span><div><span>Market News</span><strong>${escapeHtml(market.news?.[0] || "Quiet trading day across LCN and BAWSAQ.")}</strong><small>${isStockBusinessHours() ? "Business hours: heavier swings, stronger sector reactions, faster volatility." : "After hours: lighter liquidity, but shocks can still move a favorite stock."}</small></div>`;
       $("marketClock").textContent = `Next ${marketCountdown(market.nextTick)} • ${isStockBusinessHours() ? "8A-4P CT active" : "after hours"}`;
+      renderStockFilters();
       const currentSymbol = $("stockSymbol")?.value;
       $("stockSymbol").innerHTML = Object.values(market.companies).map((stock) => `<option value="${stock.symbol}">${stock.symbol} - ${escapeHtml(stock.name)} (${money(stock.price)})</option>`).join("");
       if (currentSymbol && market.companies[currentSymbol]) $("stockSymbol").value = currentSymbol;
-      $("stockMarketBoard").innerHTML = Object.values(market.companies).map(renderStockCard).join("");
+      const stocks = filteredStocks();
+      $("stockMarketBoard").innerHTML = stocks.length ? stocks.map(renderStockCard).join("") : `<div class="blackjack-status">No stocks match those filters.</div>`;
       $("portfolioBoard").innerHTML = player ? renderPortfolioRows(player) : `<div class="blackjack-status">Link your profile to trade.</div>`;
       updateTradePreview();
       updateStockCountdownDisplay();
+    }
+
+    function renderStockFilters() {
+      const networkSelect = $("stockNetworkFilter");
+      const sectorSelect = $("stockSectorFilter");
+      if (!networkSelect || !sectorSelect) return;
+      networkSelect.value = stockNetworkFilter;
+      const currentSector = stockSectorFilter;
+      const sectors = [...new Set(Object.values(state.stockMarket?.companies || {}).map((stock) => stock.sector).filter(Boolean))].sort();
+      const sectorHtml = [`<option value="all">All Sectors</option>`, ...sectors.map((sector) => `<option value="${escapeAttr(sector)}">${escapeHtml(sector)}</option>`)].join("");
+      if (sectorSelect.innerHTML !== sectorHtml) sectorSelect.innerHTML = sectorHtml;
+      sectorSelect.value = sectors.includes(currentSector) ? currentSector : "all";
+      stockSectorFilter = sectorSelect.value;
+    }
+
+    function filteredStocks() {
+      return Object.values(state.stockMarket?.companies || {}).filter((stock) => {
+        const networkOk = stockNetworkFilter === "all" || stock.network === stockNetworkFilter;
+        const sectorOk = stockSectorFilter === "all" || stock.sector === stockSectorFilter;
+        return networkOk && sectorOk;
+      });
     }
 
     function updateStockCountdownDisplay() {
@@ -2210,6 +2303,7 @@
       player.portfolioCost = player.portfolioCost || {};
       player.portfolio[symbol] = Number(player.portfolio[symbol] || 0) + shares;
       player.portfolioCost[symbol] = Number(player.portfolioCost[symbol] || 0) + cost;
+      trackDailyProgress(player.name, "stockSharesBought", shares);
       checkStockAchievements(player);
       addHistoryEvent({
         type:"stock-buy",
@@ -2244,6 +2338,8 @@
       }
       adjustPlayerBankroll(player, payout);
       const realizedGain = payout - costSold;
+      trackDailyProgress(player.name, "stockSharesSold", shares);
+      if (realizedGain > 0) trackDailyProgress(player.name, "stockProfit", realizedGain);
       if (realizedGain > 0) unlockAchievement("stock-profit-sale", player.name);
       if (realizedGain >= 1000) unlockAchievement("stock-profit-sale-1000", player.name);
       checkStockAchievements(player);
@@ -2346,8 +2442,9 @@
       const key = todayKey();
       state.daily.challenges[playerName] = state.daily.challenges[playerName] || {};
       if (state.daily.challenges[playerName].date !== key) {
-        state.daily.challenges[playerName] = {date:key, blackjackWins:0, slotSpins:0, xpEarned:0, claimed:false};
+        state.daily.challenges[playerName] = {date:key, blackjackWins:0, blackjackHands:0, slotSpins:0, xpEarned:0, casinoProfit:0, stockSharesBought:0, stockSharesSold:0, stockProfit:0, dailyActivities:0, ticketsEarned:0, crapsRolls:0, farkleRounds:0, slotMachines:{}, claimed:false};
       }
+      state.daily.challenges[playerName].slotMachines = state.daily.challenges[playerName].slotMachines || {};
       return state.daily.challenges[playerName];
     }
 
@@ -2373,6 +2470,37 @@
         .slice(0, Math.min(remainingCount, catalog.length))
         .map((item) => item.activity);
       return ticketBooth ? [ticketBooth, ...selected].slice(0, count) : selected;
+    }
+
+    function activeDailyChallenges() {
+      const catalog = DAILY_CHALLENGE_CONFIG.challenges || [];
+      const count = Math.min(Number(DAILY_CHALLENGE_CONFIG.count || 3), catalog.length);
+      const seed = hashCode(`${todayKey()}-daily-challenges`);
+      return [...catalog]
+        .map((challenge, index) => ({challenge, sort: seededSortValue(seed, index, challenge.id)}))
+        .sort((a, b) => a.sort - b.sort)
+        .slice(0, count)
+        .map((item) => item.challenge);
+    }
+
+    function dailyChallengeProgress(record, challenge) {
+      const target = Math.max(1, Number(challenge.target || 1));
+      let value = 0;
+      if (challenge.metric.startsWith("slotMachine:")) {
+        const key = challenge.metric.split(":")[1] || "";
+        value = Number(record.slotMachines?.[key] || 0);
+      } else {
+        value = Number(record[challenge.metric] || 0);
+      }
+      return {value, target, done:value >= target};
+    }
+
+    function dailyChallengeRewardAmount(playerName = "") {
+      const reward = DAILY_CHALLENGE_CONFIG.reward || {min:1500, max:3500};
+      const min = Number(reward.min || 0);
+      const max = Number(reward.max || reward.min || 0);
+      const roll = seededSortValue(hashCode(`${todayKey()}-${playerName}-daily-reward`), 0, "reward");
+      return Math.round(min + roll * Math.max(0, max - min));
     }
 
     function seededSortValue(seed, index, id) {
@@ -2432,6 +2560,7 @@
       });
       state.daily.wheelHistory.unshift(`${player.name} played ${activity.title}: ${result}.`);
       state.daily.wheelHistory = state.daily.wheelHistory.slice(0, 12);
+      trackDailyProgress(player.name, "dailyActivities", 1);
       save();
       resultToast(activity.title, result);
     }
@@ -2446,12 +2575,18 @@
       const record = dailyRecord(player.name);
       const wheelDone = state.daily.wheel[player.name] === todayKey();
       const scratchDone = state.daily.scratch[player.name] === todayKey();
-      const complete = record.blackjackWins >= 5 && record.slotSpins >= 5 && record.xpEarned >= 200;
+      const challenges = activeDailyChallenges();
+      const complete = challenges.every((challenge) => dailyChallengeProgress(record, challenge).done);
+      const rewardAmount = dailyChallengeRewardAmount(player.name);
       const reset = dailyResetText();
       $("dailyChallengeBoard").innerHTML = `
+        <div class="daily-rotation-note">
+          <span>Daily lineup refreshes in <strong>${reset.countdown}</strong></span>
+          <span>Clickables and challenges rotate from JSON pools.</span>
+        </div>
         <div class="daily-card-grid">
           <button class="daily-card ${complete && !record.claimed ? "ready" : ""}" type="button" data-action="claim-daily-challenge">
-            <span>👑</span><strong>Daily Challenge</strong><small>${record.claimed ? "Claimed" : complete ? `Reward ready: ${money(DAILY_CHALLENGE_REWARD)}` : "Complete all tasks"}</small>
+            <span>👑</span><strong>Daily Challenge</strong><small>${record.claimed ? "Claimed" : complete ? `Reward ready: ${money(rewardAmount)}` : "Complete all tasks"}</small>
           </button>
           <button class="daily-card ${wheelDone ? "cooldown" : "ready"}" type="button" data-action="spin-lucky-wheel">
             <span>🎡</span><strong>Lucky Wheel</strong><small>${wheelDone ? `Cooldown: ${reset.countdown}` : "Ready to spin"}</small>
@@ -2465,9 +2600,10 @@
           ${renderDailyActivityCards(player)}
         </div>
         <div class="leaderboard-list daily-task-list">
-          ${renderListRow("&#9827;", "Win 5 Blackjack Hands", "Daily Challenge", `${Math.min(record.blackjackWins, 5)} / 5`)}
-          ${renderListRow("&#127922;", "Spin Slots 5 Times", "Daily Challenge", `${Math.min(record.slotSpins, 5)} / 5`)}
-          ${renderListRow("XP", "Earn 200 XP", "Daily Challenge", `${Math.min(record.xpEarned, 200)} / 200`)}
+          ${challenges.map((challenge) => {
+            const progress = dailyChallengeProgress(record, challenge);
+            return renderListRow(challenge.icon || "&#9733;", challenge.title, challenge.description || "Daily Challenge", `${Math.min(progress.value, progress.target).toLocaleString()} / ${progress.target.toLocaleString()}`);
+          }).join("")}
         </div>`;
       $("dailyRewardHistory").innerHTML = "";
     }
@@ -2711,6 +2847,17 @@
       const readyEntries = Object.values(seats).filter((seat) => seat.ready && Number(seat.readyBet || 0) > 0);
       const canReady = !["player", "dealer"].includes(table.phase) && Boolean(seats[currentKey]);
       const canStart = isRoomHost(room) && !["player", "dealer"].includes(table.phase) && Object.keys(seats).length > 0 && readyEntries.length === Object.keys(seats).length;
+      const multiStats = $("multiBlackjackQuickStats");
+      if (multiStats) {
+        const totalWager = Object.values(seats).reduce((sum, seat) => sum + Number(seat.readyBet || table.bet || 0), 0);
+        const dealerTotal = table.dealerHand?.length ? handValue(table.dealerHand) : 0;
+        multiStats.innerHTML = `
+          <div><span>Players Seated</span><strong>${Object.keys(seats).length}</strong></div>
+          <div><span>Ready Players</span><strong>${readyEntries.length}</strong></div>
+          <div><span>Round Phase</span><strong>${escapeHtml(table.phase || "waiting")}</strong></div>
+          <div><span>Dealer Total</span><strong>${dealerTotal || "-"}</strong></div>
+          <div><span>Table Wager</span><strong>${money(totalWager)}</strong></div>`;
+      }
       document.querySelectorAll('[data-action="multi-blackjack-ready"]').forEach((button) => button.disabled = !canReady);
       document.querySelectorAll('[data-action="multi-blackjack-deal"]').forEach((button) => button.disabled = !canStart);
       document.querySelectorAll('[data-action="multi-blackjack-hit"]').forEach((button) => button.disabled = !isActive);
@@ -3026,18 +3173,61 @@
       const lineBet = selectedSlotLineBet();
       const totalWager = lineBet * machine.lines.length;
       $("slotsTitle").innerHTML = `&#127922; ${escapeHtml(machine.name)}`;
+      if ($("slotMachineMarquee")) $("slotMachineMarquee").textContent = machine.name;
       $("slotLineText").textContent = `${machine.lines.length} payline${machine.lines.length === 1 ? "" : "s"}`;
       $("slotsBankroll").innerHTML = player
         ? `<span>${escapeHtml(currentDisplayName())}</span><span>Bankroll ${money(bankrollValue(player))}</span><span>Wager ${money(totalWager)} (${money(lineBet)} x ${machine.lines.length})</span>${machine.progressive ? `<span>Mini ${money(state.jackpots.treasureVault.mini)} / Major ${money(state.jackpots.treasureVault.major)} / Grand ${money(state.jackpots.treasureVault.grand)}</span>` : ""}`
         : `<span>Link your profile to play slots.</span>`;
-      $("slotReels").innerHTML = slotMachine.reels.map((reel) => `
+      const winningPositions = slotWinningPositions();
+      $("slotReels").innerHTML = slotMachine.reels.map((reel, reelIndex) => `
         <div class="slot-reel ${slotMachine.spinning ? "spinning" : ""}">
-          ${reel.map((symbolId) => renderSlotSymbol(symbolId)).join("")}
+          ${reel.map((symbolId, rowIndex) => renderSlotSymbol(symbolId, winningPositions.has(`${reelIndex}-${rowIndex}`))).join("")}
         </div>
       `).join("");
+      if ($("slotLastWin")) $("slotLastWin").textContent = money(slotMachine.lastWin || 0);
+      if ($("slotTotalBet")) $("slotTotalBet").textContent = money(totalWager);
+      if ($("slotCredits")) $("slotCredits").textContent = player ? money(bankrollValue(player)) : "$0";
+      if ($("slotMachineHint")) $("slotMachineHint").textContent = `${machine.name} • ${machine.lines.length} line${machine.lines.length === 1 ? "" : "s"}`;
+      if ($("slotStatsPanel")) $("slotStatsPanel").innerHTML = renderSlotStatsPanel();
+      if ($("slotPresetButtons")) $("slotPresetButtons").innerHTML = slotBetPresets(machine).map((amount) => `<button class="chip-btn ${Number($("slotBetAmount")?.value || 0) === amount ? "active" : ""}" type="button" data-slot-preset-button="${amount}">${money(amount)}</button>`).join("");
       $("slotStatus").innerHTML = `${escapeHtml(slotMachine.message)}${slotMachine.lastWin ? ` <strong class="${slotMachine.lastWin >= slotMachine.lastWager ? "money" : "loss"}">Paid ${money(slotMachine.lastWin)}</strong>` : ""}`;
       document.querySelectorAll('[data-action="slots-spin"]').forEach((button) => button.disabled = slotMachine.spinning);
       document.querySelectorAll('[data-action="slots-reset"]').forEach((button) => button.disabled = slotMachine.spinning);
+    }
+
+    function renderSlotStatsPanel() {
+      const stats = state.gameStats.slots || {};
+      const played = Number(stats.played || 0);
+      const wins = Number(stats.wins || 0);
+      const wagered = (state.history || []).filter((event) => event.category === "Slots").reduce((sum, event) => sum + Number(event.details?.wager || 0), 0);
+      const won = (state.history || []).filter((event) => event.category === "Slots").reduce((sum, event) => sum + Number(event.details?.payout || 0), 0);
+      const winRate = played ? wins / played * 100 : 0;
+      const rtp = wagered ? won / wagered * 100 : 0;
+      return [
+        ["Spins Played", played],
+        ["Total Wins", wins],
+        ["Win Rate", `${winRate.toFixed(1)}%`],
+        ["Biggest Win", money(stats.biggest || 0)],
+        ["Total Wagered", money(wagered)],
+        ["Return to Player", `${rtp.toFixed(1)}%`]
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("");
+    }
+
+    function slotWinningPositions() {
+      const positions = new Set();
+      if (slotMachine.spinning) return positions;
+      const machine = currentSlotMachine();
+      (slotMachine.winningLines || []).forEach((win) => {
+        if (typeof win.line === "number") {
+          const line = machine.lines[win.line - 1] || [];
+          line.slice(0, Number(win.count || 0)).forEach((row, reel) => positions.add(`${reel}-${row}`));
+        } else if (win.symbol === "scatter") {
+          slotMachine.reels.forEach((reel, reelIndex) => reel.forEach((symbol, rowIndex) => {
+            if (symbol === "scatter") positions.add(`${reelIndex}-${rowIndex}`);
+          }));
+        }
+      });
+      return positions;
     }
 
     function renderCraps() {
@@ -3065,6 +3255,7 @@
       crapsGame.lastTotal = total;
       crapsGame.betType = betType;
       crapsGame.betAmount = amount;
+      trackDailyProgress(player.name, "crapsRolls", 1);
       let net = 0;
       let settled = true;
       let message = `Rolled ${total}.`;
@@ -3175,6 +3366,98 @@
       toast("Craps table reset.");
     }
 
+    function renderFarkle() {
+      if (!$("farkleDice")) return;
+      const player = currentPlayer();
+      $("farkleBankroll").innerHTML = player
+        ? `<span>${escapeHtml(currentDisplayName())}</span><span>Bankroll ${money(bankrollValue(player))}</span><span>Bet ${money(Number($("farkleBetAmount")?.value || 25))}</span>`
+        : `<span>Link your profile to play Farkle.</span>`;
+      $("farkleDice").innerHTML = (farkleGame.dice || []).map((die) => `<span class="farkle-die">${dieFace(die)}</span>`).join("");
+      $("farkleCombo").textContent = farkleGame.combo || "Ready";
+      $("farkleScore").textContent = Number(farkleGame.score || 0).toLocaleString();
+      $("farkleNet").textContent = signedMoney(farkleGame.lastNet || 0);
+      $("farkleStatus").textContent = farkleGame.message || "Place a bet and roll.";
+    }
+
+    function dieFace(value) {
+      return ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"][Number(value || 1)] || "?";
+    }
+
+    function rollFarkle() {
+      const player = currentPlayer();
+      const bet = Math.max(1, Math.round(Number($("farkleBetAmount")?.value || 0)));
+      if (!player) return toast("Link your profile to play Farkle.");
+      if (bankrollValue(player) < bet) return toast(`You need ${money(bet)} bankroll for that Farkle roll.`);
+      const dice = Array.from({length:6}, () => 1 + Math.floor(Math.random() * 6));
+      const result = scoreFarkleRoll(dice);
+      const multiplier = farklePayoutMultiplier(result.score);
+      const payout = Math.round(bet * multiplier);
+      const net = payout - bet;
+      farkleGame = {dice, score:result.score, combo:result.combo, message:result.score > 0 ? `${result.combo}. Paid ${money(payout)}.` : "Farkle! No scoring dice.", lastNet:net};
+      adjustPlayerBankroll(player, net);
+      if (net !== 0) applyMoneyResult(player, net, "farkle", {silent:true, bankrollAlreadyAdjusted:true});
+      trackDailyProgress(player.name, "farkleRounds", 1);
+      if (net > 0) trackDailyProgress(player.name, "casinoProfit", net);
+      addHistoryEvent({
+        type:net > 0 ? "farkle-win" : net < 0 ? "farkle-loss" : "farkle-push",
+        category:"Farkle",
+        player:player.name,
+        title:net > 0 ? "Farkle Win" : net < 0 ? "Farkle Loss" : "Farkle Push",
+        description:`${player.name} rolled ${dice.join("-")} for ${result.score} points: ${result.combo}.`,
+        amount:net,
+        details:{bet, payout, net, dice, score:result.score, combo:result.combo}
+      });
+      save();
+      resultToast("Farkle Result", signedMoney(net));
+    }
+
+    function scoreFarkleRoll(dice) {
+      const counts = [0,0,0,0,0,0,0];
+      dice.forEach((die) => counts[die] += 1);
+      if ([1,2,3,4,5,6].every((die) => counts[die] === 1)) return {score:1500, combo:"Straight 1-6"};
+      if (counts.filter((count) => count === 2).length === 3) return {score:1500, combo:"Three pairs"};
+      if (counts.some((count) => count === 6)) return {score:3000, combo:"Six of a kind"};
+      if (counts.some((count) => count === 5)) {
+        const face = counts.findIndex((count) => count === 5);
+        const leftover = counts[1] ? 100 : counts[5] ? 50 : 0;
+        return {score:2000 + leftover, combo:`Five ${face}s`};
+      }
+      if (counts.some((count) => count === 4)) {
+        const face = counts.findIndex((count) => count === 4);
+        const leftover = (counts[1] - (face === 1 ? 4 : 0)) * 100 + (counts[5] - (face === 5 ? 4 : 0)) * 50;
+        return {score:1000 + Math.max(0, leftover), combo:`Four ${face}s`};
+      }
+      let score = 0;
+      const comboParts = [];
+      for (let face = 1; face <= 6; face += 1) {
+        if (counts[face] >= 3) {
+          const triple = face === 1 ? 1000 : face * 100;
+          score += triple;
+          counts[face] -= 3;
+          comboParts.push(`Triple ${face}s`);
+        }
+      }
+      if (counts[1] > 0) {
+        score += counts[1] * 100;
+        comboParts.push(`${counts[1]} single 1${counts[1] === 1 ? "" : "s"}`);
+      }
+      if (counts[5] > 0) {
+        score += counts[5] * 50;
+        comboParts.push(`${counts[5]} single 5${counts[5] === 1 ? "" : "s"}`);
+      }
+      return {score, combo:comboParts.join(" + ") || "Farkle"};
+    }
+
+    function farklePayoutMultiplier(score) {
+      if (score <= 0) return 0;
+      if (score >= 3000) return 8;
+      if (score >= 2000) return 5;
+      if (score >= 1500) return 3;
+      if (score >= 1000) return 2;
+      if (score >= 500) return 1.35;
+      return 0.75;
+    }
+
     function slotBetPresets(machine = currentSlotMachine()) {
       const presets = {
         crownLine: [1, 2, 5, 10, 25],
@@ -3196,9 +3479,9 @@
       select.value = options.includes(Number(current)) ? current : "";
     }
 
-    function renderSlotSymbol(symbolId) {
+    function renderSlotSymbol(symbolId, winning = false) {
       const symbol = currentSlotSymbols().find((item) => item.id === symbolId) || slotSymbols.find((item) => item.id === symbolId) || slotSymbols[0];
-      const classes = ["slot-symbol", symbol.wild ? "wild" : "", symbol.scatter ? "scatter" : ""].filter(Boolean).join(" ");
+      const classes = ["slot-symbol", symbol.wild ? "wild" : "", symbol.scatter ? "scatter" : "", winning ? "win" : ""].filter(Boolean).join(" ");
       return `<span class="${classes}" title="${escapeAttr(symbol.label)}">${symbol.display}</span>`;
     }
 
@@ -3340,8 +3623,9 @@
       }
       slotMachine.reels = spinSlotGrid();
       const result = evaluateSlots(slotMachine.reels, lineBet);
+      const machine = currentSlotMachine();
       const net = result.totalWin - wager;
-      if (currentSlotMachine().progressive) {
+      if (machine.progressive) {
         state.jackpots.treasureVault.mini += Math.round(wager * 0.02);
         state.jackpots.treasureVault.major += Math.round(wager * 0.01);
         state.jackpots.treasureVault.grand += Math.round(wager * 0.005);
@@ -3357,6 +3641,8 @@
       if (net !== 0) applyMoneyResult(player, net, "slots", {silent:true, bankrollAlreadyAdjusted:true});
       state.gameStats.slots.played = Number(state.gameStats.slots.played || 0) + 1;
       trackDailyProgress(player.name, "slotSpins", 1);
+      trackDailyProgress(player.name, `slotMachine:${slotMachine.machine}`, 1);
+      if (net > 0) trackDailyProgress(player.name, "casinoProfit", net);
       if (result.totalWin > wager) state.gameStats.slots.wins = Number(state.gameStats.slots.wins || 0) + 1;
       state.gameStats.slots.profit = Number(state.gameStats.slots.profit || 0) + net;
       state.gameStats.slots.biggest = Math.max(Number(state.gameStats.slots.biggest || 0), result.totalWin);
@@ -3366,9 +3652,9 @@
         category:"Slots",
         player:player.name,
         title:net > 0 ? "Slots Win" : "Slots Loss",
-        description:net > 0 ? `${player.name} won ${money(result.totalWin)} from a ${money(wager)} spin.` : `${player.name} spun ${money(wager)} and won ${money(result.totalWin)}.`,
+        description:net > 0 ? `${player.name} won ${money(result.totalWin)} on ${machine.name} from a ${money(wager)} spin.` : `${player.name} spun ${money(wager)} on ${machine.name} and won ${money(result.totalWin)}.`,
         amount:net,
-        details:{wager, payout:result.totalWin, net}
+        details:{machine:slotMachine.machine, machineName:machine.name, wager, payout:result.totalWin, net}
       });
       unlockAchievement("slots-first-spin", player.name);
       if (result.totalWin > 0) unlockAchievement("slots-first-win", player.name);
@@ -3646,6 +3932,7 @@
       adjustPlayerBankroll(player, totalDelta);
       if (totalDelta !== 0) applyMoneyResult(player, totalDelta, "solo blackjack", {silent:true, bankrollAlreadyAdjusted:true});
       state.gameStats.blackjack.played = Number(state.gameStats.blackjack.played || 0) + hands.length;
+      trackDailyProgress(player.name, "blackjackHands", hands.length);
       state.gameStats.blackjack.wins = Number(state.gameStats.blackjack.wins || 0) + wins;
       state.gameStats.blackjack.profit = Number(state.gameStats.blackjack.profit || 0) + totalDelta;
       if (totalDelta > 0) maybeDropCasinoTicket(player, 0.12, "blackjack win");
@@ -4448,6 +4735,7 @@
             details:{roomId:room.id}
           });
           if (seatDelta > 0) addXP(player.name, blackjackXP["Win Hand"], "Online Blackjack: Win Hand", {persist: false, toast: false});
+          trackDailyProgress(player.name, "blackjackHands", multiSeatHands(hand).length || 1);
           multiSeatHands(hand).forEach((playerHand) => {
             if (["Win", "Blackjack"].includes(playerHand.result)) trackDailyProgress(player.name, "blackjackWins", 1);
           });
@@ -4955,12 +5243,18 @@
 
     function isCasinoHouseLossReason(reason = "") {
       const text = String(reason).toLowerCase();
-      return text.includes("blackjack") || text.includes("slots") || text.includes("craps") || text.includes("roulette");
+      return text.includes("blackjack") || text.includes("slots") || text.includes("craps") || text.includes("roulette") || text.includes("farkle");
     }
 
     function trackDailyProgress(playerName, field, amount = 1) {
       if (!playerName) return;
       const record = dailyRecord(playerName);
+      if (String(field).startsWith("slotMachine:")) {
+        const machineId = String(field).split(":")[1] || "unknown";
+        record.slotMachines = record.slotMachines || {};
+        record.slotMachines[machineId] = Number(record.slotMachines[machineId] || 0) + Number(amount || 0);
+        return;
+      }
       record[field] = Number(record[field] || 0) + Number(amount || 0);
     }
 
@@ -4980,13 +5274,25 @@
       if (!player) return toast("Link your profile to claim daily rewards.");
       const record = dailyRecord(player.name);
       if (record.claimed) return toast("Daily challenge already claimed.");
-      if (record.blackjackWins < 5 || record.slotSpins < 5 || record.xpEarned < 200) return toast("Finish all daily challenge tasks first.");
+      const challenges = activeDailyChallenges();
+      const complete = challenges.every((challenge) => dailyChallengeProgress(record, challenge).done);
+      if (!complete) return toast("Finish all daily challenge tasks first.");
       record.claimed = true;
+      const reward = dailyChallengeRewardAmount(player.name);
       unlockAchievement("daily-first-clear", player.name);
-      grantDailyMoney(player, DAILY_CHALLENGE_REWARD, "daily challenge reward");
-      log(`${player.name} claimed the daily challenge for ${money(DAILY_CHALLENGE_REWARD)}.`);
+      grantDailyMoney(player, reward, "daily challenge reward");
+      addHistoryEvent({
+        type:"daily-challenge",
+        category:"Dailies",
+        player:player.name,
+        title:"Daily Challenge Complete",
+        description:`${player.name} completed today's daily challenge set for ${money(reward)}.`,
+        amount:reward,
+        details:{challenges:challenges.map((challenge) => challenge.id)}
+      });
+      log(`${player.name} claimed the daily challenge for ${money(reward)}.`);
       save();
-      resultToast("Daily challenge claimed", `+${money(DAILY_CHALLENGE_REWARD)}`);
+      resultToast("Daily challenge claimed", `+${money(reward)}`);
     }
 
     function spinLuckyWheel() {
@@ -5283,6 +5589,16 @@
         adjustSoloBet(target?.dataset.delta || 0);
         return;
       }
+      if (action === "set-multi-bet") {
+        const input = $("multiBjBetAmount");
+        if (input) input.value = Math.max(1, Math.round(Number(target?.dataset.bet || 5)));
+        return;
+      }
+      if (action === "adjust-multi-bet") {
+        const input = $("multiBjBetAmount");
+        if (input) input.value = Math.max(1, Math.round(Number(input.value || 1) + Number(target?.dataset.delta || 0)));
+        return;
+      }
       if (action === "solo-blackjack-hit") {
         hitSoloBlackjack();
         return;
@@ -5310,6 +5626,14 @@
         spinSlots();
         return;
       }
+      if (action === "slot-bet-minus" || action === "slot-bet-plus") {
+        const input = $("slotBetAmount");
+        const delta = action === "slot-bet-plus" ? 1 : -1;
+        input.value = Math.max(1, Math.round(Number(input.value || 1)) + delta);
+        $("slotBetPreset").value = "";
+        renderSlots();
+        return;
+      }
       if (action === "slots-reset") {
         if (slotMachine.spinning) return toast("Wait for the reels to stop.");
         slotMachine = createEmptySlotMachine();
@@ -5323,6 +5647,30 @@
       }
       if (action === "craps-reset") {
         resetCraps();
+        return;
+      }
+      if (action === "open-online-farkle") {
+        activeOnlineGame = "farkle";
+        activeView = "online";
+        render();
+        setTimeout(() => $("farkleOnlineArea")?.scrollIntoView({behavior: "smooth", block: "start"}), 60);
+        return;
+      }
+      if (action === "farkle-roll") {
+        rollFarkle();
+        return;
+      }
+      if (action === "farkle-reset") {
+        farkleGame = createEmptyFarkleGame();
+        render();
+        toast("Farkle table reset.");
+        return;
+      }
+      if (action === "farkle-bet-minus" || action === "farkle-bet-plus") {
+        const input = $("farkleBetAmount");
+        const step = 25;
+        input.value = Math.max(1, Math.round(Number(input.value || step)) + (action === "farkle-bet-plus" ? step : -step));
+        renderFarkle();
         return;
       }
       if (action === "claim-daily-challenge") {
@@ -5632,6 +5980,36 @@
         addSystemHistory("Wheel Cooldown Reset", `${player.name}'s Lucky Wheel cooldown was reset by admin.`, {player:player.name});
         save();
         toast(`${player.name} can spin the wheel again.`);
+      }
+      if (action === "reset-daily-scratch") {
+        if (!isDarrenAdmin()) return toast("Only Darren can reset scratch-offs.");
+        const player = playerByName($("manualPlayer").value);
+        if (!player) return toast("Choose a player.");
+        delete state.daily.scratch[player.name];
+        addSystemHistory("Scratch-Off Cooldown Reset", `${player.name}'s Scratch-Off cooldown was reset by admin.`, {player:player.name});
+        save();
+        toast(`${player.name} can scratch again.`);
+      }
+      if (action === "reset-daily-clickables") {
+        if (!isDarrenAdmin()) return toast("Only Darren can reset daily clickables.");
+        const player = playerByName($("manualPlayer").value);
+        if (!player) return toast("Choose a player.");
+        delete state.daily.activities[player.name];
+        addSystemHistory("Daily Clickables Reset", `${player.name}'s rotating daily clickables were reset by admin.`, {player:player.name});
+        save();
+        toast(`${player.name}'s clickables are ready again.`);
+      }
+      if (action === "reset-daily-all") {
+        if (!isDarrenAdmin()) return toast("Only Darren can reset dailies.");
+        const player = playerByName($("manualPlayer").value);
+        if (!player) return toast("Choose a player.");
+        delete state.daily.wheel[player.name];
+        delete state.daily.scratch[player.name];
+        delete state.daily.activities[player.name];
+        delete state.daily.challenges[player.name];
+        addSystemHistory("All Dailies Reset", `${player.name}'s daily wheel, scratch-off, clickables, and challenges were reset by admin.`, {player:player.name});
+        save();
+        toast(`${player.name}'s full daily set was reset.`);
       }
       if (action === "settle-local-blackjack") {
         return toast("Use the Local Session Settlement Desk for blackjack settlements.");
@@ -6232,6 +6610,12 @@
         render();
         setTimeout(() => $("slotsOnlineArea")?.scrollIntoView({behavior: "smooth", block: "start"}), 60);
       }
+      const slotPresetButton = event.target.closest("[data-slot-preset-button]");
+      if (slotPresetButton) {
+        $("slotBetAmount").value = slotPresetButton.dataset.slotPresetButton;
+        $("slotBetPreset").value = "";
+        renderSlots();
+      }
     });
 
     els.signInForm.addEventListener("submit", (event) => {
@@ -6300,6 +6684,14 @@
     $("slotBetAmount").addEventListener("input", renderSlots);
     $("stockSymbol")?.addEventListener("change", updateTradePreview);
     $("stockShares")?.addEventListener("input", updateTradePreview);
+    $("stockNetworkFilter")?.addEventListener("change", () => {
+      stockNetworkFilter = $("stockNetworkFilter").value || "all";
+      renderStockMarket();
+    });
+    $("stockSectorFilter")?.addEventListener("change", () => {
+      stockSectorFilter = $("stockSectorFilter").value || "all";
+      renderStockMarket();
+    });
     $("historyLimit")?.addEventListener("change", () => {
       activityHistoryLimit = Number($("historyLimit").value || 10);
       renderHistoryBoard();
