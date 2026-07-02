@@ -585,6 +585,7 @@
     ];
 
     const MARKET_CAP_MODIFIERS = {Nano:1.4, Small:1.2, Mid:1, Large:.85, Mega:.7};
+    const MARKET_CAP_TICK_LIMITS = {Nano:42, Small:34, Mid:26, Large:20, Mega:16};
 
     const defaultState = normalize(decodeSave(attachedSaveText));
     let state = normalize(JSON.parse(localStorage.getItem(localKey) || "null") || structuredClone(defaultState));
@@ -730,6 +731,7 @@
           funds: player.funds && typeof player.funds === "object" && !Array.isArray(player.funds) ? player.funds : {},
           fundCost: player.fundCost && typeof player.fundCost === "object" && !Array.isArray(player.fundCost) ? player.fundCost : {},
           stockWatchlist: Array.isArray(player.stockWatchlist) ? player.stockWatchlist.map((symbol) => String(symbol).toUpperCase()).filter(Boolean) : [],
+          stockWatchlistUpdatedAt: Number(player.stockWatchlistUpdatedAt || 0),
           ownedAssets: Array.isArray(player.ownedAssets) ? player.ownedAssets : [],
           sessionBuyIn: Number(player.sessionBuyIn || player.sessionStart || 0),
           localStats: {
@@ -1106,10 +1108,12 @@
         const stockMoon = Math.random() < Number(company.moonChance || 0) ? 12 + Math.random() * 38 : 0;
         const stockCrash = Math.random() < Number(company.crashChance || 0) ? -(12 + Math.random() * 38) : 0;
         const shock = company.symbol === eventCompany.symbol ? eventDirection * randomRange(newsEvent.companyMove || [3, 15]) * Number(newsEvent.companyImpact || 1) : 0;
-        const drift = (Math.random() - 0.47) * Number(company.volatility || 1) * 2.05;
+        const drift = (Math.random() - 0.47) * 2.05;
         const pullToBase = ((Number(company.base || company.price) - Number(company.price || company.base)) / Math.max(1, Number(company.price || 1))) * 0.48;
         const multiplier = openHours ? 2.15 : 1.08;
-        const percent = Math.max(-65, Math.min(65, (((drift + shock + sectorMood + networkMood + pullToBase + phaseDrift) * Number(company.volatility || 1) * capModifier * phaseVolatility) * multiplier * Number(newsEvent.marketImpact || 1)) + rareCatalyst + stockMoon + stockCrash));
+        const routinePercent = (((drift + shock + sectorMood + networkMood + pullToBase + phaseDrift) * Number(company.volatility || 1) * capModifier * phaseVolatility) * multiplier * Number(newsEvent.marketImpact || 1));
+        const routineLimit = MARKET_CAP_TICK_LIMITS[company.marketCap] || 26;
+        const percent = Math.max(-65, Math.min(65, Math.max(-routineLimit, Math.min(routineLimit, routinePercent)) + rareCatalyst + stockMoon + stockCrash));
         company.previous = Number(company.price || company.base);
         company.price = Number(Math.max(1, company.previous * (1 + percent / 100)).toFixed(2));
         company.trend = Number(((company.price - company.previous) / company.previous * 100).toFixed(2));
@@ -1701,6 +1705,32 @@
       return incomingAt > 0 && localAt > 0 && incomingAt > localAt;
     }
 
+    function hasNewerLocalPlayerPreferences(incoming, local = state) {
+      const incomingPlayers = new Map((incoming?.players || []).map((player) => [player.id || player.name, player]));
+      return (local?.players || []).some((player) => {
+        const key = player.id || player.name;
+        const incomingPlayer = incomingPlayers.get(key);
+        return Number(player.stockWatchlistUpdatedAt || 0) > Number(incomingPlayer?.stockWatchlistUpdatedAt || 0);
+      });
+    }
+
+    function mergeLocalPlayerPreferences(incoming, local = state) {
+      if (!incoming?.players?.length || !local?.players?.length) return incoming;
+      const localPlayers = new Map(local.players.map((player) => [player.id || player.name, player]));
+      incoming.players = incoming.players.map((player) => {
+        const localPlayer = localPlayers.get(player.id || player.name);
+        if (localPlayer && Number(localPlayer.stockWatchlistUpdatedAt || 0) > Number(player.stockWatchlistUpdatedAt || 0)) {
+          return {
+            ...player,
+            stockWatchlist:Array.isArray(localPlayer.stockWatchlist) ? localPlayer.stockWatchlist.slice() : [],
+            stockWatchlistUpdatedAt:Number(localPlayer.stockWatchlistUpdatedAt || 0)
+          };
+        }
+        return player;
+      });
+      return incoming;
+    }
+
     function save({cloud = true} = {}) {
       state.updatedAt = Date.now();
       state = normalize(state);
@@ -1758,7 +1788,7 @@
           const stateRef = dbRef(firebaseState.db, `${databasePath}/state`);
           const latest = await get(stateRef).catch(() => null);
           const latestValue = latest?.val?.();
-          if (isIncomingSnapshotNewer(latestValue, state)) {
+          if (isIncomingSnapshotNewer(latestValue, state) && !hasNewerLocalPlayerPreferences(latestValue, state)) {
             setSync("Newer cloud state exists; local write skipped", false);
             return;
           }
@@ -2838,15 +2868,23 @@
       const trendClass = Number(stock.trend || 0) >= 0 ? "money" : "loss";
       const movement = Number(stock.price || 0) - Number(stock.previous || stock.price || 0);
       const watched = currentPlayer()?.stockWatchlist?.includes(stock.symbol);
+      const tags = (stock.tags || []).slice(0, 3).join(" • ") || "Market";
       return `<article class="market-card ${trendClass === "money" ? "stock-up" : "stock-down"}">
-        <div><strong>${escapeHtml(stock.symbol)} • ${escapeHtml(stock.network || "LCN")}</strong><span>${escapeHtml(stock.sector)}</span></div>
+        <div class="market-card-top"><strong>${escapeHtml(stock.symbol)} • ${escapeHtml(stock.network || "LCN")}</strong><span>${escapeHtml(stock.sector)} <button class="stock-info-btn" type="button" aria-label="${escapeAttr(stock.name)} stock details">i</button></span></div>
         <h3>${escapeHtml(stock.name)}</h3>
         <div class="market-price">${money(stock.price)}</div>
         <p class="${trendClass}">${Number(stock.trend || 0) >= 0 ? "+" : ""}${Number(stock.trend || 0).toFixed(2)}% (${signedMoney(movement)})</p>
-        <div class="stock-range"><span>Risk ${escapeHtml(stock.riskTier || "Balanced")}</span><span>Cap ${escapeHtml(stock.marketCap || "Mid")}</span></div>
-        <div class="stock-range"><span>Dividend ${(Number(stock.dividendYield || 0) * 100).toFixed(1)}%</span><span>${escapeHtml((stock.tags || []).slice(0, 2).join(" • ") || "Market")}</span></div>
         <div class="stock-range"><span>Low ${money(stock.recordedLow || stock.price)}</span><span>High ${money(stock.recordedHigh || stock.price)}</span></div>
-        <button class="mini-btn stock-watch-btn ${watched ? "active" : ""}" type="button" data-action="toggle-stock-watch" data-stock-symbol="${escapeAttr(stock.symbol)}">${watched ? "★ Watched" : "☆ Watch"}</button>
+        <button class="mini-btn stock-watch-btn ${watched ? "active" : ""}" type="button" data-action="toggle-stock-watch" data-stock-symbol="${escapeAttr(stock.symbol)}">${watched ? "★" : "☆"} Watch</button>
+        <div class="stock-info-popover" role="tooltip">
+          <strong>${escapeHtml(stock.name)} Details</strong>
+          <span>Risk: ${escapeHtml(stock.riskTier || "Balanced")}</span>
+          <span>Market Cap: ${escapeHtml(stock.marketCap || "Mid")}</span>
+          <span>Dividend: ${(Number(stock.dividendYield || 0) * 100).toFixed(1)}%</span>
+          <span>Moon Chance: ${(Number(stock.moonChance || 0) * 100).toFixed(1)}%</span>
+          <span>Crash Chance: ${(Number(stock.crashChance || 0) * 100).toFixed(1)}%</span>
+          <span>Tags: ${escapeHtml(tags)}</span>
+        </div>
         ${stock.event ? `<small>${escapeHtml(stock.event)}</small>` : ""}
       </article>`;
     }
@@ -2986,7 +3024,7 @@
             const status = order.executedAt ? `Executed @ ${money(order.executionPrice)}` : order.enabled ? "Watching market" : "Cancelled";
             return `<article class="history-event limit-order-row">
               <div><strong>${escapeHtml(order.type === "buy" ? "Auto Buy" : "Auto Sell")} ${Number(order.shares || 0).toLocaleString()} ${escapeHtml(order.symbol)}</strong><span>${escapeHtml(status)} • Target ${money(order.targetPrice)} • Current ${money(stock?.price || 0)}</span></div>
-              ${order.enabled && !order.executedAt ? `<button class="mini-btn danger-mini" type="button" data-action="cancel-limit-order" data-order-id="${escapeAttr(order.id)}">Cancel</button>` : ""}
+              <div class="limit-order-actions">${order.enabled && !order.executedAt ? `<button class="mini-btn" type="button" data-action="load-limit-order" data-order-id="${escapeAttr(order.id)}">Edit</button>` : ""}<button class="mini-btn danger-mini" type="button" data-action="delete-limit-order" data-order-id="${escapeAttr(order.id)}">${order.enabled && !order.executedAt ? "Delete" : "Clear"}</button></div>
             </article>`;
           }).join("")
           : `<div class="blackjack-status">No limit orders yet.</div>`
@@ -3032,21 +3070,33 @@
 
     function cancelLimitOrder(orderId) {
       const player = currentPlayer();
-      const order = (state.stockMarket?.limitOrders || []).find((item) => item.id === orderId);
+      const orders = state.stockMarket?.limitOrders || [];
+      const order = orders.find((item) => item.id === orderId);
       if (!player || !order || (order.playerId !== player.id && order.playerName !== player.name)) return toast("That limit order is not yours.");
-      order.enabled = false;
-      order.cancelledAt = Date.now();
+      state.stockMarket.limitOrders = orders.filter((item) => item.id !== orderId);
       addHistoryEvent({
-        type:"stock-limit-order-cancelled",
+        type:"stock-limit-order-deleted",
         category:"Stocks",
         player:player.name,
-        title:"Limit Order Cancelled",
-        description:`${player.name} cancelled a ${order.symbol} ${order.type} limit order.`,
+        title:"Limit Order Deleted",
+        description:`${player.name} deleted a ${order.symbol} ${order.type} limit order.`,
         amount:0,
         details:{symbol:order.symbol, type:order.type, shares:order.shares, targetPrice:order.targetPrice}
       });
       saveFast(renderStockMarket);
-      toast("Limit order cancelled.");
+      toast("Limit order deleted.");
+    }
+
+    function loadLimitOrder(orderId) {
+      const player = currentPlayer();
+      const order = (state.stockMarket?.limitOrders || []).find((item) => item.id === orderId);
+      if (!player || !order || (order.playerId !== player.id && order.playerName !== player.name)) return toast("That limit order is not yours.");
+      if ($("limitOrderSymbol")) $("limitOrderSymbol").value = order.symbol;
+      if ($("limitOrderType")) $("limitOrderType").value = order.type === "sell" ? "sell" : "buy";
+      if ($("limitOrderShares")) $("limitOrderShares").value = String(Math.max(1, Math.round(Number(order.shares || 1))));
+      if ($("limitOrderPrice")) $("limitOrderPrice").value = String(Number(order.targetPrice || 0));
+      cancelLimitOrder(orderId);
+      toast("Order loaded for editing. Adjust it and create a new one.");
     }
 
     function toggleStockWatch(symbol) {
@@ -3061,6 +3111,7 @@
         player.stockWatchlist.push(symbol);
         toast(`${symbol} added to watchlist.`);
       }
+      player.stockWatchlistUpdatedAt = Date.now();
       saveFast(renderStockMarket);
     }
 
@@ -6671,6 +6722,14 @@
         cancelLimitOrder(target?.dataset.orderId || "");
         return;
       }
+      if (action === "delete-limit-order") {
+        cancelLimitOrder(target?.dataset.orderId || "");
+        return;
+      }
+      if (action === "load-limit-order") {
+        loadLimitOrder(target?.dataset.orderId || "");
+        return;
+      }
       if (action === "buy-stock-fund") {
         buyStockFund(target?.dataset.fundId || "");
         return;
@@ -7111,7 +7170,7 @@
         const name = $("newPlayerName").value.trim();
         if (!name) return toast("Enter a player name.");
         if (state.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) return toast("That player already exists.");
-        state.players.push({name, xp:0, stars:0, totalXpEarned:0, chips:{...blank}, bankroll:0, lifetime:0, bankBalance:0, bankDebt:0, casinoTickets:0, goldBars:0, portfolio:{}, portfolioCost:{}, funds:{}, fundCost:{}, stockWatchlist:[], ownedAssets:[], sessionBuyIn:0, gamesPlayed:0});
+        state.players.push({name, xp:0, stars:0, totalXpEarned:0, chips:{...blank}, bankroll:0, lifetime:0, bankBalance:0, bankDebt:0, casinoTickets:0, goldBars:0, portfolio:{}, portfolioCost:{}, funds:{}, fundCost:{}, stockWatchlist:[], stockWatchlistUpdatedAt:0, ownedAssets:[], sessionBuyIn:0, gamesPlayed:0});
         $("newPlayerName").value = "";
         addSystemHistory("Player Created", `${name} was created by admin.`, {player:name});
         save();
@@ -7641,7 +7700,7 @@
       if (firebaseState.roomsUnsubscribe) firebaseState.roomsUnsubscribe();
       firebaseState.unsubscribe = onValue(stateRef, (snap) => {
         if (!snap.exists()) return;
-        const incoming = normalize(snap.val());
+        const incoming = normalize(mergeLocalPlayerPreferences(snap.val(), state));
         const canApplyInitialCloud = !realtimeSnapshotApplied && !hadLocalSaveAtBoot;
         if (!canApplyInitialCloud && isIncomingSnapshotOlder(incoming, state)) {
           setSync("Ignored older cloud snapshot", true);

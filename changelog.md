@@ -1,5 +1,15 @@
 # Virtual Casino Changelog
 
+## V1.4.2 - 2026-07-02 - Stock Card Cleanup and Watchlist Hotfix
+
+### Stocks
+- Reduced stock card clutter by moving risk, market cap, dividend, moon/crash chance, and tags into a hover/click info popover.
+- Shrunk the Watch button and kept only low/high ranges on the main card body.
+- Added per-player watchlist timestamps and cloud merge protection so watched stocks do not reset after sync.
+- Added Delete/Clear and Edit-load controls for limit orders.
+- Tightened Limit Orders and Sector Funds side-panel alignment.
+- Audited and tuned stock movement math to avoid double-volatility scaling while keeping rare spikes possible.
+
 ## V1.4.1 - 2026-07-02 - Loader Hotfix
 
 ### Hotfix

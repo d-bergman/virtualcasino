@@ -2982,13 +2982,22 @@
         radial-gradient(circle at top right, rgba(255,216,107,.12), transparent 34%);
     }
 
-    .market-card > div:first-child {
+    .market-card > div:first-child,
+    .market-card-top {
       display: flex;
       justify-content: space-between;
       gap: 10px;
       color: var(--gold);
       font-size: .78rem;
       text-transform: uppercase;
+    }
+
+    .market-card-top span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      text-align: right;
     }
 
     .market-card h3,
@@ -3031,11 +3040,64 @@
 
     .trade-actions { margin-top: 12px; }
 
+    .stock-info-btn {
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      border: 1px solid rgba(255,216,107,.32);
+      border-radius: 50%;
+      color: var(--gold);
+      background: rgba(0,0,0,.3);
+      font-size: .7rem;
+      font-weight: 950;
+      line-height: 1;
+    }
+
+    .stock-info-popover {
+      position: absolute;
+      z-index: 4;
+      top: 40px;
+      right: 12px;
+      display: none;
+      width: min(230px, calc(100% - 24px));
+      border: 1px solid rgba(255,216,107,.26);
+      border-radius: 12px;
+      padding: 10px 11px;
+      background:
+        radial-gradient(circle at 100% 0%, rgba(255,216,107,.16), transparent 36%),
+        rgba(7,6,11,.96);
+      box-shadow: 0 18px 42px rgba(0,0,0,.42);
+    }
+
+    .stock-info-popover strong,
+    .stock-info-popover span {
+      display: block;
+      color: var(--muted);
+      font-size: .75rem;
+      line-height: 1.35;
+      text-transform: none;
+    }
+
+    .stock-info-popover strong {
+      color: var(--gold);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .market-card:focus-within .stock-info-popover,
+    .market-card:hover .stock-info-popover {
+      display: block;
+    }
+
     .stock-watch-btn {
       width: fit-content;
-      min-height: 30px;
+      min-height: 24px;
       margin-top: 2px;
-      padding: 6px 10px;
+      padding: 4px 8px;
+      font-size: .72rem;
+      line-height: 1;
     }
 
     .stock-watch-btn.active,
@@ -3057,6 +3119,18 @@
         rgba(0,0,0,.18);
     }
 
+    .stock-fund-row,
+    .history-event.stock-fund-row {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: stretch;
+    }
+
+    .limit-order-row > div:first-child,
+    .stock-fund-row > div:first-child {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
     .limit-order-row span,
     .stock-fund-row span,
     .stock-fund-row small {
@@ -3066,9 +3140,24 @@
       line-height: 1.35;
     }
 
-    .fund-actions {
+    .limit-order-actions {
       display: grid;
       gap: 6px;
+      min-width: 64px;
+    }
+
+    .fund-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+      gap: 6px;
+      justify-items: stretch;
+    }
+
+    .fund-actions .mini-btn,
+    .limit-order-actions .mini-btn {
+      min-height: 30px;
+      padding: 5px 8px;
+      white-space: nowrap;
     }
 
     .asset-card {
