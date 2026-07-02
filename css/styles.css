@@ -820,10 +820,12 @@
       grid-template-columns: minmax(0, 1fr) minmax(270px, 320px);
       gap: 14px;
       align-items: start;
+      max-width: 100%;
     }
 
     .blackjack-table-column {
       min-width: 0;
+      max-width: 100%;
     }
 
     .blackjack-table {
@@ -835,6 +837,7 @@
     .premium-blackjack-table {
       position: relative;
       min-height: clamp(520px, 58vw, 780px);
+      max-width: 100%;
       overflow: hidden;
       border: 1px solid rgba(255,216,107,.22);
       border-radius: 14px;
@@ -888,6 +891,7 @@
 
     .multiplayer-blackjack-layout {
       margin-top: 16px;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
       grid-template-areas:
         "table side"
         "actions side";
@@ -1349,6 +1353,7 @@
       text-align: left;
       backdrop-filter: blur(2px);
       min-width: 0;
+      overflow: hidden;
     }
 
     .multi-blackjack-seat.active-room-hand {
@@ -3112,18 +3117,53 @@
     }
     #playerAdminBoard,
     #linkageAdminBoard {
-      max-height: 520px;
-      overflow: auto;
+      max-height: min(70vh, 760px);
+      overflow-y: auto;
+      overflow-x: hidden;
       padding-right: 6px;
     }
     #linkageAdminBoard {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .admin-manual-panel {
+      position: relative;
+      overflow: hidden;
+    }
+    .admin-manual-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(255,216,107,.14), transparent 30%),
+        radial-gradient(circle at 86% 18%, rgba(164,67,255,.16), transparent 28%);
+      pointer-events: none;
+    }
+    .admin-manual-panel > * {
+      position: relative;
+      z-index: 1;
+    }
+    .admin-manual-panel .form-grid {
+      padding: 14px;
+      border: 1px solid rgba(255,216,107,.16);
+      border-radius: 16px;
+      background: rgba(0,0,0,.18);
+    }
+    .admin-manual-panel .action-grid {
+      margin-top: 14px;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(255,255,255,.045), rgba(117,24,207,.10));
     }
     .linkage-row {
       grid-template-columns: auto minmax(0, 1fr);
       align-items: stretch;
+      border-color: rgba(255,216,107,.18);
+      background:
+        radial-gradient(circle at 0% 0%, rgba(255,216,107,.12), transparent 45%),
+        linear-gradient(145deg, rgba(255,255,255,.06), rgba(255,255,255,.025));
     }
     .linkage-row > div {
       min-width: 0;
@@ -3177,6 +3217,40 @@
     .history-amount.loss { color: var(--red); background: rgba(255,77,77,.1); }
     .history-amount.xp { color: #c88cff; background: rgba(170,80,255,.12); }
     .history-amount.achievement { color: var(--gold); background: rgba(255,216,107,.12); }
+
+    .global-chat-dock {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 55;
+      width: min(380px, calc(100vw - 28px));
+      border: 1px solid rgba(255,216,107,.28);
+      border-radius: 16px;
+      overflow: hidden;
+      background: rgba(8,6,14,.94);
+      box-shadow: 0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
+      backdrop-filter: blur(16px);
+    }
+    .global-chat-toggle {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 0;
+      padding: 12px 14px;
+      color: var(--gold);
+      background: linear-gradient(90deg, rgba(117,24,207,.55), rgba(159,108,22,.55));
+      font-weight: 950;
+      cursor: pointer;
+    }
+    .global-chat-panel { display: grid; gap: 10px; padding: 12px; }
+    .global-chat-dock.collapsed .global-chat-panel { display: none; }
+    .global-chat-messages { display: grid; gap: 8px; max-height: 280px; overflow: auto; padding-right: 4px; }
+    .chat-message { border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 9px 10px; background: rgba(255,255,255,.04); }
+    .chat-message header { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 4px; color: var(--gold); font-size: .75rem; font-weight: 900; }
+    .chat-message p { margin: 0; color: var(--text); line-height: 1.35; overflow-wrap: anywhere; }
+    .global-chat-compose { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+    .global-chat-panel small { color: var(--muted); }
 
     .achievement-summary { display: grid; grid-template-columns: auto 1fr; gap: 14px; margin-bottom: 14px; }
     .achievement-completion { display: grid; place-items: center; min-width: 160px; border: 1px solid rgba(255,216,107,.24); border-radius: 10px; padding: 16px; background: rgba(255,216,107,.06); }
@@ -3277,14 +3351,23 @@
       }
       .blackjack-side-panel { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .multiplayer-action-row { grid-template-columns: repeat(2, minmax(110px, 1fr)); }
+      .multiplayer-premium-table { min-height: clamp(480px, 66vw, 620px); }
+      .multiplayer-premium-table .playing-card {
+        width: 44px;
+        height: 64px;
+        font-size: .92rem;
+        border-radius: 8px;
+      }
       .multi-blackjack-seat-grid,
       .multi-blackjack-seat-grid.count-2,
-      .multi-blackjack-seat-grid.count-3 { grid-template-columns: 1fr; }
+      .multi-blackjack-seat-grid.count-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
       .multi-blackjack-seat-grid.count-2 .seat-1,
       .multi-blackjack-seat-grid.count-2 .seat-2,
       .multi-blackjack-seat-grid.count-3 .seat-1,
       .multi-blackjack-seat-grid.count-3 .seat-2,
       .multi-blackjack-seat-grid.count-3 .seat-3 { grid-column: auto; }
+      .multi-blackjack-seat { min-height: 120px; padding: 10px; }
+      .multi-blackjack-seat .blackjack-hand { margin-top: 4px; }
     }
 
     @media (min-width: 1181px) and (max-width: 1450px) {
@@ -3379,6 +3462,11 @@
       .blackjack-side-panel { grid-template-columns: 1fr; }
       .blackjack-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .premium-blackjack-table { min-height: 560px; }
+      .multiplayer-premium-table { min-height: 520px; }
+      .multi-blackjack-seat-grid,
+      .multi-blackjack-seat-grid.count-2,
+      .multi-blackjack-seat-grid.count-3 { grid-template-columns: 1fr; }
+      .multi-blackjack-seat { grid-template-columns: auto minmax(0, 1fr); min-height: 106px; }
       .transfer-route { grid-template-columns: 1fr; }
       .transfer-arrow { transform: rotate(90deg); justify-self: center; padding: 0; }
       .achievement-quick-stats { grid-template-columns: 1fr; }
@@ -3398,5 +3486,12 @@
       .leaderboard-money { grid-template-columns: 1fr; }
       .wealth-row { grid-template-columns: 24px 68px minmax(60px, 1fr) auto; }
       .side-stack { gap: 14px; }
+      .global-chat-dock {
+        left: 12px;
+        right: 12px;
+        bottom: 86px;
+        width: auto;
+      }
+      .global-chat-messages { max-height: 48vh; }
       .toast { right: 16px; bottom: 92px; }
     }

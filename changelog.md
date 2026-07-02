@@ -1,5 +1,33 @@
 # Virtual Casino Changelog
 
+## V1.3.0 - 2026-07-02 - Chat, Achievement Validation, and Daily/Market Expansion
+
+### Blackjack
+- Tightened multiplayer blackjack responsiveness for smaller panes with compact in-table seats/cards and stronger overflow containment.
+- Added the multiplayer blackjack bankroll/debt/ticket strip so the room view mirrors the solo blackjack player status better.
+
+### Dailies and Tickets
+- Restored Ticket Booth as a permanent daily card outside the rotating clickable pool.
+- Ticket Booth now rolls 0-10 Casino Tickets every reset instead of being part of the five rotating activities.
+- Added wheel/scratch ticket quality-of-life controls for using one more ticket or spending all available tickets without repeatedly closing modals.
+
+### Chat
+- Added a global public chat dock with expandable/collapsible desktop and mobile-friendly layouts.
+- Chat messages show display name and timestamp, save with the app state, and are pruned after 72 hours.
+
+### Achievements
+- Added admin achievement validation for a selected player to backfill missed unlocks after manual bankroll/local-session changes.
+- Expanded achievements with new wealth, stock market, asset, daily, and slot milestones.
+- Updated achievement unlock storage/display to support per-player achievements while still tolerating legacy global unlocks.
+
+### Stocks
+- Moved market news into `data/market-news.json` with 40 editable event templates.
+- Market news events now apply company, sector, and network impact multipliers during stock pulses.
+
+### Admin
+- Polished the Manual Level / XP admin panel and improved Account Linkage card containment for long account lists.
+- Bumped cache versions for app and style refresh.
+
 ## V1.2.0 - 2026-07-01 - Blackjack Layout Fixes, Audio, and Share Transfers
 
 ### Blackjack

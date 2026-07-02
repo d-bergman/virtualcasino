@@ -25,6 +25,7 @@
     const STOCK_TICK_MIN_MS = 30 * 1000;
     const STOCK_TICK_MAX_MS = 45 * 1000;
     const STOCK_COMPANIES = await loadStockCompanies();
+    const MARKET_NEWS_EVENTS = await loadMarketNewsEvents();
     const loadedAssetCatalogs = await loadAssetCatalogs();
     const VEHICLE_CATALOG = loadedAssetCatalogs.garage;
     const AIRCRAFT_CATALOG = loadedAssetCatalogs.airplanes;
@@ -340,6 +341,43 @@
       });
     }
 
+    async function loadMarketNewsEvents() {
+      const fallback = [
+        {id:"generic-buying", direction:"positive", headline:"{network} / {company} moved on buying pressure during {session}.", companyImpact:1, sectorImpact:1, networkImpact:1},
+        {id:"generic-selling", direction:"negative", headline:"{network} / {company} moved on selloff pressure during {session}.", companyImpact:1, sectorImpact:1, networkImpact:1}
+      ];
+      try {
+        const response = await fetch("data/market-news.json", {cache:"no-store"});
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const items = await response.json();
+        return validateMarketNewsEvents(items);
+      } catch (error) {
+        console.warn("Could not load market news events.", error);
+        return fallback;
+      }
+    }
+
+    function validateMarketNewsEvents(items) {
+      if (!Array.isArray(items)) throw new Error("data/market-news.json must be an array.");
+      const seen = new Set();
+      return items.map((item, index) => {
+        const id = String(item.id || `market-news-${index}`).trim();
+        if (!id || seen.has(id)) throw new Error(`data/market-news.json has an invalid or duplicate id: ${id}.`);
+        seen.add(id);
+        return {
+          id,
+          direction:["positive", "negative", "mixed"].includes(String(item.direction || "").toLowerCase()) ? String(item.direction).toLowerCase() : "mixed",
+          network:String(item.network || "").toUpperCase(),
+          sector:String(item.sector || ""),
+          headline:String(item.headline || "{network} / {company} moved during {session}."),
+          companyImpact:Math.max(0.25, Number(item.companyImpact || 1)),
+          sectorImpact:Math.max(0.25, Number(item.sectorImpact || 1)),
+          networkImpact:Math.max(0.25, Number(item.networkImpact || 1)),
+          marketImpact:Math.max(0.25, Number(item.marketImpact || 1))
+        };
+      });
+    }
+
     async function loadAchievementDefinitions() {
       try {
         const response = await fetch("data/achievements.json", {cache:"no-store"});
@@ -373,7 +411,7 @@
           {id:"dice", icon:"🎲", title:"Loaded Dice", description:"Roll casino dice for a bankroll bump.", reward:{type:"money", min:45, max:220}, chance:0.5},
           {id:"vault", icon:"🔐", title:"Mini Vault", description:"Crack a tiny vault for money or XP.", reward:{type:"mixed", min:60, max:260}, chance:0.45},
           {id:"cards", icon:"🃏", title:"Card Draw", description:"Draw a lucky card for XP.", reward:{type:"xp", min:45, max:180}, chance:0.62},
-          {id:"ticket", icon:"🎟️", title:"Ticket Booth", description:"Try for a bundle of Casino Tickets.", reward:{type:"ticket", min:1, max:10}, chance:0.34}
+          {id:"ticket", icon:"🎟️", title:"Ticket Booth", description:"Try for a bundle of Casino Tickets.", reward:{type:"ticket", min:0, max:10}, chance:1}
         ],
         luckyWheel:[
           {label:"$10", type:"money", value:10, weight:22},
@@ -513,7 +551,9 @@
     let historyFilter = "all";
     let historySearch = "";
     let pendingTicketUse = "";
+    let ticketAutoUseAll = false;
     let assetViewPlayerName = "";
+    let globalChatOpen = false;
     let activeAssetCategory = "garage";
     let localSettlement = {selectedPlayers: [], reviews: [], overrideImbalance: false};
     let changelogEntries = [];
@@ -640,6 +680,7 @@
       data.biggestPot = data.biggestPot || {player:"", value:0};
       data.log = Array.isArray(data.log) ? data.log.slice(0, 30) : [];
       data.history = Array.isArray(data.history) ? data.history.map(normalizeHistoryItem).slice(0, 250) : data.log.map((item, index) => normalizeHistoryItem(item, index));
+      data.chatMessages = pruneChatMessages(data.chatMessages);
       data.unlockedAchievements = data.unlockedAchievements && !Array.isArray(data.unlockedAchievements) ? data.unlockedAchievements : {};
       if (Array.isArray(data.achievements)) {
         data.achievements.forEach((item) => {
@@ -794,6 +835,28 @@
       return parts.hour >= 8 && parts.hour < 18;
     }
 
+    function selectMarketNewsEvent(company, direction) {
+      const wanted = direction > 0 ? "positive" : "negative";
+      const matches = MARKET_NEWS_EVENTS.filter((event) => {
+        const directionMatch = event.direction === wanted || event.direction === "mixed";
+        const networkMatch = !event.network || event.network === company.network;
+        const sectorMatch = !event.sector || event.sector === company.sector;
+        return directionMatch && networkMatch && sectorMatch;
+      });
+      const fallback = MARKET_NEWS_EVENTS.filter((event) => event.direction === wanted || event.direction === "mixed");
+      const pool = matches.length ? matches : fallback.length ? fallback : MARKET_NEWS_EVENTS;
+      return pool[Math.floor(Math.random() * pool.length)] || {headline:"{network} / {company} moved during {session}.", companyImpact:1, sectorImpact:1, networkImpact:1, marketImpact:1};
+    }
+
+    function formatMarketNewsEvent(event, company, openHours) {
+      return String(event.headline || "")
+        .replaceAll("{network}", company.network || "LCN")
+        .replaceAll("{company}", company.name || company.symbol || "the market")
+        .replaceAll("{symbol}", company.symbol || "")
+        .replaceAll("{sector}", company.sector || "market")
+        .replaceAll("{session}", openHours ? "business hours" : "after hours");
+    }
+
     function advanceStockMarketTick(now = Date.now()) {
       const market = state.stockMarket;
       market.tickNumber += 1;
@@ -803,17 +866,17 @@
       const eventCompany = companies[Math.floor(Math.random() * companies.length)] || STOCK_COMPANIES[Math.floor(Math.random() * STOCK_COMPANIES.length)];
       const eventDirection = Math.random() > 0.48 ? 1 : -1;
       const openHours = isStockBusinessHours(new Date(now));
-      const networkText = eventCompany.network === "BAWSAQ" ? "BAWSAQ online activity" : "LCN local market event";
-      const eventText = eventDirection > 0 ? `${networkText}: buying pressure` : `${networkText}: selloff pressure`;
+      const newsEvent = selectMarketNewsEvent(eventCompany, eventDirection);
+      const eventText = formatMarketNewsEvent(newsEvent, eventCompany, openHours);
       companies.forEach((company) => {
-        const sectorMood = company.sector === eventCompany.sector ? eventDirection * (0.75 + Math.random() * 2.2) : 0;
-        const networkMood = company.network === eventCompany.network ? eventDirection * (0.42 + Math.random() * 1.35) : 0;
+        const sectorMood = company.sector === eventCompany.sector ? eventDirection * (0.75 + Math.random() * 2.2) * Number(newsEvent.sectorImpact || 1) : 0;
+        const networkMood = company.network === eventCompany.network ? eventDirection * (0.42 + Math.random() * 1.35) * Number(newsEvent.networkImpact || 1) : 0;
         const rareCatalyst = company.symbol === eventCompany.symbol && Math.random() < 0.07 ? eventDirection * (18 + Math.random() * 42) : 0;
-        const shock = company.symbol === eventCompany.symbol ? eventDirection * (3.5 + Math.random() * 11.5) : 0;
+        const shock = company.symbol === eventCompany.symbol ? eventDirection * (3.5 + Math.random() * 11.5) * Number(newsEvent.companyImpact || 1) : 0;
         const drift = (Math.random() - 0.47) * Number(company.volatility || 1) * 2.05;
         const pullToBase = ((Number(company.base || company.price) - Number(company.price || company.base)) / Math.max(1, Number(company.price || 1))) * 0.48;
         const multiplier = openHours ? 2.15 : 1.08;
-        const percent = Math.max(-65, Math.min(65, ((drift + shock + sectorMood + networkMood + pullToBase) * multiplier) + rareCatalyst));
+        const percent = Math.max(-65, Math.min(65, ((drift + shock + sectorMood + networkMood + pullToBase) * multiplier * Number(newsEvent.marketImpact || 1)) + rareCatalyst));
         company.previous = Number(company.price || company.base);
         company.price = Number(Math.max(1, company.previous * (1 + percent / 100)).toFixed(2));
         company.trend = Number(((company.price - company.previous) / company.previous * 100).toFixed(2));
@@ -821,7 +884,7 @@
         company.recordedLow = Number(Math.min(Number(company.recordedLow || company.price), company.price, company.previous).toFixed(2));
         company.event = company.symbol === eventCompany.symbol ? eventText : "";
       });
-      market.news.unshift(`${eventCompany.network} / ${eventCompany.name} moved on ${eventDirection > 0 ? "buying pressure" : "selloff pressure"}${openHours ? " during business hours" : " after hours"}.`);
+      market.news.unshift(eventText);
       market.news = market.news.slice(0, 8);
     }
 
@@ -1112,6 +1175,21 @@
       };
     }
 
+    function pruneChatMessages(messages) {
+      const cutoff = Date.now() - 72 * 60 * 60 * 1000;
+      return (Array.isArray(messages) ? messages : [])
+        .map((message) => ({
+          id:String(message.id || `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+          player:String(message.player || "Guest"),
+          displayName:String(message.displayName || message.player || "Guest"),
+          text:String(message.text || "").slice(0, 400),
+          createdAt:Number(message.createdAt || Date.now())
+        }))
+        .filter((message) => message.text.trim() && message.createdAt >= cutoff)
+        .sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0))
+        .slice(-200);
+    }
+
     function addHistoryEvent(event, {legacyLog = false} = {}) {
       const normalized = normalizeHistoryItem({...event, id:event.id || `event-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, createdAt:event.createdAt || Date.now()});
       state.history = Array.isArray(state.history) ? state.history : [];
@@ -1130,6 +1208,41 @@
         description,
         details
       });
+    }
+
+    function renderGlobalChat() {
+      const dock = $("globalChatDock");
+      const board = $("globalChatMessages");
+      if (!dock || !board) return;
+      state.chatMessages = pruneChatMessages(state.chatMessages);
+      dock.classList.toggle("collapsed", !globalChatOpen);
+      $("globalChatArrow").textContent = globalChatOpen ? "▼" : "▲";
+      board.innerHTML = state.chatMessages.length
+        ? state.chatMessages.map((message) => `<article class="chat-message">
+          <header><span>${escapeHtml(message.displayName || message.player)}</span><time>${escapeHtml(new Date(message.createdAt).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}</time></header>
+          <p>${escapeHtml(message.text)}</p>
+        </article>`).join("")
+        : `<div class="blackjack-status">No messages yet. Say hi to the table.</div>`;
+      if (globalChatOpen) board.scrollTop = board.scrollHeight;
+    }
+
+    function sendGlobalChat() {
+      const input = $("globalChatInput");
+      const text = String(input?.value || "").trim();
+      const player = currentPlayer();
+      if (!player) return toast("Link your profile to chat.");
+      if (!text) return;
+      state.chatMessages = pruneChatMessages(state.chatMessages);
+      state.chatMessages.push({
+        id:`chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        player:player.name,
+        displayName:currentDisplayName(),
+        text,
+        createdAt:Date.now()
+      });
+      input.value = "";
+      globalChatOpen = true;
+      saveFast(renderGlobalChat);
     }
 
     function awardCasinoTickets(player, amount, reason) {
@@ -1159,10 +1272,11 @@
       const linkedPlayer = currentPlayer();
       if (!linkedPlayer) return false;
       const definition = ACHIEVEMENT_DEFINITIONS.find((item) => item.id === id);
-      if (!definition || state.unlockedAchievements[id]) return false;
+      if (!definition) return false;
       const owner = player || linkedPlayer.name;
       if (owner !== linkedPlayer.name) return false;
-      state.unlockedAchievements[id] = {at: Date.now(), player: owner, source};
+      if (achievementUnlockedFor(id, owner)) return false;
+      state.unlockedAchievements[achievementKey(id, owner)] = {at: Date.now(), player: owner, source, achievementId:id};
       const rewardXP = achievementRewardXP(definition.rarity);
       linkedPlayer.xp += rewardXP;
       addHistoryEvent({
@@ -1176,6 +1290,43 @@
         details:{achievementId:id, rarity:definition.rarity, requirement:definition.requirement}
       });
       achievementToast(definition, rewardXP);
+      return true;
+    }
+
+    function achievementKey(id, playerName = "") {
+      return `${String(playerName || "").toLowerCase()}::${id}`;
+    }
+
+    function achievementIdFromKey(key, unlock = null) {
+      return unlock?.achievementId || String(key).split("::").pop();
+    }
+
+    function achievementUnlockedFor(id, playerName = currentPlayer()?.name || "") {
+      if (!id || !playerName) return false;
+      const direct = state.unlockedAchievements?.[achievementKey(id, playerName)];
+      if (direct) return true;
+      const legacy = state.unlockedAchievements?.[id];
+      return Boolean(legacy && legacy.player === playerName);
+    }
+
+    function forceUnlockAchievement(id, playerName, source = "validation") {
+      const definition = ACHIEVEMENT_DEFINITIONS.find((item) => item.id === id);
+      const player = playerByName(playerName);
+      if (!definition || !player || achievementUnlockedFor(id, player.name)) return false;
+      state.unlockedAchievements[achievementKey(id, player.name)] = {at: Date.now(), player: player.name, source, achievementId:id};
+      const rewardXP = achievementRewardXP(definition.rarity);
+      player.xp += rewardXP;
+      addHistoryEvent({
+        type:"achievement-unlocked",
+        category:"Achievements",
+        player:player.name,
+        title:"Achievement Validated",
+        description:`${player.name} qualified for ${definition.name}.`,
+        amount:rewardXP,
+        amountKind:"xp",
+        details:{achievementId:id, rarity:definition.rarity, requirement:definition.requirement, source}
+      });
+      if (currentPlayer()?.name === player.name) achievementToast(definition, rewardXP);
       return true;
     }
 
@@ -1685,6 +1836,7 @@
       $("crewGrid").innerHTML = ranked.slice(0, 3).map(renderPlayerCard).join("");
       $("allPlayersDetailedBoard").innerHTML = state.players.map(renderDetailedPlayerCard).join("");
       $("leaderboard").innerHTML = ranked.map((p, i) => renderLeaderboardRow(p, i)).join("");
+      renderGlobalChat();
       $("playerAdminBoard").innerHTML = state.players.map((p) => renderAdminPlayerRow(p)).join("");
       document.querySelectorAll(".admin-link").forEach((item) => item.hidden = !isDarrenAdmin());
       if (activeView === "admin") renderLinkageAdminBoard();
@@ -1988,9 +2140,9 @@
     function unlockedAchievementRows() {
       const linkedName = currentPlayer()?.name || "";
       return Object.entries(state.unlockedAchievements || {})
-        .map(([id, unlock]) => ({definition: ACHIEVEMENT_DEFINITIONS.find((item) => item.id === id), unlock}))
+        .map(([key, unlock]) => ({definition: ACHIEVEMENT_DEFINITIONS.find((item) => item.id === achievementIdFromKey(key, unlock)), unlock, key}))
         .filter((item) => item.definition)
-        .filter((item) => !linkedName || item.unlock.player === linkedName)
+        .filter((item) => !linkedName || item.unlock.player === linkedName || (!item.unlock.player && !String(item.key).includes("::")))
         .sort((a, b) => Number(b.unlock.at || 0) - Number(a.unlock.at || 0));
     }
 
@@ -2021,8 +2173,8 @@
       const unlocked = unlockedAchievementRows();
       const linkedName = currentPlayer()?.name || "";
       const linkedUnlockedIds = new Set(Object.entries(state.unlockedAchievements || {})
-        .filter(([, unlock]) => linkedName && unlock.player === linkedName)
-        .map(([id]) => id));
+        .filter(([key, unlock]) => linkedName && (unlock.player === linkedName || (!unlock.player && !String(key).includes("::"))))
+        .map(([key, unlock]) => achievementIdFromKey(key, unlock)));
       const matches = (definition) => {
         const category = String(definition.category || "").toLowerCase();
         const categoryMatch = achievementCategory === "all"
@@ -2076,7 +2228,7 @@
 
     function achievementShowcaseMarkup(player) {
       const ids = Array.isArray(player?.favoriteAchievements) ? player.favoriteAchievements : [];
-      const definitions = ids.map((id) => ACHIEVEMENT_DEFINITIONS.find((item) => item.id === id)).filter(Boolean);
+      const definitions = ids.map((id) => ACHIEVEMENT_DEFINITIONS.find((item) => item.id === id && achievementUnlockedFor(id, player.name))).filter(Boolean);
       return definitions.length ? `<div class="achievement-showcase">${definitions.map((definition) => `<span title="${escapeAttr(definition.name)}">${rarityIcon(definition.rarity)} ${escapeHtml(definition.name)}</span>`).join("")}</div>` : "";
     }
 
@@ -2174,26 +2326,48 @@
       const value = portfolioValue(player);
       const cost = portfolioCost(player);
       const gainPercent = cost > 0 ? (value - cost) / cost * 100 : 0;
-      if (totalShares > 0) unlockAchievement("stock-first-buy", player.name);
-      if (totalShares >= 100) unlockAchievement("stock-100-shares", player.name);
-      if (holdingCount >= 5) unlockAchievement("stock-diversified", player.name);
-      if (value >= 1000) unlockAchievement("stock-portfolio-1000", player.name);
-      if (value >= 10000) unlockAchievement("stock-portfolio-10000", player.name);
-      if (value >= 100000) unlockAchievement("stock-portfolio-100000", player.name);
-      if (gainPercent >= 25) unlockAchievement("stock-gain-25", player.name);
-      if (gainPercent >= 50) unlockAchievement("stock-gain-50", player.name);
+      const unlock = (id) => currentPlayer()?.name === player.name ? unlockAchievement(id, player.name) : forceUnlockAchievement(id, player.name);
+      if (totalShares > 0) unlock("stock-first-buy");
+      if (totalShares >= 100) unlock("stock-100-shares");
+      if (holdingCount >= 5) unlock("stock-diversified");
+      if (value >= 1000) unlock("stock-portfolio-1000");
+      if (value >= 10000) unlock("stock-portfolio-10000");
+      if (value >= 100000) unlock("stock-portfolio-100000");
+      if (value >= 250000) unlock("stock-portfolio-250000");
+      if (value >= 500000) unlock("stock-portfolio-500000");
+      if (value >= 1000000) unlock("stock-portfolio-million");
+      if (value >= 5000000) unlock("stock-market-baron");
+      if (totalShares >= 1000) unlock("stock-1000-shares");
+      if (totalShares >= 5000) unlock("stock-5000-shares");
+      if (holdingCount >= 10) unlock("stock-diversified-10");
+      if (gainPercent >= 25) unlock("stock-gain-25");
+      if (gainPercent >= 50) unlock("stock-gain-50");
+      if (gainPercent >= 100) unlock("stock-gain-100");
+      if ((value - cost) >= 10000) unlock("stock-unrealized-10k");
+      if ((value - cost) >= 100000) unlock("stock-unrealized-100k");
     }
 
     function checkAssetAchievements(player) {
       if (!player) return;
       const assets = player.ownedAssets || [];
       const rarityRank = {Starter:0, Common:1, Uncommon:2, Rare:3, Epic:4, Legendary:5, Mythic:6};
-      if (assets.length > 0) unlockAchievement("asset-first-car", player.name);
-      if (assets.length >= 5) unlockAchievement("asset-garage-5", player.name);
-      if (assets.length >= 10) unlockAchievement("asset-garage-10", player.name);
-      if (assets.some((asset) => Number(rarityRank[asset.rarity] || 0) >= rarityRank.Rare)) unlockAchievement("asset-rare-vehicle", player.name);
-      if (assets.some((asset) => asset.rarity === "Mythic" && /hypercar/i.test(String(asset.type || "")))) unlockAchievement("asset-hypercar", player.name);
-      if (assetValue(player) >= 1000000) unlockAchievement("asset-million-garage", player.name);
+      const unlock = (id) => currentPlayer()?.name === player.name ? unlockAchievement(id, player.name) : forceUnlockAchievement(id, player.name);
+      if (assets.length > 0) unlock("asset-first-car");
+      if (assets.length >= 5) unlock("asset-garage-5");
+      if (assets.length >= 10) unlock("asset-garage-10");
+      if (assets.length >= 25) unlock("asset-collector-25");
+      if (assets.length >= 50) unlock("asset-collector-50");
+      if (assets.some((asset) => Number(rarityRank[asset.rarity] || 0) >= rarityRank.Rare)) unlock("asset-rare-vehicle");
+      if (assets.filter((asset) => Number(rarityRank[asset.rarity] || 0) >= rarityRank.Rare).length >= 5) unlock("asset-rare-collection");
+      if (assets.some((asset) => asset.rarity === "Legendary")) unlock("asset-legendary-owner");
+      if (assets.some((asset) => asset.rarity === "Mythic" && /hypercar/i.test(String(asset.type || "")))) unlock("asset-hypercar");
+      if (assets.some((asset) => asset.category === "properties")) unlock("asset-first-property");
+      if (assets.some((asset) => asset.category === "airplanes")) unlock("asset-first-aircraft");
+      if (assets.some((asset) => asset.category === "boats")) unlock("asset-first-boat");
+      if (new Set(assets.map((asset) => asset.category || "garage")).size >= 3) unlock("asset-category-sampler");
+      if (assetValue(player) >= 1000000) unlock("asset-million-garage");
+      if (assetValue(player) >= 5000000) unlock("asset-5m-vault");
+      if (assetValue(player) >= 10000000) unlock("asset-10m-empire");
     }
 
     function renderInvestmentSnapshot(player) {
@@ -2595,7 +2769,7 @@
       const key = todayKey();
       state.daily.challenges[playerName] = state.daily.challenges[playerName] || {};
       if (state.daily.challenges[playerName].date !== key) {
-        state.daily.challenges[playerName] = {date:key, blackjackWins:0, blackjackHands:0, slotSpins:0, xpEarned:0, casinoProfit:0, stockSharesBought:0, stockSharesSold:0, stockProfit:0, dailyActivities:0, ticketsEarned:0, crapsRolls:0, farkleRounds:0, slotMachines:{}, claimed:false};
+        state.daily.challenges[playerName] = {date:key, blackjackWins:0, blackjackHands:0, slotSpins:0, xpEarned:0, casinoProfit:0, stockSharesBought:0, stockSharesSold:0, stockProfit:0, dailyActivities:0, ticketsEarned:0, wheelSpins:0, scratchCards:0, crapsRolls:0, farkleRounds:0, slotMachines:{}, claimed:false};
       }
       state.daily.challenges[playerName].slotMachines = state.daily.challenges[playerName].slotMachines || {};
       return state.daily.challenges[playerName];
@@ -2614,15 +2788,12 @@
     function dailyClickablePool(count = 5) {
       const catalog = DAILY_CLICKABLES.length ? DAILY_CLICKABLES : [];
       const seed = hashCode(`${todayKey()}-daily-clickables`);
-      const ticketBooth = catalog.find((activity) => activity.id === "ticket");
-      const remainingCount = Math.max(0, count - (ticketBooth ? 1 : 0));
-      const selected = catalog
+      return catalog
         .filter((activity) => activity.id !== "ticket")
         .map((activity, index) => ({activity, sort: seededSortValue(seed, index, activity.id)}))
         .sort((a, b) => a.sort - b.sort)
-        .slice(0, Math.min(remainingCount, catalog.length))
+        .slice(0, Math.min(count, catalog.length))
         .map((item) => item.activity);
-      return ticketBooth ? [ticketBooth, ...selected].slice(0, count) : selected;
     }
 
     function activeDailyChallenges() {
@@ -2674,9 +2845,24 @@
       }).join("");
     }
 
+    function renderTicketBoothCard(player) {
+      const activity = DAILY_CLICKABLES.find((item) => item.id === "ticket");
+      if (!activity) return "";
+      const record = dailyActivityRecord(player.name);
+      const done = Boolean(record.played.ticket);
+      const reset = dailyResetText();
+      return `<button class="daily-card bonus-card ticket-card ${done ? "cooldown" : "ready"}" type="button" data-action="play-daily-activity" data-daily-activity="ticket">
+        <span>${activity.icon}</span>
+        <strong>${escapeHtml(activity.title)}</strong>
+        <small>${done ? `Cooldown: ${reset.countdown}` : "Open once daily for 0-10 Casino Tickets"}</small>
+      </button>`;
+    }
+
     function playDailyActivity(activityId) {
       const player = currentPlayer();
-      const activity = dailyClickablePool(5).find((item) => item.id === activityId) || DAILY_CLICKABLES.find((item) => item.id === activityId);
+      const activity = activityId === "ticket"
+        ? DAILY_CLICKABLES.find((item) => item.id === "ticket")
+        : dailyClickablePool(5).find((item) => item.id === activityId) || DAILY_CLICKABLES.find((item) => item.id === activityId);
       if (!player || !activity) return toast("Choose a daily activity.");
       const record = dailyActivityRecord(player.name);
       if (record.played[activity.id]) return toast(`${activity.title} is already claimed today.`);
@@ -2747,6 +2933,7 @@
           <button class="daily-card ${scratchDone ? "cooldown" : "ready"}" type="button" data-action="scratch-daily-card">
             <span>🎫</span><strong>Scratch-Off</strong><small>${scratchDone ? `Cooldown: ${reset.countdown}` : "Ready to scratch"}</small>
           </button>
+          ${renderTicketBoothCard(player)}
           <div class="daily-card ticket-card">
             <span>🎟️</span><strong>Casino Tickets</strong><small>${Number(player.casinoTickets || 0)} available for extra plays</small>
           </div>
@@ -2846,6 +3033,12 @@
         $("blackjackRoomTitle").textContent = `♣ ${room.name}`;
         $("blackjackRoomHostBadge").textContent = hostText;
         $("blackjackRoomPlayers").innerHTML = playersMarkup;
+        const linked = currentPlayer();
+        if ($("multiBlackjackBankroll")) {
+          $("multiBlackjackBankroll").innerHTML = linked
+            ? `<span>${escapeHtml(currentDisplayName())}</span><span>Bankroll ${money(bankrollValue(linked))}</span><span>Debt ${money(linked.bankDebt || 0)}</span><span>Tickets ${Number(linked.casinoTickets || 0)}</span>`
+            : `<span>Link your profile to play multiplayer blackjack.</span>`;
+        }
         $("closeBlackjackRoomBtn").hidden = !isRoomHost(room);
         renderBlackjackRoomTable(room);
       }
@@ -3091,11 +3284,34 @@
       const stockGainPercent = stockCost > 0 ? Math.max(0, (stockPortfolio - stockCost) / stockCost * 100) : 0;
       const ownedAssets = player?.ownedAssets?.length || 0;
       const garageValue = assetValue(player);
+      const rareAssets = (player?.ownedAssets || []).filter((asset) => ["Rare", "Epic", "Legendary", "Mythic"].includes(asset.rarity)).length;
+      const assetCategories = new Set((player?.ownedAssets || []).map((asset) => asset.category || "garage")).size;
+      const daily = player ? dailyRecord(player.name) : {};
+      const slotStats = state.gameStats?.slots || {};
       const progress = (current, target, suffix = "") => ({
         text:`${suffix === "$" ? money(Math.min(current, target)) : Math.min(current, target).toLocaleString()} / ${suffix === "$" ? money(target) : `${target.toLocaleString()}${suffix}`}`,
         value:Math.min(100, Math.round(current / Math.max(1, target) * 100))
       });
+      const wealthProgress = Object.fromEntries([
+        [25000, "wealth-25k"], [50000, "wealth-50k"], [100000, "wealth-100k"], [500000, "wealth-500k"],
+        [1000000, "wealth-millionaire"], [5000000, "wealth-5m"], [10000000, "wealth-10m"],
+        [25000000, "wealth-25m"], [50000000, "wealth-50m"], [100000000, "wealth-100m"]
+      ].map(([target, id]) => [id, progress(bankroll, target, "$")]));
+      const slotProgress = {
+        "slots-25-spins": progress(Number(slotStats.played || 0), 25, " spins"),
+        "slots-100-spins": progress(Number(slotStats.played || 0), 100, " spins"),
+        "slots-250-spins": progress(Number(slotStats.played || 0), 250, " spins"),
+        "slots-500-spins": progress(Number(slotStats.played || 0), 500, " spins"),
+        "slots-1000-spins": progress(Number(slotStats.played || 0), 1000, " spins"),
+        "slots-profit-1000": progress(Math.max(0, Number(slotStats.profit || 0)), 1000, "$"),
+        "slots-profit-10000": progress(Math.max(0, Number(slotStats.profit || 0)), 10000, "$"),
+        "slots-big-win-1000": progress(Number(slotStats.biggest || 0), 1000, "$"),
+        "slots-big-win-10000": progress(Number(slotStats.biggest || 0), 10000, "$"),
+        "slots-100-wins": progress(Number(slotStats.wins || 0), 100, " wins")
+      };
       const progressMap = {
+        ...wealthProgress,
+        ...slotProgress,
         "xp-1000": progress(totalXp, 1000, " XP"),
         "xp-5000": progress(totalXp, 5000, " XP"),
         "xp-10000": progress(totalXp, 10000, " XP"),
@@ -3112,11 +3328,37 @@
         "stock-portfolio-1000": progress(stockPortfolio, 1000, "$"),
         "stock-portfolio-10000": progress(stockPortfolio, 10000, "$"),
         "stock-portfolio-100000": progress(stockPortfolio, 100000, "$"),
+        "stock-portfolio-250000": progress(stockPortfolio, 250000, "$"),
+        "stock-portfolio-500000": progress(stockPortfolio, 500000, "$"),
+        "stock-portfolio-million": progress(stockPortfolio, 1000000, "$"),
+        "stock-market-baron": progress(stockPortfolio, 5000000, "$"),
+        "stock-1000-shares": progress(stockShares, 1000, " shares"),
+        "stock-5000-shares": progress(stockShares, 5000, " shares"),
+        "stock-diversified-10": progress(stockCompanies, 10, " companies"),
         "stock-gain-25": progress(stockGainPercent, 25, "% gain"),
         "stock-gain-50": progress(stockGainPercent, 50, "% gain"),
+        "stock-gain-100": progress(stockGainPercent, 100, "% gain"),
+        "stock-unrealized-10k": progress(Math.max(0, stockPortfolio - stockCost), 10000, "$"),
+        "stock-unrealized-100k": progress(Math.max(0, stockPortfolio - stockCost), 100000, "$"),
         "asset-garage-5": progress(ownedAssets, 5, " vehicles"),
         "asset-garage-10": progress(ownedAssets, 10, " vehicles"),
+        "asset-collector-25": progress(ownedAssets, 25, " assets"),
+        "asset-collector-50": progress(ownedAssets, 50, " assets"),
+        "asset-rare-collection": progress(rareAssets, 5, " rare assets"),
+        "asset-category-sampler": progress(assetCategories, 3, " categories"),
         "asset-million-garage": progress(garageValue, 1000000, "$"),
+        "asset-5m-vault": progress(garageValue, 5000000, "$"),
+        "asset-10m-empire": progress(garageValue, 10000000, "$"),
+        "daily-clickable-first": progress(Number(daily.dailyActivities || 0), 1, " today"),
+        "daily-clickable-five": progress(Number(daily.dailyActivities || 0), 5, " today"),
+        "daily-ticket-haul": progress(Number(daily.ticketsEarned || 0), 5, " tickets"),
+        "daily-ticket-jackpot": progress(Number(daily.ticketsEarned || 0), 10, " tickets"),
+        "daily-full-clear": progress(daily.claimed ? 1 : 0, 1, " clear"),
+        "daily-wheel-10": progress(Number(daily.wheelSpins || 0), 10, " spins"),
+        "daily-scratch-10": progress(Number(daily.scratchCards || 0), 10, " cards"),
+        "daily-activity-25": progress(Number(daily.dailyActivities || 0), 25, " activities"),
+        "daily-activity-100": progress(Number(daily.dailyActivities || 0), 100, " activities"),
+        "daily-ticket-collector": progress(Number(player?.casinoTickets || 0), 25, " tickets"),
         "activity-dedicated-player": progress(state.counters.sessionsPlayed, 10, " sessions"),
         "activity-regular": progress(state.counters.sessionsPlayed, 25, " sessions"),
         "activity-addicted": progress(state.counters.sessionsPlayed, 50, " sessions"),
@@ -5312,9 +5554,14 @@
     function evaluateAchievementUnlocks() {
       const linkedPlayer = currentPlayer();
       if (!linkedPlayer) return 0;
+      return evaluatePlayerAchievementUnlocks(linkedPlayer, "tracker");
+    }
+
+    function evaluatePlayerAchievementUnlocks(linkedPlayer, source = "validation") {
+      if (!linkedPlayer) return 0;
       let unlockedCount = 0;
-      const unlock = (id, player = linkedPlayer.name) => {
-        if (unlockAchievement(id, player)) unlockedCount += 1;
+      const unlock = (id, playerName = linkedPlayer.name) => {
+        if (forceUnlockAchievement(id, playerName, source)) unlockedCount += 1;
       };
       const maxStars = Math.max(0, ...state.players.map((player) => Number(player.stars || 0)));
       const topByChips = rankedPlayers()[0];
@@ -5333,6 +5580,12 @@
       if (bankroll >= 2500) unlock("wealth-high-roller");
       if (bankroll >= 5000) unlock("wealth-tycoon");
       if (bankroll >= 10000) unlock("wealth-casino-king");
+      [
+        [25000, "wealth-25k"], [50000, "wealth-50k"], [100000, "wealth-100k"],
+        [500000, "wealth-500k"], [1000000, "wealth-millionaire"], [5000000, "wealth-5m"],
+        [10000000, "wealth-10m"], [25000000, "wealth-25m"], [50000000, "wealth-50m"],
+        [100000000, "wealth-100m"]
+      ].forEach(([target, id]) => { if (bankroll >= target) unlock(id); });
       if (linkedPlayer.bankDebt >= 500) unlock("debt-deep");
       if (linkedPlayer.bankDebt === 0 && state.counters.loansTaken > 0) unlock("debt-recovery");
       if (linkedPlayer.lifetime >= 0) unlock("debt-brink");
@@ -5362,6 +5615,29 @@
       checkStockAchievements(linkedPlayer);
       checkAssetAchievements(linkedPlayer);
       unlockedCount += Math.max(0, Object.keys(state.unlockedAchievements || {}).length - beforeMarketAssetSweep);
+      const slotsPlayed = Number(state.gameStats?.slots?.played || 0);
+      const slotsProfit = Number(state.gameStats?.slots?.profit || 0);
+      const slotsBiggest = Number(state.gameStats?.slots?.biggest || 0);
+      [
+        [25, "slots-25-spins"], [100, "slots-100-spins"], [250, "slots-250-spins"],
+        [500, "slots-500-spins"], [1000, "slots-1000-spins"]
+      ].forEach(([target, id]) => { if (slotsPlayed >= target) unlock(id); });
+      if (slotsProfit >= 1000) unlock("slots-profit-1000");
+      if (slotsProfit >= 10000) unlock("slots-profit-10000");
+      if (slotsBiggest >= 1000) unlock("slots-big-win-1000");
+      if (slotsBiggest >= 10000) unlock("slots-big-win-10000");
+      if (Number(state.gameStats?.slots?.wins || 0) >= 100) unlock("slots-100-wins");
+      const daily = dailyRecord(linkedPlayer.name);
+      if (Number(daily.dailyActivities || 0) >= 1) unlock("daily-clickable-first");
+      if (Number(daily.dailyActivities || 0) >= 5) unlock("daily-clickable-five");
+      if (Number(daily.ticketsEarned || 0) >= 5) unlock("daily-ticket-haul");
+      if (Number(daily.ticketsEarned || 0) >= 10) unlock("daily-ticket-jackpot");
+      if (daily.claimed) unlock("daily-full-clear");
+      if (Number(daily.wheelSpins || 0) >= 10) unlock("daily-wheel-10");
+      if (Number(daily.scratchCards || 0) >= 10) unlock("daily-scratch-10");
+      if (Number(daily.dailyActivities || 0) >= 25) unlock("daily-activity-25");
+      if (Number(daily.dailyActivities || 0) >= 100) unlock("daily-activity-100");
+      if (Number(linkedPlayer.casinoTickets || 0) >= 25) unlock("daily-ticket-collector");
       return unlockedCount;
     }
 
@@ -5466,6 +5742,8 @@
       if (state.daily.wheel[player.name] === todayKey()) return openTicketUseDialog("wheel");
       $("wheelResult").textContent = "Spin once per day.";
       $("wheelSpinButton").disabled = false;
+      $("wheelSpinAgainButton").hidden = true;
+      $("wheelUseAllButton").hidden = true;
       $("luckyWheel").classList.remove("spinning");
       $("luckyWheel").style.setProperty("--wheel-rotation", "0deg");
       els.luckyWheelDialog.showModal();
@@ -5501,6 +5779,7 @@
       } else {
         state.daily.wheel[player.name] = todayKey();
       }
+      trackDailyProgress(player.name, "wheelSpins", 1);
       unlockAchievement("daily-wheel-spin", player.name);
       if (reward.type === "money") {
         grantDailyMoney(player, reward.value, "lucky wheel reward");
@@ -5514,9 +5793,16 @@
       save();
       $("wheelResult").textContent = `${reward.golden ? "Golden Jackpot" : "Reward"}: ${reward.type === "money" ? money(reward.value) : `${reward.value} XP`}`;
       resultToast(reward.golden ? "Golden Wheel Jackpot!" : "Lucky Wheel Reward", reward.type === "money" ? `+$${reward.value}` : `+${reward.value} XP`);
-      setTimeout(() => {
-        if (els.luckyWheelDialog.open) els.luckyWheelDialog.close();
-      }, 2000);
+      const ticketsLeft = Number(player.casinoTickets || 0);
+      $("wheelSpinAgainButton").hidden = ticketsLeft <= 0;
+      $("wheelUseAllButton").hidden = ticketsLeft <= 0;
+      if (ticketAutoUseAll && ticketsLeft > 0) {
+        pendingTicketUse = "wheel-active";
+        $("wheelSpinButton").disabled = true;
+        setTimeout(() => awardLuckyWheel(), 900);
+      } else {
+        ticketAutoUseAll = false;
+      }
       }, 3400);
     }
 
@@ -5526,6 +5812,7 @@
       if (state.daily.scratch[player.name] === todayKey()) return openTicketUseDialog("scratch");
       const reward = weightedReward(SCRATCH_OFF_REWARDS);
       state.daily.scratch[player.name] = todayKey();
+      trackDailyProgress(player.name, "scratchCards", 1);
       unlockAchievement("daily-scratch-card", player.name);
       if (reward.value > 0) grantDailyMoney(player, reward.value, "daily scratch reward");
       const text = `${player.name} scratched daily card: ${reward.value > 0 ? money(reward.value) : "Nothing"}.`;
@@ -5545,24 +5832,33 @@
       $("ticketUseTitle").textContent = `Use Ticket for ${label}?`;
       $("ticketUseBody").textContent = `Spend 1 Casino Ticket for an extra ${label} play. You have ${player.casinoTickets}.`;
       $("ticketUseButton").textContent = `Use 1 Ticket (${player.casinoTickets})`;
+      $("ticketUseAllButton").textContent = `Use All (${player.casinoTickets})`;
       els.ticketUseDialog.showModal();
     }
 
-    function confirmUseTicket() {
+    function confirmUseTicket(useAll = false) {
       const type = pendingTicketUse;
       const player = currentPlayer();
       if (!player || Number(player.casinoTickets || 0) <= 0) return toast("You have no Casino Tickets.");
       if (els.ticketUseDialog.open) els.ticketUseDialog.close();
       if (type === "wheel") {
         pendingTicketUse = "wheel-active";
+        ticketAutoUseAll = Boolean(useAll);
         $("wheelResult").textContent = "Ticket play ready.";
         $("wheelSpinButton").disabled = false;
+        $("wheelSpinAgainButton").hidden = true;
+        $("wheelUseAllButton").hidden = true;
         $("luckyWheel").classList.remove("spinning");
         $("luckyWheel").style.setProperty("--wheel-rotation", "0deg");
         els.luckyWheelDialog.showModal();
+        if (useAll) setTimeout(() => awardLuckyWheel(), 200);
         return;
       }
       if (type === "scratch") {
+        if (useAll) {
+          useAllScratchTickets(player);
+          return;
+        }
         player.casinoTickets = Math.max(0, Number(player.casinoTickets || 0) - 1);
         pendingTicketUse = "";
         addHistoryEvent({
@@ -5583,6 +5879,43 @@
       }
     }
 
+    function useAllScratchTickets(player = currentPlayer()) {
+      if (!player) return;
+      let count = Math.max(0, Number(player.casinoTickets || 0));
+      if (!count) return toast("You have no Casino Tickets.");
+      let total = 0;
+      let hits = 0;
+      const original = state.daily.scratch[player.name];
+      while (count > 0) {
+        player.casinoTickets = Math.max(0, Number(player.casinoTickets || 0) - 1);
+        trackDailyProgress(player.name, "scratchCards", 1);
+        const reward = weightedReward(SCRATCH_OFF_REWARDS);
+        if (reward.value > 0) {
+          grantDailyMoney(player, reward.value, "ticket scratch reward");
+          total += Number(reward.value || 0);
+          hits += 1;
+        }
+        addHistoryEvent({
+          type:"casino-ticket-spent",
+          category:"Dailies",
+          player:player.name,
+          title:"Casino Ticket Used",
+          description:`${player.name} used 1 Casino Ticket for an extra Scratch-Off.`,
+          amount:-1,
+          amountKind:"ticket",
+          details:{reward:"Scratch-Off", payout:reward.value || 0}
+        });
+        count = Number(player.casinoTickets || 0);
+      }
+      state.daily.scratch[player.name] = original || todayKey();
+      const text = `${player.name} used all Scratch-Off tickets: ${hits} hit${hits === 1 ? "" : "s"} for ${money(total)}.`;
+      state.daily.wheelHistory.unshift(text);
+      state.daily.wheelHistory = state.daily.wheelHistory.slice(0, 12);
+      pendingTicketUse = "";
+      save();
+      resultToast("Scratch-Off Tickets Used", `${hits} hits / ${money(total)}`);
+    }
+
     function weightedReward(rewards) {
       const total = rewards.reduce((sum, item) => sum + item.weight, 0);
       let roll = Math.random() * total;
@@ -5596,6 +5929,15 @@
     function handleAction(action, target = null) {
       if (action === "toggle-mobile-nav") {
         toggleMobileNav();
+        return;
+      }
+      if (action === "toggle-global-chat") {
+        globalChatOpen = !globalChatOpen;
+        renderGlobalChat();
+        return;
+      }
+      if (action === "send-global-chat") {
+        sendGlobalChat();
         return;
       }
       if (action === "open-profile") {
@@ -5631,6 +5973,10 @@
       }
       if (action === "confirm-use-ticket") {
         confirmUseTicket();
+        return;
+      }
+      if (action === "confirm-use-all-tickets") {
+        confirmUseTicket(true);
         return;
       }
       if (action === "play-daily-activity") {
@@ -5854,6 +6200,16 @@
         awardLuckyWheel();
         return;
       }
+      if (action === "use-ticket-wheel-again" || action === "use-all-wheel-tickets") {
+        const player = currentPlayer();
+        if (!player || Number(player.casinoTickets || 0) <= 0) return toast("You have no Casino Tickets.");
+        pendingTicketUse = "wheel-active";
+        ticketAutoUseAll = action === "use-all-wheel-tickets";
+        $("wheelSpinAgainButton").hidden = true;
+        $("wheelUseAllButton").hidden = true;
+        awardLuckyWheel();
+        return;
+      }
       if (action === "close-lucky-wheel") {
         if (els.luckyWheelDialog.open) els.luckyWheelDialog.close();
         return;
@@ -6033,7 +6389,7 @@
       if (action === "toggle-achievement-showcase") {
         const player = currentPlayer();
         const id = target?.dataset.achievementId || "";
-        if (!player || !id || !state.unlockedAchievements?.[id]) return toast("Only unlocked achievements can be showcased.");
+        if (!player || !id || !achievementUnlockedFor(id, player.name)) return toast("Only unlocked achievements can be showcased.");
         player.favoriteAchievements = Array.isArray(player.favoriteAchievements) ? player.favoriteAchievements : [];
         if (player.favoriteAchievements.includes(id)) {
           player.favoriteAchievements = player.favoriteAchievements.filter((item) => item !== id);
@@ -6140,6 +6496,15 @@
         addSystemHistory("Tickets Granted", `${player.name} received ${amount} Casino Ticket${amount === 1 ? "" : "s"} from admin.`, {player:player.name, amount});
         save();
         toast(`${amount} ticket${amount === 1 ? "" : "s"} granted to ${player.name}.`);
+      }
+      if (action === "validate-player-achievements") {
+        if (!isDarrenAdmin()) return toast("Only Darren can validate achievements.");
+        const player = playerByName($("manualPlayer").value);
+        if (!player) return toast("Choose a player to validate.");
+        const unlocked = evaluatePlayerAchievementUnlocks(player, "admin-validation");
+        addSystemHistory("Achievements Validated", `${player.name}'s achievements were rechecked by admin. ${unlocked} new unlock${unlocked === 1 ? "" : "s"}.`, {player:player.name, unlocked});
+        save();
+        toast(`${player.name} validation complete: ${unlocked} new achievement${unlocked === 1 ? "" : "s"}.`);
       }
       if (action === "reset-daily-wheel") {
         if (!isDarrenAdmin()) return toast("Only Darren can reset daily spins.");
@@ -6879,6 +7244,12 @@
     $("achievementSort")?.addEventListener("change", () => {
       achievementSort = $("achievementSort").value || "unlocked";
       renderAchievementBoards();
+    });
+    $("globalChatInput")?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        sendGlobalChat();
+      }
     });
     els.pokerBuyIn?.addEventListener("input", renderPokerBuyInPreview);
     setInterval(() => {

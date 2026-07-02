@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Virtual Casino | Family Card RPG</title>
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
-  <link rel="stylesheet" href="css/styles.css?v=20260701-2" />
+  <link rel="stylesheet" href="css/styles.css?v=20260702-1" />
 </head>
 <body class="auth-checking">
   <div id="appLoader" class="app-loader" role="status" aria-live="polite">
@@ -149,7 +149,7 @@
           </div>
           <div id="playerAdminBoard" class="leaderboard-list" style="margin-top:14px;"></div>
         </article>
-        <article class="panel panel-pad" style="margin-top:18px;">
+        <article class="panel panel-pad admin-manual-panel" style="margin-top:18px;">
           <div class="section-title"><span>&#9733; Manual Level / XP</span></div>
           <div class="form-grid">
             <div><label for="manualPlayer">Player</label><select id="manualPlayer"></select></div>
@@ -172,6 +172,7 @@
             <button class="ghost-btn" type="button" data-action="reset-daily-scratch">Reset Scratch-Off</button>
             <button class="ghost-btn" type="button" data-action="reset-daily-clickables">Reset Clickables</button>
             <button class="ghost-btn" type="button" data-action="reset-daily-all">Reset All Dailies</button>
+            <button class="ghost-btn" type="button" data-action="validate-player-achievements">Validate Achievements</button>
           </div>
         </article>
         <article class="panel panel-pad" style="margin-top:18px;">
@@ -613,6 +614,7 @@
               </span>
             </div>
             <div id="blackjackRoomPlayers" class="room-player-grid"></div>
+            <div id="multiBlackjackBankroll" class="rule-strip"></div>
             <div class="blackjack-play-layout multiplayer-blackjack-layout">
               <div class="blackjack-table-column">
                 <div class="blackjack-table premium-blackjack-table multiplayer-premium-table">
@@ -1071,6 +1073,21 @@
       <button class="nav-btn" data-view="changelog"><span>&#9997;</span><span>Changelog</span></button>
     </div>
   </div>
+
+  <section id="globalChatDock" class="global-chat-dock collapsed" aria-label="Global chat">
+    <button id="globalChatToggle" class="global-chat-toggle" type="button" data-action="toggle-global-chat">
+      <span>Global Chat</span><strong id="globalChatArrow">▲</strong>
+    </button>
+    <div class="global-chat-panel">
+      <div id="globalChatMessages" class="global-chat-messages"></div>
+      <div class="global-chat-compose">
+        <input id="globalChatInput" type="text" maxlength="400" placeholder="Message the casino..." />
+        <button class="primary-btn" type="button" data-action="send-global-chat">Send</button>
+      </div>
+      <small>Messages stay for 72 hours.</small>
+    </div>
+  </section>
+
   <dialog id="linkProfileDialog" class="profile-dialog">
     <form method="dialog" class="profile-card">
       <div class="section-title">
@@ -1094,6 +1111,7 @@
       <p id="ticketUseBody" class="auth-message">Spend 1 Casino Ticket for an extra play?</p>
       <div class="action-grid">
         <button id="ticketUseButton" class="primary-btn" type="button" data-action="confirm-use-ticket">Use Ticket</button>
+        <button id="ticketUseAllButton" class="ghost-btn" type="button" data-action="confirm-use-all-tickets">Use All</button>
         <button class="ghost-btn" type="button" data-action="close-ticket-dialog">Not Now</button>
       </div>
     </form>
@@ -1206,6 +1224,10 @@
       </div>
       <div id="wheelResult" class="blackjack-status">Spin once per day.</div>
       <button id="wheelSpinButton" class="primary-btn" style="width:100%;margin-top:12px;" type="button" data-action="confirm-lucky-wheel">Spin Wheel</button>
+      <div class="action-grid" style="margin-top:12px;">
+        <button id="wheelSpinAgainButton" class="ghost-btn" type="button" data-action="use-ticket-wheel-again" hidden>Spin Again With Ticket</button>
+        <button id="wheelUseAllButton" class="ghost-btn" type="button" data-action="use-all-wheel-tickets" hidden>Use All Tickets</button>
+      </div>
     </form>
   </dialog>
 
@@ -1316,6 +1338,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=20260701-2"></script>
+  <script type="module" src="js/app.js?v=20260702-1"></script>
 </body>
 </html>

@@ -55,10 +55,10 @@
       "description": "Try for a bundle of Casino Tickets.",
       "reward": {
         "type": "ticket",
-        "min": 1,
+        "min": 0,
         "max": 10
       },
-      "chance": 0.34
+      "chance": 1
     },
     {
       "id": "safe-crack",
