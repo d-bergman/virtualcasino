@@ -1,0 +1,37 @@
+[
+  {
+    "id": "casino-fund",
+    "symbol": "FUND-CASINO",
+    "name": "Casino Fund",
+    "contains": ["NED", "CRWN", "BLK", "CHIP"],
+    "purpose": "Bet on the casino economy as a group."
+  },
+  {
+    "id": "health-fund",
+    "symbol": "FUND-HEALTH",
+    "name": "Health Fund",
+    "contains": ["MED", "NOVA"],
+    "purpose": "Lower single-stock risk in health."
+  },
+  {
+    "id": "tech-growth-fund",
+    "symbol": "FUND-TECH",
+    "name": "Tech Growth Fund",
+    "contains": ["ACE", "SYN", "ROBO", "PIX"],
+    "purpose": "High-growth and high-volatility tech bundle."
+  },
+  {
+    "id": "luxury-travel-fund",
+    "symbol": "FUND-LUX",
+    "name": "Luxury & Travel Fund",
+    "contains": ["LUX", "DRFT", "AQUA", "SKY"],
+    "purpose": "Lifestyle and travel exposure."
+  },
+  {
+    "id": "defensive-fund",
+    "symbol": "FUND-DEF",
+    "name": "Defensive Fund",
+    "contains": ["VLT", "FARM", "BLK", "SPRK"],
+    "purpose": "More stable recession-friendly basket."
+  }
+]

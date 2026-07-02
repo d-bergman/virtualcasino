@@ -10,10 +10,13 @@
 <body class="auth-checking">
   <div id="appLoader" class="app-loader" role="status" aria-live="polite">
     <div class="loader-card">
-      <div class="loader-seal" aria-hidden="true">&#9819;</div>
-      <h2 class="loader-title">Loading Casino</h2>
-      <p>Preparing cards, chips, and family RPG records...</p>
+      <div class="loader-orbit" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="loader-seal" aria-hidden="true">&#9824;</div>
+      <p class="loader-kicker">Virtual Family Casino</p>
+      <h2 class="loader-title">Opening the Floor</h2>
+      <p>Syncing vaults, markets, dailies, tables, and family records...</p>
       <div class="loader-bar"><span></span></div>
+      <small class="loader-footnote">LCN / BAWSAQ market desks warming up</small>
     </div>
   </div>
 
@@ -832,6 +835,15 @@
               <div class="section-title"><span>&#128200; Investment Snapshot</span></div>
               <div id="bankInvestmentSnapshot" class="investment-snapshot"></div>
             </article>
+            <article class="panel panel-pad gold-bar-center">
+              <div class="section-title"><span>&#129689; Gold Bars</span></div>
+              <p class="auth-message">Premium store-of-value currency. Buy at $100,000, sell at $90,000.</p>
+              <div id="goldBarPlayerCard" class="loan-player-card"></div>
+              <div class="action-grid">
+                <button class="primary-btn" type="button" data-action="buy-gold-bar">Buy 1 Gold Bar</button>
+                <button class="ghost-btn" type="button" data-action="sell-gold-bar">Sell 1 Gold Bar</button>
+              </div>
+            </article>
           </div>
         </div>
         <p class="bank-footer-tip"><strong>Tip:</strong> Keep money in the Bank to protect it. Loans are repaid automatically from winnings.</p>
@@ -854,7 +866,12 @@
           <select id="stockSectorFilter">
             <option value="all">All Sectors</option>
           </select>
+          <button class="mini-btn" type="button" data-action="toggle-stock-watchlist-filter">Watchlist</button>
         </div>
+        <article class="panel panel-pad market-newspaper-panel">
+          <div class="section-title"><span>&#128240; Casino Financial Times</span><span id="marketPhaseBadge" class="sync-pill">Market Phase</span></div>
+          <div id="marketNewspaperBoard" class="market-newspaper-grid"></div>
+        </article>
         <div class="stock-layout">
           <article class="panel panel-pad">
             <div class="section-title"><span>Market Listings</span><span id="marketClock" class="sync-pill">Market closed</span></div>
@@ -888,6 +905,26 @@
               <button class="primary-btn w-full" type="button" data-action="transfer-stock-shares">Transfer Shares</button>
               <div id="shareTransferPreview" class="blackjack-status">Only shares you own appear here.</div>
             </article>
+            <article class="panel panel-pad">
+              <div class="section-title"><span>Limit Orders</span></div>
+              <label for="limitOrderSymbol">Company</label>
+              <select id="limitOrderSymbol"></select>
+              <label for="limitOrderType">Order Type</label>
+              <select id="limitOrderType">
+                <option value="buy">Auto Buy at or below</option>
+                <option value="sell">Auto Sell at or above</option>
+              </select>
+              <label for="limitOrderShares">Shares</label>
+              <input id="limitOrderShares" type="number" inputmode="numeric" min="1" value="10" />
+              <label for="limitOrderPrice">Target Price</label>
+              <input id="limitOrderPrice" type="number" inputmode="decimal" min="1" value="100" />
+              <button class="primary-btn w-full" type="button" data-action="create-limit-order">Create Limit Order</button>
+              <div id="limitOrdersBoard" class="leaderboard-list compact-feed"></div>
+            </article>
+            <article class="panel panel-pad">
+              <div class="section-title"><span>Sector Funds</span></div>
+              <div id="stockFundsBoard" class="leaderboard-list compact-feed"></div>
+            </article>
           </aside>
         </div>
         <article class="panel panel-pad stock-guide-panel">
@@ -897,6 +934,20 @@
               <h3>How the market breathes</h3>
               <p>Every pulse updates all listed companies. One company becomes the headline event, then its sector and network ripple outward. The featured company moves the hardest, similar-sector companies tend to follow, and the opposite side of the market may barely twitch.</p>
               <p>Business hours run from 8:00 AM to 6:00 PM Central. During those hours, movement is sharper and news has more bite. After hours still moves, but it is more like thin trading: smaller background drift with occasional ugly surprises.</p>
+            </section>
+            <section>
+              <h3>Market phases</h3>
+              <p>The market has weather now. Bull Market favors risk, Bear Market punishes weak hands, Casino Boom boosts casino names, Health Panic makes health stocks violent, Luxury Bubble runs luxury hot, Recession favors defensive names, and Speculative Mania can send tiny companies flying or crashing.</p>
+              <p>The Casino Financial Times shows the current phase, phase timer, rumors, movers, dividend notices, and executed limit orders.</p>
+            </section>
+            <section>
+              <h3>Market capitalization</h3>
+              <ul>
+                <li><strong>Nano</strong> stocks move hardest and can moon or crash violently.</li>
+                <li><strong>Small</strong> stocks react strongly to news and phase pressure.</li>
+                <li><strong>Mid</strong> stocks are the balanced baseline.</li>
+                <li><strong>Large</strong> and <strong>Mega</strong> stocks are steadier, but still move on major headlines.</li>
+              </ul>
             </section>
             <section>
               <h3>LCN vs BAWSAQ</h3>
@@ -909,7 +960,26 @@
                 <li><strong>Portfolio</strong> is the current resale value of every share you own.</li>
                 <li><strong>Unrealized P/L</strong> is profit or loss before selling. It can vanish if the next pulse turns against you.</li>
                 <li><strong>Trade Ticket</strong> previews cost before you buy, and your holdings panel shows gain or loss before you sell.</li>
+                <li><strong>Dividends</strong> periodically pay bankroll for income-style companies you hold.</li>
               </ul>
+            </section>
+            <section>
+              <h3>Automation tools</h3>
+              <ul>
+                <li><strong>Watchlist</strong> lets you favorite companies and filter the market down to only the names you care about.</li>
+                <li><strong>Limit Orders</strong> auto-buy when a stock drops to your target or auto-sell when it rises to your target.</li>
+                <li>Orders execute on stock pulses, check bankroll/shares first, and write normal stock history entries.</li>
+              </ul>
+            </section>
+            <section>
+              <h3>Sector funds</h3>
+              <p>Funds are bundle investments. Instead of betting on one company, you can buy a unit of a basket like Casino Fund, Health Fund, Tech Growth Fund, Luxury &amp; Travel Fund, or Defensive Fund.</p>
+              <p>Fund values update from their underlying companies and count toward your portfolio value.</p>
+            </section>
+            <section>
+              <h3>Rumors and headlines</h3>
+              <p>Insider rumors are hints, not promises. Some are confident, some are shaky, and some will be wrong. Use them as a signal, not a guarantee.</p>
+              <p>Market news has weighted severity and explicit movement ranges, so small headlines should feel different from critical squeezes, approvals, crashes, and sector shocks.</p>
             </section>
             <section>
               <h3>Strategy without getting cooked</h3>
@@ -1076,7 +1146,7 @@
 
   <section id="globalChatDock" class="global-chat-dock collapsed" aria-label="Global chat">
     <button id="globalChatToggle" class="global-chat-toggle" type="button" data-action="toggle-global-chat">
-      <span>Global Chat</span><strong id="globalChatArrow">▲</strong>
+      <span>Global Chat</span><i id="globalChatUnreadDot" class="chat-unread-dot" aria-label="Unread messages" hidden></i><strong id="globalChatArrow">▲</strong>
     </button>
     <div class="global-chat-panel">
       <div id="globalChatMessages" class="global-chat-messages"></div>

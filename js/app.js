@@ -26,6 +26,7 @@
     const STOCK_TICK_MAX_MS = 45 * 1000;
     const STOCK_COMPANIES = await loadStockCompanies();
     const MARKET_NEWS_EVENTS = await loadMarketNewsEvents();
+    const STOCK_FUNDS = await loadStockFunds();
     const loadedAssetCatalogs = await loadAssetCatalogs();
     const VEHICLE_CATALOG = loadedAssetCatalogs.garage;
     const AIRCRAFT_CATALOG = loadedAssetCatalogs.airplanes;
@@ -38,6 +39,7 @@
     const DAILY_CHALLENGE_CONFIG = await loadDailyChallengeConfig();
     const DAILY_CLICKABLES = dailyRewardConfig.activities;
     const levels = await loadFamilyLevels();
+    const PRESTIGE_XP = 4100;
     const standard = {white:10,red:10,blue:8,green:5,black:2};
     const blank = {white:0,red:0,blue:0,green:0,black:0};
     const CHIP_COLORS = ["white", "red", "blue", "green", "black"];
@@ -336,9 +338,34 @@
           sector:String(item.sector || "General"),
           base:Math.max(1, Number(item.base || 1)),
           volatility:Math.max(0.1, Number(item.volatility || 1)),
-          network:String(item.network || (index % 2 === 0 ? "LCN" : "BAWSAQ")).toUpperCase() === "BAWSAQ" ? "BAWSAQ" : "LCN"
+          network:String(item.network || (index % 2 === 0 ? "LCN" : "BAWSAQ")).toUpperCase() === "BAWSAQ" ? "BAWSAQ" : "LCN",
+          dividendYield:Math.max(0, Number(item.dividendYield || 0)),
+          crashChance:Math.max(0, Math.min(1, Number(item.crashChance || 0))),
+          moonChance:Math.max(0, Math.min(1, Number(item.moonChance || 0))),
+          riskTier:String(item.riskTier || "Balanced"),
+          marketCap:["Nano", "Small", "Mid", "Large", "Mega"].includes(String(item.marketCap || "")) ? String(item.marketCap) : "Mid",
+          tags:Array.isArray(item.tags) ? item.tags.map((tag) => String(tag).trim()).filter(Boolean) : []
         };
       });
+    }
+
+    async function loadStockFunds() {
+      try {
+        const response = await fetch("data/stock-funds.json", {cache:"no-store"});
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const items = await response.json();
+        if (!Array.isArray(items)) throw new Error("data/stock-funds.json must be an array.");
+        return items.map((item, index) => ({
+          id:String(item.id || `fund-${index}`).trim(),
+          symbol:String(item.symbol || `FUND-${index}`).trim().toUpperCase(),
+          name:String(item.name || "Stock Fund").trim(),
+          contains:Array.isArray(item.contains) ? item.contains.map((symbol) => String(symbol).trim().toUpperCase()).filter(Boolean) : [],
+          purpose:String(item.purpose || "")
+        })).filter((fund) => fund.id && fund.symbol && fund.contains.length);
+      } catch (error) {
+        console.warn("Could not load stock funds.", error);
+        return [];
+      }
     }
 
     async function loadMarketNewsEvents() {
@@ -368,14 +395,41 @@
           id,
           direction:["positive", "negative", "mixed"].includes(String(item.direction || "").toLowerCase()) ? String(item.direction).toLowerCase() : "mixed",
           network:String(item.network || "").toUpperCase(),
-          sector:String(item.sector || ""),
+          sector:marketNewsSectorAlias(String(item.sector || "")),
           headline:String(item.headline || "{network} / {company} moved during {session}."),
+          companyMove:normalizeMoveRange(item.companyMove, item.direction, item.companyImpact, 3, 15),
+          sectorMove:normalizeMoveRange(item.sectorMove, item.direction, item.sectorImpact, 0, 3),
+          networkMove:normalizeMoveRange(item.networkMove, item.direction, item.networkImpact, 0, 2),
+          weight:Math.max(0.05, Number(item.weight || 1)),
+          severity:String(item.severity || "normal"),
+          phases:Array.isArray(item.phases) ? item.phases.map((phase) => String(phase).trim()).filter(Boolean) : [],
           companyImpact:Math.max(0.25, Number(item.companyImpact || 1)),
           sectorImpact:Math.max(0.25, Number(item.sectorImpact || 1)),
           networkImpact:Math.max(0.25, Number(item.networkImpact || 1)),
           marketImpact:Math.max(0.25, Number(item.marketImpact || 1))
         };
       });
+    }
+
+    function marketNewsSectorAlias(sector) {
+      const clean = String(sector || "").trim();
+      return {
+        Marine:"Luxury",
+        Robotics:"Robotics & AI"
+      }[clean] || clean;
+    }
+
+    function normalizeMoveRange(value, direction = "mixed", multiplier = 1, fallbackMin = 0, fallbackMax = 5) {
+      const source = Array.isArray(value) && value.length >= 2
+        ? value.map(Number)
+        : [fallbackMin * Number(multiplier || 1), fallbackMax * Number(multiplier || 1)];
+      const low = Math.max(0, Math.min(Math.abs(source[0] || 0), Math.abs(source[1] || 0)));
+      const high = Math.max(low, Math.max(Math.abs(source[0] || 0), Math.abs(source[1] || 0)));
+      return [Number(low.toFixed(2)), Number(high.toFixed(2))];
+    }
+
+    function randomRange([min, max] = [0, 0]) {
+      return Number(min || 0) + Math.random() * Math.max(0, Number(max || 0) - Number(min || 0));
     }
 
     async function loadAchievementDefinitions() {
@@ -533,8 +587,10 @@
     let achievementCategory = "all";
     let achievementSearch = "";
     let achievementSort = "unlocked";
+    let achievementProgressCache = null;
     let stockNetworkFilter = "all";
     let stockSectorFilter = "all";
+    let stockWatchlistOnly = false;
     let achievementCheckTimer = null;
     let roomPollTimer = null;
     let activeOnlineGame = "";
@@ -554,6 +610,8 @@
     let ticketAutoUseAll = false;
     let assetViewPlayerName = "";
     let globalChatOpen = false;
+    let globalChatLastSeen = Number(localStorage.getItem("virtualCasinoChatLastSeenV1") || 0);
+    let editingChatMessageId = "";
     let activeAssetCategory = "garage";
     let localSettlement = {selectedPlayers: [], reviews: [], overrideImbalance: false};
     let changelogEntries = [];
@@ -638,22 +696,28 @@
         ];
       }
       data.players = data.players.map((player) => {
+        const progress = normalizeProgressSnapshot(player);
         const chips = {...blank, ...(player.chips || {})};
         const lifetime = Number.isFinite(Number(player.lifetime)) ? Number(player.lifetime) : Number(player.bankroll || 0);
         const name = String(player.name || "Player").trim();
         return {
           id: player.id || `player-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || Math.random().toString(36).slice(2, 9)}`,
           name,
-          xp: Number(player.xp || 0),
-          stars: Number(player.stars || 0),
+          xp: progress.xp,
+          stars: progress.stars,
+          totalXpEarned: progress.totalXpEarned,
           chips,
           bankroll: Number.isFinite(Number(player.bankroll)) ? Number(player.bankroll) : stackValue(chips),
           lifetime,
           bankBalance: Number(player.bankBalance || 0),
           bankDebt: Number(player.bankDebt || 0),
           casinoTickets: Number(player.casinoTickets || 0),
+          goldBars: Math.max(0, Math.floor(Number(player.goldBars || 0))),
           portfolio: player.portfolio && typeof player.portfolio === "object" && !Array.isArray(player.portfolio) ? player.portfolio : {},
           portfolioCost: player.portfolioCost && typeof player.portfolioCost === "object" && !Array.isArray(player.portfolioCost) ? player.portfolioCost : {},
+          funds: player.funds && typeof player.funds === "object" && !Array.isArray(player.funds) ? player.funds : {},
+          fundCost: player.fundCost && typeof player.fundCost === "object" && !Array.isArray(player.fundCost) ? player.fundCost : {},
+          stockWatchlist: Array.isArray(player.stockWatchlist) ? player.stockWatchlist.map((symbol) => String(symbol).toUpperCase()).filter(Boolean) : [],
           ownedAssets: Array.isArray(player.ownedAssets) ? player.ownedAssets : [],
           sessionBuyIn: Number(player.sessionBuyIn || player.sessionStart || 0),
           localStats: {
@@ -747,12 +811,31 @@
       return data;
     }
 
+    const MARKET_PHASES = [
+      {name:"Bull Market", drift:1.6, positiveBias:0.62, favored:["Software","Luxury","Vehicles","Aerospace","Robotics & AI","Space Logistics"], weak:[]},
+      {name:"Bear Market", drift:-1.3, positiveBias:0.38, favored:["Banking","Food","Security","Telecom"], weak:["Luxury","Travel","Consumer","Vehicles"]},
+      {name:"Casino Boom", drift:.7, positiveBias:0.58, favored:["Casino & Hospitality","Casino Tech","Security"], weak:[]},
+      {name:"Health Panic", drift:0, positiveBias:0.5, favored:["Health"], weak:["Health"], volatilitySectors:["Health"]},
+      {name:"Luxury Bubble", drift:.8, positiveBias:0.57, favored:["Luxury","Vehicles","Real Estate","Travel"], weak:["Food","Banking"]},
+      {name:"Recession", drift:-.9, positiveBias:0.42, favored:["Banking","Food","Security","Telecom"], weak:["Travel","Luxury","Consumer","Vehicles"]},
+      {name:"Speculative Mania", drift:.2, positiveBias:0.55, favored:["Aerospace","Robotics & AI","Space Logistics","Automation"], weak:["Banking","Food","Telecom"], speculative:true}
+    ];
+
+    const MARKET_CAP_MODIFIERS = {Nano:1.4, Small:1.2, Mid:1, Large:.85, Mega:.7};
+
     function normalizeStockMarket(input) {
       const market = input && typeof input === "object" && !Array.isArray(input) ? structuredClone(input) : {};
       market.lastTick = Number(market.lastTick || Date.now());
       market.nextTick = Number(market.nextTick || Date.now() + stockTickDelay());
       market.tickNumber = Number(market.tickNumber || 0);
       market.news = Array.isArray(market.news) ? market.news.slice(0, 8) : [];
+      market.limitOrders = Array.isArray(market.limitOrders) ? market.limitOrders : [];
+      market.dividendHistory = Array.isArray(market.dividendHistory) ? market.dividendHistory.slice(0, 12) : [];
+      market.rumors = Array.isArray(market.rumors) ? market.rumors.slice(0, 3) : [];
+      market.phase = normalizeMarketPhase(market.phase);
+      market.phaseStartedAt = Number(market.phaseStartedAt || Date.now());
+      market.phaseEndsAt = Number(market.phaseEndsAt || Date.now() + 12 * 60 * 1000);
+      market.lastDividendAt = Number(market.lastDividendAt || 0);
       market.companies = market.companies && typeof market.companies === "object" && !Array.isArray(market.companies) ? market.companies : {};
       STOCK_COMPANIES.forEach((company, index) => {
         const existing = market.companies[company.symbol] || {};
@@ -802,16 +885,47 @@
       return market;
     }
 
+    function normalizeMarketPhase(phase) {
+      const name = typeof phase === "string" ? phase : phase?.name;
+      return MARKET_PHASES.find((item) => item.name === name)?.name || "Bull Market";
+    }
+
+    function activeMarketPhase() {
+      return MARKET_PHASES.find((phase) => phase.name === state.stockMarket?.phase) || MARKET_PHASES[0];
+    }
+
+    function maybeRotateMarketPhase(now = Date.now()) {
+      const market = state.stockMarket;
+      if (!market || now < Number(market.phaseEndsAt || 0)) return false;
+      const previous = market.phase;
+      const pool = MARKET_PHASES.filter((phase) => phase.name !== previous);
+      const next = pool[Math.floor(Math.random() * pool.length)] || MARKET_PHASES[0];
+      market.phase = next.name;
+      market.phaseStartedAt = now;
+      market.phaseEndsAt = now + (10 + Math.floor(Math.random() * 9)) * 60 * 1000;
+      market.news.unshift(`Market phase shifted: ${next.name}.`);
+      market.news = market.news.slice(0, 8);
+      generateInsiderRumors(now);
+      return true;
+    }
+
     function maybeAdvanceMarkets() {
       const now = Date.now();
       if (!state?.stockMarket) return;
       let changed = false;
+      if (!state.stockMarket.rumors?.length) {
+        generateInsiderRumors(now);
+        changed = true;
+      }
+      if (maybeRotateMarketPhase(now)) changed = true;
+      if (maybePayDividends(now)) changed = true;
       let guard = 0;
       while (now >= Number(state.stockMarket.nextTick || 0) && guard < 20) {
         advanceStockMarketTick(now);
         changed = true;
         guard += 1;
       }
+      if (executeLimitOrders()) changed = true;
       Object.keys(ASSET_CATALOGS).forEach((category) => {
         const lastRefresh = Number(activeAssetMarket(category)?.lastRefresh || 0);
         if (now >= nextAssetRefreshTime(lastRefresh).getTime()) {
@@ -835,17 +949,129 @@
       return parts.hour >= 8 && parts.hour < 18;
     }
 
+    function maybePayDividends(now = Date.now()) {
+      const market = state.stockMarket;
+      const interval = 10 * 60 * 1000;
+      if (!market || now - Number(market.lastDividendAt || 0) < interval) return false;
+      market.lastDividendAt = now;
+      let total = 0;
+      state.players.forEach((player) => {
+        Object.entries(player.portfolio || {}).forEach(([symbol, shares]) => {
+          const stock = market.companies?.[symbol];
+          const yieldRate = Number(stock?.dividendYield || 0);
+          if (!stock || yieldRate <= 0 || Number(shares || 0) <= 0) return;
+          const payout = Math.floor(Number(shares) * Number(stock.price || 0) * yieldRate);
+          if (payout <= 0) return;
+          adjustPlayerBankroll(player, payout);
+          player.lifetime = Number(player.lifetime || 0) + payout;
+          total += payout;
+          addHistoryEvent({
+            type:"stock-dividend",
+            category:"Stocks",
+            player:player.name,
+            title:"Dividend Paid",
+            description:`${player.name} received ${money(payout)} in ${symbol} dividends.`,
+            amount:payout,
+            details:{symbol, shares:Number(shares), dividendYield:yieldRate}
+          });
+        });
+      });
+      if (total > 0) {
+        market.dividendHistory.unshift(`Dividends paid: ${money(total)} across income holdings.`);
+        market.dividendHistory = market.dividendHistory.slice(0, 12);
+        market.news.unshift(`Dividend cycle paid ${money(total)} to family shareholders.`);
+        market.news = market.news.slice(0, 8);
+        return true;
+      }
+      return false;
+    }
+
+    function generateInsiderRumors(now = Date.now()) {
+      const companies = Object.values(state.stockMarket?.companies || {});
+      state.stockMarket.rumors = companies.sort(() => Math.random() - .5).slice(0, 3).map((stock) => {
+        const positive = Math.random() > .45;
+        const confidence = Math.random() > .32 ? "credible" : "shaky";
+        return {
+          id:`rumor-${now}-${stock.symbol}`,
+          symbol:stock.symbol,
+          direction:positive ? "positive" : "negative",
+          confidence,
+          text:positive
+            ? `Unusual buying activity spotted around ${stock.symbol}. ${confidence === "shaky" ? "Could be noise." : "Desk chatter sounds confident."}`
+            : `${stock.symbol} desk chatter sounds nervous. ${confidence === "shaky" ? "Rumor could miss." : "Traders are watching closely."}`,
+          createdAt:now
+        };
+      });
+    }
+
+    function executeLimitOrders() {
+      const market = state.stockMarket;
+      if (!market) return false;
+      let changed = false;
+      market.limitOrders = (market.limitOrders || []).map((order) => {
+        if (!order.enabled) return order;
+        const player = playerById(order.playerId) || playerByName(order.playerName);
+        const stock = market.companies?.[order.symbol];
+        const shares = Math.max(1, Math.round(Number(order.shares || 1)));
+        const target = Number(order.targetPrice || 0);
+        if (!player || !stock || target <= 0) return {...order, enabled:false, note:"Invalid order"};
+        const hit = order.type === "buy" ? Number(stock.price || 0) <= target : Number(stock.price || 0) >= target;
+        if (!hit) return order;
+        const total = Math.round(shares * Number(stock.price || 0));
+        if (order.type === "buy") {
+          if (bankrollValue(player) < total) return {...order, enabled:false, note:"Insufficient bankroll"};
+          adjustPlayerBankroll(player, -total);
+          player.portfolio = player.portfolio || {};
+          player.portfolioCost = player.portfolioCost || {};
+          player.portfolio[stock.symbol] = Number(player.portfolio[stock.symbol] || 0) + shares;
+          player.portfolioCost[stock.symbol] = Number(player.portfolioCost[stock.symbol] || 0) + total;
+        } else {
+          const owned = Number(player.portfolio?.[stock.symbol] || 0);
+          if (owned < shares) return {...order, enabled:false, note:"Insufficient shares"};
+          const oldCost = Number(player.portfolioCost?.[stock.symbol] || 0);
+          const costSold = owned > 0 ? Math.round(oldCost * (shares / owned)) : 0;
+          player.portfolio[stock.symbol] = owned - shares;
+          player.portfolioCost[stock.symbol] = Math.max(0, oldCost - costSold);
+          if (player.portfolio[stock.symbol] <= 0) {
+            delete player.portfolio[stock.symbol];
+            delete player.portfolioCost[stock.symbol];
+          }
+          adjustPlayerBankroll(player, total);
+          player.lifetime = Number(player.lifetime || 0) + (total - costSold);
+        }
+        changed = true;
+        addHistoryEvent({
+          type:"stock-limit-order",
+          category:"Stocks",
+          player:player.name,
+          title:"Limit Order Executed",
+          description:`${player.name}'s ${order.type} order executed: ${shares.toLocaleString()} ${stock.symbol} at ${money(stock.price)}.`,
+          amount:order.type === "buy" ? -total : total,
+          details:{orderId:order.id, symbol:stock.symbol, type:order.type, shares, targetPrice:target, executionPrice:stock.price}
+        });
+        return {...order, enabled:false, executedAt:Date.now(), executionPrice:stock.price};
+      });
+      return changed;
+    }
+
     function selectMarketNewsEvent(company, direction) {
       const wanted = direction > 0 ? "positive" : "negative";
       const matches = MARKET_NEWS_EVENTS.filter((event) => {
         const directionMatch = event.direction === wanted || event.direction === "mixed";
         const networkMatch = !event.network || event.network === company.network;
         const sectorMatch = !event.sector || event.sector === company.sector;
-        return directionMatch && networkMatch && sectorMatch;
+        const phaseMatch = !event.phases?.length || event.phases.includes(state.stockMarket?.phase);
+        return directionMatch && networkMatch && sectorMatch && phaseMatch;
       });
       const fallback = MARKET_NEWS_EVENTS.filter((event) => event.direction === wanted || event.direction === "mixed");
       const pool = matches.length ? matches : fallback.length ? fallback : MARKET_NEWS_EVENTS;
-      return pool[Math.floor(Math.random() * pool.length)] || {headline:"{network} / {company} moved during {session}.", companyImpact:1, sectorImpact:1, networkImpact:1, marketImpact:1};
+      const totalWeight = pool.reduce((sum, event) => sum + Number(event.weight || 1), 0);
+      let roll = Math.random() * Math.max(0.01, totalWeight);
+      for (const event of pool) {
+        roll -= Number(event.weight || 1);
+        if (roll <= 0) return event;
+      }
+      return pool[0] || {headline:"{network} / {company} moved during {session}.", companyMove:[3,15], sectorMove:[0,3], networkMove:[0,2], companyImpact:1, sectorImpact:1, networkImpact:1, marketImpact:1};
     }
 
     function formatMarketNewsEvent(event, company, openHours) {
@@ -864,19 +1090,26 @@
       market.nextTick = now + stockTickDelay();
       const companies = Object.values(market.companies);
       const eventCompany = companies[Math.floor(Math.random() * companies.length)] || STOCK_COMPANIES[Math.floor(Math.random() * STOCK_COMPANIES.length)];
-      const eventDirection = Math.random() > 0.48 ? 1 : -1;
+      const phase = activeMarketPhase();
+      const eventDirection = Math.random() < Number(phase.positiveBias ?? .52) ? 1 : -1;
       const openHours = isStockBusinessHours(new Date(now));
       const newsEvent = selectMarketNewsEvent(eventCompany, eventDirection);
       const eventText = formatMarketNewsEvent(newsEvent, eventCompany, openHours);
       companies.forEach((company) => {
-        const sectorMood = company.sector === eventCompany.sector ? eventDirection * (0.75 + Math.random() * 2.2) * Number(newsEvent.sectorImpact || 1) : 0;
-        const networkMood = company.network === eventCompany.network ? eventDirection * (0.42 + Math.random() * 1.35) * Number(newsEvent.networkImpact || 1) : 0;
+        const capModifier = MARKET_CAP_MODIFIERS[company.marketCap] || 1;
+        const phaseSector = phase.favored?.includes(company.sector) ? 1.25 : phase.weak?.includes(company.sector) ? .78 : 1;
+        const phaseVolatility = phase.volatilitySectors?.includes(company.sector) ? 1.45 : phase.speculative && ["Nano","Small"].includes(company.marketCap) ? 1.35 : 1;
+        const phaseDrift = Number(phase.drift || 0) * phaseSector;
+        const sectorMood = company.sector === eventCompany.sector ? eventDirection * randomRange(newsEvent.sectorMove || [0, 3]) * Number(newsEvent.sectorImpact || 1) : 0;
+        const networkMood = company.network === eventCompany.network ? eventDirection * randomRange(newsEvent.networkMove || [0, 2]) * Number(newsEvent.networkImpact || 1) : 0;
         const rareCatalyst = company.symbol === eventCompany.symbol && Math.random() < 0.07 ? eventDirection * (18 + Math.random() * 42) : 0;
-        const shock = company.symbol === eventCompany.symbol ? eventDirection * (3.5 + Math.random() * 11.5) * Number(newsEvent.companyImpact || 1) : 0;
+        const stockMoon = Math.random() < Number(company.moonChance || 0) ? 12 + Math.random() * 38 : 0;
+        const stockCrash = Math.random() < Number(company.crashChance || 0) ? -(12 + Math.random() * 38) : 0;
+        const shock = company.symbol === eventCompany.symbol ? eventDirection * randomRange(newsEvent.companyMove || [3, 15]) * Number(newsEvent.companyImpact || 1) : 0;
         const drift = (Math.random() - 0.47) * Number(company.volatility || 1) * 2.05;
         const pullToBase = ((Number(company.base || company.price) - Number(company.price || company.base)) / Math.max(1, Number(company.price || 1))) * 0.48;
         const multiplier = openHours ? 2.15 : 1.08;
-        const percent = Math.max(-65, Math.min(65, ((drift + shock + sectorMood + networkMood + pullToBase) * multiplier * Number(newsEvent.marketImpact || 1)) + rareCatalyst));
+        const percent = Math.max(-65, Math.min(65, (((drift + shock + sectorMood + networkMood + pullToBase + phaseDrift) * Number(company.volatility || 1) * capModifier * phaseVolatility) * multiplier * Number(newsEvent.marketImpact || 1)) + rareCatalyst + stockMoon + stockCrash));
         company.previous = Number(company.price || company.base);
         company.price = Number(Math.max(1, company.previous * (1 + percent / 100)).toFixed(2));
         company.trend = Number(((company.price - company.previous) / company.previous * 100).toFixed(2));
@@ -1038,10 +1271,40 @@
       };
     }
 
+    function normalizeProgressSnapshot(player = {}) {
+      player = player || {};
+      const rawTotal = player.totalXpEarned ?? ((Number(player.stars || 0) * PRESTIGE_XP) + Number(player.xp || 0));
+      const totalXpEarned = Math.max(0, Math.floor(Number(rawTotal || 0)));
+      return {
+        totalXpEarned,
+        stars: Math.floor(totalXpEarned / PRESTIGE_XP),
+        xp: totalXpEarned % PRESTIGE_XP
+      };
+    }
+
+    function normalizePlayerProgress(player) {
+      if (!player) return null;
+      const progress = normalizeProgressSnapshot(player);
+      player.totalXpEarned = progress.totalXpEarned;
+      player.stars = progress.stars;
+      player.xp = progress.xp;
+      return player;
+    }
+
+    function playerTotalXP(player) {
+      return normalizeProgressSnapshot(player).totalXpEarned;
+    }
+
     function levelFromXP(xp) {
+      const cycleXp = Math.max(0, Math.floor(Number(xp || 0))) % PRESTIGE_XP;
       let current = levels[0];
-      levels.forEach((row) => { if (xp >= row.xp) current = row; });
-      return current.level;
+      levels.forEach((row) => { if (cycleXp >= row.xp) current = row; });
+      return Math.min(10, Number(current?.level || 1));
+    }
+
+    function displayLevelForPlayer(player) {
+      normalizePlayerProgress(player);
+      return levelFromXP(player?.xp || 0);
     }
 
     function levelXP(level) {
@@ -1049,18 +1312,32 @@
     }
 
     function nextLevelXP(xp) {
-      return levels.find((row) => xp < row.xp)?.xp || 7600;
+      const cycleXp = Math.max(0, Math.floor(Number(xp || 0))) % PRESTIGE_XP;
+      return levels.find((row) => cycleXp < row.xp)?.xp || PRESTIGE_XP;
     }
 
     function levelProgress(xp) {
-      const level = levelFromXP(xp);
+      const cycleXp = Math.max(0, Math.floor(Number(xp || 0))) % PRESTIGE_XP;
+      const level = levelFromXP(cycleXp);
       const prev = levelXP(level);
-      const next = nextLevelXP(xp);
-      return Math.max(0, Math.min(100, ((xp - prev) / Math.max(1, next - prev)) * 100));
+      const next = nextLevelXP(cycleXp);
+      return Math.max(0, Math.min(100, ((cycleXp - prev) / Math.max(1, next - prev)) * 100));
     }
 
     function familyXP() {
-      return state.players.reduce((sum, player) => sum + Number(player.xp || 0), 0);
+      return state.players.reduce((sum, player) => sum + playerTotalXP(player), 0);
+    }
+
+    function familyCycleXP() {
+      return familyXP() % PRESTIGE_XP;
+    }
+
+    function familyLevel() {
+      return levelFromXP(familyCycleXP());
+    }
+
+    function familyPrestige() {
+      return Math.floor(familyXP() / PRESTIGE_XP);
     }
 
     function rankedPlayers() {
@@ -1068,7 +1345,7 @@
     }
 
     function netBankroll(player) {
-      return bankrollValue(player) + Number(player.bankBalance || 0) - Number(player.bankDebt || 0);
+      return bankrollValue(player) + Number(player.bankBalance || 0) + (Number(player.goldBars || 0) * 90000) - Number(player.bankDebt || 0);
     }
 
     function playerByName(name) {
@@ -1183,7 +1460,8 @@
           player:String(message.player || "Guest"),
           displayName:String(message.displayName || message.player || "Guest"),
           text:String(message.text || "").slice(0, 400),
-          createdAt:Number(message.createdAt || Date.now())
+          createdAt:Number(message.createdAt || Date.now()),
+          editedAt:Number(message.editedAt || 0)
         }))
         .filter((message) => message.text.trim() && message.createdAt >= cutoff)
         .sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0))
@@ -1215,15 +1493,35 @@
       const board = $("globalChatMessages");
       if (!dock || !board) return;
       state.chatMessages = pruneChatMessages(state.chatMessages);
+      const player = currentPlayer();
+      const latest = state.chatMessages[state.chatMessages.length - 1];
+      const editableId = player && latest?.player === player.name ? latest.id : "";
+      if (globalChatOpen) markGlobalChatSeen();
+      const hasUnread = !globalChatOpen && Number(latest?.createdAt || 0) > Number(globalChatLastSeen || 0);
       dock.classList.toggle("collapsed", !globalChatOpen);
       $("globalChatArrow").textContent = globalChatOpen ? "▼" : "▲";
+      if ($("globalChatUnreadDot")) $("globalChatUnreadDot").hidden = !hasUnread;
       board.innerHTML = state.chatMessages.length
         ? state.chatMessages.map((message) => `<article class="chat-message">
           <header><span>${escapeHtml(message.displayName || message.player)}</span><time>${escapeHtml(new Date(message.createdAt).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}</time></header>
-          <p>${escapeHtml(message.text)}</p>
+          <p>${escapeHtml(message.text)}${message.editedAt ? ` <small>(edited)</small>` : ""}</p>
+          ${player?.name === message.player ? `<footer class="chat-message-actions">
+            ${message.id === editableId ? `<button class="mini-btn" type="button" data-action="edit-chat-message" data-chat-id="${escapeAttr(message.id)}">Edit</button>` : ""}
+            <button class="mini-btn danger-mini" type="button" data-action="delete-chat-message" data-chat-id="${escapeAttr(message.id)}">Delete</button>
+          </footer>` : ""}
         </article>`).join("")
         : `<div class="blackjack-status">No messages yet. Say hi to the table.</div>`;
+      const sendButton = document.querySelector("[data-action='send-global-chat']");
+      if (sendButton) sendButton.textContent = editingChatMessageId ? "Save" : "Send";
       if (globalChatOpen) board.scrollTop = board.scrollHeight;
+    }
+
+    function markGlobalChatSeen() {
+      const latestAt = Number(state.chatMessages?.[state.chatMessages.length - 1]?.createdAt || 0);
+      if (latestAt > Number(globalChatLastSeen || 0)) {
+        globalChatLastSeen = latestAt;
+        localStorage.setItem("virtualCasinoChatLastSeenV1", String(globalChatLastSeen));
+      }
     }
 
     function sendGlobalChat() {
@@ -1233,6 +1531,24 @@
       if (!player) return toast("Link your profile to chat.");
       if (!text) return;
       state.chatMessages = pruneChatMessages(state.chatMessages);
+      if (editingChatMessageId) {
+        const latest = state.chatMessages[state.chatMessages.length - 1];
+        const message = state.chatMessages.find((item) => item.id === editingChatMessageId);
+        if (!message || !latest || latest.id !== message.id || message.player !== player.name) {
+          editingChatMessageId = "";
+          input.value = "";
+          renderGlobalChat();
+          return toast("Only your newest chat message can be edited.");
+        }
+        message.text = text;
+        message.editedAt = Date.now();
+        editingChatMessageId = "";
+        input.value = "";
+        globalChatOpen = true;
+        markGlobalChatSeen();
+        saveFast(renderGlobalChat);
+        return;
+      }
       state.chatMessages.push({
         id:`chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         player:player.name,
@@ -1242,6 +1558,32 @@
       });
       input.value = "";
       globalChatOpen = true;
+      markGlobalChatSeen();
+      saveFast(renderGlobalChat);
+    }
+
+    function editChatMessage(messageId) {
+      const player = currentPlayer();
+      const latest = state.chatMessages?.[state.chatMessages.length - 1];
+      const message = state.chatMessages?.find((item) => item.id === messageId);
+      if (!player || !message || message.player !== player.name || latest?.id !== message.id) return toast("Only your newest chat message can be edited.");
+      editingChatMessageId = message.id;
+      $("globalChatInput").value = message.text;
+      $("globalChatInput").focus();
+      globalChatOpen = true;
+      markGlobalChatSeen();
+      renderGlobalChat();
+    }
+
+    function deleteChatMessage(messageId) {
+      const player = currentPlayer();
+      const message = state.chatMessages?.find((item) => item.id === messageId);
+      if (!player || !message || message.player !== player.name) return toast("You can only delete your own chat messages.");
+      state.chatMessages = state.chatMessages.filter((item) => item.id !== messageId);
+      if (editingChatMessageId === messageId) {
+        editingChatMessageId = "";
+        $("globalChatInput").value = "";
+      }
       saveFast(renderGlobalChat);
     }
 
@@ -1278,7 +1620,8 @@
       if (achievementUnlockedFor(id, owner)) return false;
       state.unlockedAchievements[achievementKey(id, owner)] = {at: Date.now(), player: owner, source, achievementId:id};
       const rewardXP = achievementRewardXP(definition.rarity);
-      linkedPlayer.xp += rewardXP;
+      linkedPlayer.totalXpEarned = playerTotalXP(linkedPlayer) + rewardXP;
+      normalizePlayerProgress(linkedPlayer);
       addHistoryEvent({
         type:"achievement-unlocked",
         category:"Achievements",
@@ -1315,10 +1658,12 @@
       if (!definition || !player || achievementUnlockedFor(id, player.name)) return false;
       state.unlockedAchievements[achievementKey(id, player.name)] = {at: Date.now(), player: player.name, source, achievementId:id};
       const rewardXP = achievementRewardXP(definition.rarity);
-      player.xp += rewardXP;
+      player.totalXpEarned = playerTotalXP(player) + rewardXP;
+      normalizePlayerProgress(player);
+      const validationSource = /validation/i.test(source);
       addHistoryEvent({
         type:"achievement-unlocked",
-        category:"Achievements",
+        category:validationSource ? "System" : "Achievements",
         player:player.name,
         title:"Achievement Validated",
         description:`${player.name} qualified for ${definition.name}.`,
@@ -1826,26 +2171,28 @@
       const champion = ranked[0] || state.players[0];
       const linked = currentPlayer();
       $("championName").innerHTML = `${escapeHtml(linked ? currentDisplayName() : displayNameForPlayer(champion?.name || "Champion"))} ${linked ? playerSymbol(linked.name) : (champion ? playerSymbol(champion.name) : "")}`;
-      const fxp = familyXP();
-      const fl = levelFromXP(fxp);
+      const fxp = familyCycleXP();
+      const fl = familyLevel();
       $("familyLevel").textContent = fl;
       $("familyXpLabel").textContent = `${fxp.toLocaleString()} / ${nextLevelXP(fxp).toLocaleString()} XP`;
       $("familyXpFill").style.width = `${levelProgress(fxp)}%`;
-      $("familyPrestige").textContent = state.players.reduce((sum, p) => sum + Number(p.stars || 0), 0);
+      $("familyPrestige").textContent = familyPrestige();
 
-      $("crewGrid").innerHTML = ranked.slice(0, 3).map(renderPlayerCard).join("");
-      $("allPlayersDetailedBoard").innerHTML = state.players.map(renderDetailedPlayerCard).join("");
-      $("leaderboard").innerHTML = ranked.map((p, i) => renderLeaderboardRow(p, i)).join("");
+      if (activeView === "overview") $("crewGrid").innerHTML = ranked.slice(0, 3).map(renderPlayerCard).join("");
+      if (activeView === "players") $("allPlayersDetailedBoard").innerHTML = state.players.map(renderDetailedPlayerCard).join("");
+      if (activeView === "overview") $("leaderboard").innerHTML = ranked.map((p, i) => renderLeaderboardRow(p, i)).join("");
       renderGlobalChat();
-      $("playerAdminBoard").innerHTML = state.players.map((p) => renderAdminPlayerRow(p)).join("");
+      if (activeView === "admin") $("playerAdminBoard").innerHTML = state.players.map((p) => renderAdminPlayerRow(p)).join("");
       document.querySelectorAll(".admin-link").forEach((item) => item.hidden = !isDarrenAdmin());
       if (activeView === "admin") renderLinkageAdminBoard();
-      $("recentActivity").innerHTML = (state.log.length ? state.log : ["No activity yet."]).slice(0, 5).map((item, index) => renderListRow(index + 1, item, "", "")).join("");
+      if (activeView === "overview") $("recentActivity").innerHTML = (state.log.length ? state.log : ["No activity yet."]).slice(0, 5).map((item, index) => renderListRow(index + 1, item, "", "")).join("");
       if (activeView === "history") renderHistoryBoard();
-      const unlocked = unlockedAchievementRows();
-      $("recentAchievements").innerHTML = unlocked.length
-        ? unlocked.slice(0, 3).map((item) => renderAchievementRow(item.definition, item.unlock)).join("")
-        : renderListRow("&#9733;", "No achievements unlocked yet", "Complete tracked milestones to unlock achievements.", "");
+      if (activeView === "overview") {
+        const unlocked = unlockedAchievementRows();
+        $("recentAchievements").innerHTML = unlocked.length
+          ? unlocked.slice(0, 3).map((item) => renderAchievementRow(item.definition, item.unlock)).join("")
+          : renderListRow("&#9733;", "No achievements unlocked yet", "Complete tracked milestones to unlock achievements.", "");
+      }
       if (activeView === "achievements") renderAchievementBoards();
       if (activeView === "bank") renderBankDashboard();
       if (activeView === "stocks") renderStockMarket();
@@ -2035,7 +2382,7 @@
 
     function renderPlayerCard(player, index) {
       const rank = rankedPlayers().findIndex((p) => p.name === player.name) + 1;
-      const level = levelFromXP(player.xp);
+      const level = displayLevelForPlayer(player);
       const next = nextLevelXP(player.xp);
       const color = colors[(rank - 1) % colors.length];
       const lifetimeClass = player.lifetime >= 0 ? "money" : "loss";
@@ -2077,7 +2424,7 @@
 
     function renderDetailedPlayerCard(player) {
       const bankroll = bankrollValue(player);
-      const level = levelFromXP(player.xp);
+      const level = displayLevelForPlayer(player);
       const achievements = achievementCompletionText(player.name);
       const debtClass = player.bankDebt > 0 ? "loss" : "";
       return `<article class="all-player-card">
@@ -2109,7 +2456,7 @@
         <div class="leaderboard-rank"><span>#${index + 1}</span></div>
         <div class="leaderboard-profile">
           <strong>${escapeHtml(displayNameForPlayer(player.name))}</strong>
-          <span>Level ${levelFromXP(player.xp)} • ${achievementCompletionText(player.name)} achievements</span>
+          <span>Level ${displayLevelForPlayer(player)} • ${achievementCompletionText(player.name)} achievements</span>
           ${achievementShowcaseMarkup(player)}
         </div>
         <div class="leaderboard-bar"><span style="width:${width}%"></span></div>
@@ -2170,6 +2517,7 @@
     }
 
     function renderAchievementBoards() {
+      achievementProgressCache = new Map();
       const unlocked = unlockedAchievementRows();
       const linkedName = currentPlayer()?.name || "";
       const linkedUnlockedIds = new Set(Object.entries(state.unlockedAchievements || {})
@@ -2219,6 +2567,7 @@
         : renderListRow("&#9733;", "No recent unlocks", "New achievements will appear here.", "");
       renderAchievementSummary(combined);
       document.querySelectorAll("[data-achievement-category]").forEach((button) => button.classList.toggle("active", button.dataset.achievementCategory === achievementCategory));
+      achievementProgressCache = null;
     }
 
     function shouldConcealAchievement(definition, isUnlocked) {
@@ -2266,6 +2615,7 @@
       if (!player) {
         $("bankSummaryGrid").innerHTML = `<div class="blackjack-status">Link your profile to use banking and loans.</div>`;
         $("loanPlayerCard").innerHTML = `<div class="blackjack-status">No linked player.</div>`;
+        if ($("goldBarPlayerCard")) $("goldBarPlayerCard").innerHTML = `<div class="blackjack-status">No linked player.</div>`;
         $("transferFromPlayer").textContent = "No linked player";
         $("bankInvestmentSnapshot").innerHTML = `<div class="blackjack-status">Link your profile to see investments.</div>`;
         return;
@@ -2280,6 +2630,7 @@
         ["lifetime","&#8599;","Lifetime Profit / Loss",signedMoney(player.lifetime),"All time net"],
         ["debt","&#9888;","Bank Debt",money(debt),"Outstanding loans"],
         ["worth","&#9670;","Net Worth",signedMoney(netWorth),"Bankroll + Bank - Debt"],
+        ["gold","&#129689;","Gold Bars",`${Number(player.goldBars || 0).toLocaleString()} bars`,`${money(Number(player.goldBars || 0) * 90000)} sell value`],
         ["vault","&#128142;","Casino Vault",money(state.casinoVault || 0),"Lifetime house earnings"]
       ].map(([tone, icon, label, value, note]) => `<article class="bank-summary-card ${tone}"><span class="bank-summary-icon">${icon}</span><div><span>${label}</span><strong>${value}</strong><small>${note}</small></div></article>`).join("");
       $("transferFromPlayer").innerHTML = `<strong>${escapeHtml(currentDisplayName())}</strong><span>${money(bankroll)} available</span>`;
@@ -2288,6 +2639,7 @@
       transferSelect.innerHTML = state.players.filter((candidate) => candidate.id !== player.id).map((candidate) => `<option value="${escapeAttr(candidate.name)}">${escapeHtml(displayNameForPlayer(candidate.name))} - ${money(bankrollValue(candidate))}</option>`).join("");
       if ([...transferSelect.options].some((option) => option.value === currentTransfer)) transferSelect.value = currentTransfer;
       $("loanPlayerCard").innerHTML = `<div class="loan-player-identity"><span class="medal ${medalClass(player.name)}">${playerSymbol(player.name)}</span><div><strong>${escapeHtml(currentDisplayName())}</strong><span>Bankroll ${money(bankroll)} / Debt ${money(debt)}</span></div></div><span class="debt-status ${debt > 0 ? "has-debt" : ""}">${debt > 0 ? `${money(debt)} owed` : "No debt"}</span>`;
+      if ($("goldBarPlayerCard")) $("goldBarPlayerCard").innerHTML = `<div class="loan-player-identity"><span class="medal medal-diamond">&#129689;</span><div><strong>${Number(player.goldBars || 0).toLocaleString()} Gold Bar${Number(player.goldBars || 0) === 1 ? "" : "s"}</strong><span>Buy ${money(100000)} / Sell ${money(90000)}</span></div></div><span class="debt-status">${money(Number(player.goldBars || 0) * 90000)} liquid value</span>`;
       const maxWorth = Math.max(1, ...state.players.map((candidate) => Math.max(0, netBankroll(candidate))));
       $("familyWealthRanking").innerHTML = rankedPlayers().map((candidate, index) => {
         const worth = netBankroll(candidate);
@@ -2300,18 +2652,34 @@
     }
 
     function portfolioValue(player) {
-      return Object.entries(player?.portfolio || {}).reduce((sum, [symbol, shares]) => {
+      const stockValue = Object.entries(player?.portfolio || {}).reduce((sum, [symbol, shares]) => {
         const stock = state.stockMarket?.companies?.[symbol];
         return sum + Number(shares || 0) * Number(stock?.price || 0);
       }, 0);
+      return stockValue + fundPortfolioValue(player);
     }
 
     function portfolioCost(player) {
-      return Object.entries(player?.portfolio || {}).reduce((sum, [symbol, shares]) => {
+      const stockCost = Object.entries(player?.portfolio || {}).reduce((sum, [symbol, shares]) => {
         const stored = Number(player?.portfolioCost?.[symbol] || 0);
         if (stored > 0) return sum + stored;
         const stock = state.stockMarket?.companies?.[symbol];
         return sum + Number(shares || 0) * Number(stock?.previous || stock?.price || 0);
+      }, 0);
+      return stockCost + Object.values(player?.fundCost || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+    }
+
+    function fundPrice(fund) {
+      const symbols = Array.isArray(fund?.contains) ? fund.contains : [];
+      const prices = symbols.map((symbol) => Number(state.stockMarket?.companies?.[symbol]?.price || 0)).filter((price) => price > 0);
+      if (!prices.length) return 0;
+      return Math.round((prices.reduce((sum, price) => sum + price, 0) / prices.length) * 100) / 100;
+    }
+
+    function fundPortfolioValue(player) {
+      return Object.entries(player?.funds || {}).reduce((sum, [symbol, units]) => {
+        const fund = STOCK_FUNDS.find((item) => item.symbol === symbol);
+        return sum + Number(units || 0) * fundPrice(fund);
       }, 0);
     }
 
@@ -2387,13 +2755,16 @@
       const portfolio = player ? portfolioValue(player) : 0;
       const cost = player ? portfolioCost(player) : 0;
       const gain = portfolio - cost;
+      const phase = activeMarketPhase();
       $("stockSummaryGrid").innerHTML = [
         ["bankroll","💵","Bankroll",player ? money(bankrollValue(player)) : "Link profile","Cash available"],
         ["lifetime","📈","Portfolio",money(portfolio),"Current value"],
         ["safe","📊","Unrealized P/L",signedMoney(gain),cost > 0 ? `${gain >= 0 ? "Up" : "Down"} ${Math.abs(gain / cost * 100).toFixed(1)}%` : "No positions"],
-        ["worth","⏱️","Next Pulse",`<span id="stockNextPulseValue">${marketCountdown(market.nextTick)}</span>`,"LCN/BAWSAQ 30-45s"]
+        ["worth","⏱️","Next Pulse",`<span id="stockNextPulseValue">${marketCountdown(market.nextTick)}</span>`,"LCN/BAWSAQ 30-45s"],
+        ["vault","🏛️","Total Listings",`${Object.keys(market.companies || {}).length} Companies Listed`,`${phase.name} phase`]
       ].map(([tone, icon, label, value, note]) => `<article class="bank-summary-card ${tone}"><span class="bank-summary-icon">${icon}</span><div><span>${label}</span><strong>${value}</strong><small>${note}</small></div></article>`).join("");
       if ($("marketNewsBanner")) $("marketNewsBanner").innerHTML = `<span class="market-news-icon">📰</span><div><span>Market News</span><strong>${escapeHtml(market.news?.[0] || "Quiet trading day across LCN and BAWSAQ.")}</strong><small>${isStockBusinessHours() ? "Business hours: heavier swings, stronger sector reactions, faster volatility." : "After hours: lighter liquidity, but shocks can still move a favorite stock."}</small></div>`;
+      renderMarketNewspaper();
       $("marketClock").textContent = `Next ${marketCountdown(market.nextTick)} • ${isStockBusinessHours() ? "8A-6P CT active" : "after hours"}`;
       renderStockFilters();
       const currentSymbol = $("stockSymbol")?.value;
@@ -2403,8 +2774,28 @@
       $("stockMarketBoard").innerHTML = stocks.length ? stocks.map(renderStockCard).join("") : `<div class="blackjack-status">No stocks match those filters.</div>`;
       $("portfolioBoard").innerHTML = player ? renderPortfolioRows(player) : `<div class="blackjack-status">Link your profile to trade.</div>`;
       renderShareTransferPanel();
+      renderLimitOrderPanel();
+      renderStockFunds();
       updateTradePreview();
       updateStockCountdownDisplay();
+    }
+
+    function renderMarketNewspaper() {
+      const market = state.stockMarket;
+      if (!$("marketNewspaperBoard") || !market) return;
+      const phase = activeMarketPhase();
+      const stocks = Object.values(market.companies || {});
+      const biggestGainer = stocks.slice().sort((a, b) => Number(b.trend || 0) - Number(a.trend || 0))[0];
+      const biggestLoser = stocks.slice().sort((a, b) => Number(a.trend || 0) - Number(b.trend || 0))[0];
+      const orderNotes = (state.history || []).filter((item) => item.type === "stock-limit-order").slice(0, 2);
+      $("marketPhaseBadge").textContent = `${phase.name} • ${marketCountdown(market.phaseEndsAt)}`;
+      $("marketNewspaperBoard").innerHTML = [
+        `<section><h3>Current Phase</h3><p>${escapeHtml(phase.name)}</p><small>Favored: ${escapeHtml((phase.favored || []).join(", ") || "None")}</small></section>`,
+        `<section><h3>Latest Headlines</h3>${(market.news || []).slice(0, 3).map((item) => `<p>${escapeHtml(item)}</p>`).join("") || "<p>Quiet trading day.</p>"}</section>`,
+        `<section><h3>Insider Rumors</h3>${(market.rumors || []).map((rumor) => `<p>${escapeHtml(rumor.text)}</p>`).join("") || "<p>No desk chatter right now.</p>"}</section>`,
+        `<section><h3>Movers</h3><p>Biggest gainer: ${escapeHtml(biggestGainer?.symbol || "N/A")} ${biggestGainer ? `${Number(biggestGainer.trend || 0).toFixed(2)}%` : ""}</p><p>Biggest loser: ${escapeHtml(biggestLoser?.symbol || "N/A")} ${biggestLoser ? `${Number(biggestLoser.trend || 0).toFixed(2)}%` : ""}</p></section>`,
+        `<section><h3>Dividends / Orders</h3>${[...(market.dividendHistory || []).slice(0, 2), ...orderNotes.map((item) => item.description)].map((item) => `<p>${escapeHtml(item)}</p>`).join("") || "<p>No dividend payouts or order fills this cycle.</p>"}</section>`
+      ].join("");
     }
 
     function renderStockFilters() {
@@ -2418,14 +2809,21 @@
       if (sectorSelect.innerHTML !== sectorHtml) sectorSelect.innerHTML = sectorHtml;
       sectorSelect.value = sectors.includes(currentSector) ? currentSector : "all";
       stockSectorFilter = sectorSelect.value;
+      const watchButton = document.querySelector("[data-action='toggle-stock-watchlist-filter']");
+      if (watchButton) {
+        watchButton.classList.toggle("active", stockWatchlistOnly);
+        watchButton.textContent = stockWatchlistOnly ? "★ Watchlist" : "☆ Watchlist";
+      }
     }
 
     function filteredStocks() {
+      const watchlist = currentPlayer()?.stockWatchlist || [];
       return Object.values(state.stockMarket?.companies || {}).filter((stock) => {
         const networkOk = stockNetworkFilter === "all" || stock.network === stockNetworkFilter;
         const sectorOk = stockSectorFilter === "all" || stock.sector === stockSectorFilter;
-        return networkOk && sectorOk;
-      });
+        const watchOk = !stockWatchlistOnly || watchlist.includes(stock.symbol);
+        return networkOk && sectorOk && watchOk;
+      }).sort((a, b) => Number(watchlist.includes(b.symbol)) - Number(watchlist.includes(a.symbol)));
     }
 
     function updateStockCountdownDisplay() {
@@ -2439,19 +2837,23 @@
     function renderStockCard(stock) {
       const trendClass = Number(stock.trend || 0) >= 0 ? "money" : "loss";
       const movement = Number(stock.price || 0) - Number(stock.previous || stock.price || 0);
+      const watched = currentPlayer()?.stockWatchlist?.includes(stock.symbol);
       return `<article class="market-card ${trendClass === "money" ? "stock-up" : "stock-down"}">
         <div><strong>${escapeHtml(stock.symbol)} • ${escapeHtml(stock.network || "LCN")}</strong><span>${escapeHtml(stock.sector)}</span></div>
         <h3>${escapeHtml(stock.name)}</h3>
         <div class="market-price">${money(stock.price)}</div>
         <p class="${trendClass}">${Number(stock.trend || 0) >= 0 ? "+" : ""}${Number(stock.trend || 0).toFixed(2)}% (${signedMoney(movement)})</p>
+        <div class="stock-range"><span>Risk ${escapeHtml(stock.riskTier || "Balanced")}</span><span>Cap ${escapeHtml(stock.marketCap || "Mid")}</span></div>
+        <div class="stock-range"><span>Dividend ${(Number(stock.dividendYield || 0) * 100).toFixed(1)}%</span><span>${escapeHtml((stock.tags || []).slice(0, 2).join(" • ") || "Market")}</span></div>
         <div class="stock-range"><span>Low ${money(stock.recordedLow || stock.price)}</span><span>High ${money(stock.recordedHigh || stock.price)}</span></div>
+        <button class="mini-btn stock-watch-btn ${watched ? "active" : ""}" type="button" data-action="toggle-stock-watch" data-stock-symbol="${escapeAttr(stock.symbol)}">${watched ? "★ Watched" : "☆ Watch"}</button>
         ${stock.event ? `<small>${escapeHtml(stock.event)}</small>` : ""}
       </article>`;
     }
 
     function renderPortfolioRows(player) {
       const entries = Object.entries(player.portfolio || {}).filter(([, shares]) => Number(shares || 0) > 0);
-      return entries.length ? entries.map(([symbol, shares]) => {
+      const stockRows = entries.map(([symbol, shares]) => {
         const stock = state.stockMarket.companies[symbol];
         const value = Number(shares) * Number(stock?.price || 0);
         const cost = Number(player.portfolioCost?.[symbol] || 0);
@@ -2460,7 +2862,16 @@
         const sellPrice = Number(stock?.price || 0);
         const gainText = cost > 0 ? `P/L ${signedMoney(gain)} (${gain >= 0 ? "+" : ""}${(gain / cost * 100).toFixed(1)}%)` : "P/L tracking starts after a new buy";
         return renderListRow(symbol, stock?.name || symbol, `${shares} share${Number(shares) === 1 ? "" : "s"} • Bought @ ${money(avgBuy)} • Sell @ ${money(sellPrice)} • ${gainText}`, money(value));
-      }).join("") : `<div class="blackjack-status">No stock holdings yet.</div>`;
+      });
+      const fundRows = Object.entries(player.funds || {}).filter(([, units]) => Number(units || 0) > 0).map(([symbol, units]) => {
+        const fund = STOCK_FUNDS.find((item) => item.symbol === symbol);
+        const value = Number(units) * fundPrice(fund);
+        const cost = Number(player.fundCost?.[symbol] || 0);
+        const gain = value - cost;
+        return renderListRow("ETF", fund?.name || symbol, `${Number(units).toLocaleString()} unit${Number(units) === 1 ? "" : "s"} • Basket: ${(fund?.contains || []).join(", ")} • P/L ${signedMoney(gain)}`, money(value));
+      });
+      const rows = [...stockRows, ...fundRows];
+      return rows.length ? rows.join("") : `<div class="blackjack-status">No stock holdings yet.</div>`;
     }
 
     function marketCountdown(target) {
@@ -2556,6 +2967,175 @@
       });
       saveFast(renderStockMarket);
       toast(`Transferred ${shares.toLocaleString()} ${symbol} share${shares === 1 ? "" : "s"} to ${recipient.name}.`);
+    }
+
+    function renderLimitOrderPanel() {
+      const symbolSelect = $("limitOrderSymbol");
+      const board = $("limitOrdersBoard");
+      if (!symbolSelect || !board) return;
+      const player = currentPlayer();
+      const currentSymbol = symbolSelect.value;
+      const stocks = Object.values(state.stockMarket?.companies || {});
+      symbolSelect.innerHTML = stocks.map((stock) => `<option value="${escapeAttr(stock.symbol)}" ${stock.symbol === currentSymbol ? "selected" : ""}>${escapeHtml(stock.symbol)} — ${escapeHtml(stock.name)} (${money(stock.price)})</option>`).join("");
+      if (currentSymbol && state.stockMarket?.companies?.[currentSymbol]) symbolSelect.value = currentSymbol;
+      const orders = (state.stockMarket?.limitOrders || []).filter((order) => !player || order.playerId === player.id || order.playerName === player.name).slice(-8).reverse();
+      board.innerHTML = player
+        ? orders.length
+          ? orders.map((order) => {
+            const stock = state.stockMarket.companies[order.symbol];
+            const status = order.executedAt ? `Executed @ ${money(order.executionPrice)}` : order.enabled ? "Watching market" : "Cancelled";
+            return `<article class="history-event limit-order-row">
+              <div><strong>${escapeHtml(order.type === "buy" ? "Auto Buy" : "Auto Sell")} ${Number(order.shares || 0).toLocaleString()} ${escapeHtml(order.symbol)}</strong><span>${escapeHtml(status)} • Target ${money(order.targetPrice)} • Current ${money(stock?.price || 0)}</span></div>
+              ${order.enabled && !order.executedAt ? `<button class="mini-btn danger-mini" type="button" data-action="cancel-limit-order" data-order-id="${escapeAttr(order.id)}">Cancel</button>` : ""}
+            </article>`;
+          }).join("")
+          : `<div class="blackjack-status">No limit orders yet.</div>`
+        : `<div class="blackjack-status">Link your profile to create limit orders.</div>`;
+    }
+
+    function createLimitOrder() {
+      const player = currentPlayer();
+      const symbol = $("limitOrderSymbol")?.value || "";
+      const stock = state.stockMarket?.companies?.[symbol];
+      const type = $("limitOrderType")?.value === "sell" ? "sell" : "buy";
+      const shares = Math.max(1, Math.round(Number($("limitOrderShares")?.value || 0)));
+      const targetPrice = Math.max(0.01, Number($("limitOrderPrice")?.value || 0));
+      if (!player) return toast("Link your profile to create limit orders.");
+      if (!stock) return toast("Choose a listed company.");
+      if (!Number.isFinite(targetPrice) || targetPrice <= 0) return toast("Enter a valid target price.");
+      if (type === "sell" && Number(player.portfolio?.[symbol] || 0) <= 0) return toast(`You do not own ${symbol} shares to auto-sell.`);
+      state.stockMarket.limitOrders = Array.isArray(state.stockMarket.limitOrders) ? state.stockMarket.limitOrders : [];
+      const order = {
+        id:`order-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        playerId:player.id,
+        playerName:player.name,
+        symbol,
+        type,
+        shares,
+        targetPrice,
+        enabled:true,
+        createdAt:Date.now()
+      };
+      state.stockMarket.limitOrders.push(order);
+      addHistoryEvent({
+        type:"stock-limit-order-created",
+        category:"Stocks",
+        player:player.name,
+        title:"Limit Order Created",
+        description:`${player.name} created an ${type === "buy" ? "auto-buy" : "auto-sell"} order for ${shares.toLocaleString()} ${symbol} at ${money(targetPrice)}.`,
+        amount:0,
+        details:{symbol, type, shares, targetPrice}
+      });
+      saveFast(renderStockMarket);
+      toast("Limit order created.");
+    }
+
+    function cancelLimitOrder(orderId) {
+      const player = currentPlayer();
+      const order = (state.stockMarket?.limitOrders || []).find((item) => item.id === orderId);
+      if (!player || !order || (order.playerId !== player.id && order.playerName !== player.name)) return toast("That limit order is not yours.");
+      order.enabled = false;
+      order.cancelledAt = Date.now();
+      addHistoryEvent({
+        type:"stock-limit-order-cancelled",
+        category:"Stocks",
+        player:player.name,
+        title:"Limit Order Cancelled",
+        description:`${player.name} cancelled a ${order.symbol} ${order.type} limit order.`,
+        amount:0,
+        details:{symbol:order.symbol, type:order.type, shares:order.shares, targetPrice:order.targetPrice}
+      });
+      saveFast(renderStockMarket);
+      toast("Limit order cancelled.");
+    }
+
+    function toggleStockWatch(symbol) {
+      const player = currentPlayer();
+      const stock = state.stockMarket?.companies?.[symbol];
+      if (!player || !stock) return toast("Link your profile to use the watchlist.");
+      player.stockWatchlist = Array.isArray(player.stockWatchlist) ? player.stockWatchlist : [];
+      if (player.stockWatchlist.includes(symbol)) {
+        player.stockWatchlist = player.stockWatchlist.filter((item) => item !== symbol);
+        toast(`${symbol} removed from watchlist.`);
+      } else {
+        player.stockWatchlist.push(symbol);
+        toast(`${symbol} added to watchlist.`);
+      }
+      saveFast(renderStockMarket);
+    }
+
+    function renderStockFunds() {
+      const board = $("stockFundsBoard");
+      if (!board) return;
+      const player = currentPlayer();
+      board.innerHTML = STOCK_FUNDS.length
+        ? STOCK_FUNDS.map((fund) => {
+          const price = fundPrice(fund);
+          const units = Number(player?.funds?.[fund.symbol] || 0);
+          return `<article class="history-event stock-fund-row">
+            <div><strong>${escapeHtml(fund.name)}</strong><span>${escapeHtml(fund.symbol)} • ${escapeHtml(fund.purpose || "Basket fund")} • ${escapeHtml(fund.contains.join(", "))}</span><small>${units.toLocaleString()} owned • Unit ${money(price)}</small></div>
+            <div class="fund-actions"><button class="mini-btn" type="button" data-action="buy-stock-fund" data-fund-id="${escapeAttr(fund.id)}">Buy 1</button>${units > 0 ? `<button class="mini-btn" type="button" data-action="sell-stock-fund" data-fund-id="${escapeAttr(fund.id)}">Sell 1</button>` : ""}</div>
+          </article>`;
+        }).join("")
+        : `<div class="blackjack-status">No sector funds configured.</div>`;
+    }
+
+    function buyStockFund(fundId) {
+      const player = currentPlayer();
+      const fund = STOCK_FUNDS.find((item) => item.id === fundId);
+      const price = fundPrice(fund);
+      if (!player || !fund) return toast("Link your profile and choose a fund.");
+      if (price <= 0) return toast("That fund cannot be priced yet.");
+      if (bankrollValue(player) < price) return toast(`You need ${money(price)} bankroll to buy this fund.`);
+      adjustPlayerBankroll(player, -Math.round(price));
+      player.funds = player.funds || {};
+      player.fundCost = player.fundCost || {};
+      player.funds[fund.symbol] = Number(player.funds[fund.symbol] || 0) + 1;
+      player.fundCost[fund.symbol] = Number(player.fundCost[fund.symbol] || 0) + Math.round(price);
+      addHistoryEvent({
+        type:"stock-fund-buy",
+        category:"Stocks",
+        player:player.name,
+        title:"Sector Fund Purchase",
+        description:`${player.name} bought 1 unit of ${fund.name}.`,
+        amount:-Math.round(price),
+        details:{fund:fund.symbol, price}
+      });
+      checkStockAchievements(player);
+      saveFast(renderStockMarket);
+      toast(`Bought 1 ${fund.symbol} fund unit.`);
+    }
+
+    function sellStockFund(fundId) {
+      const player = currentPlayer();
+      const fund = STOCK_FUNDS.find((item) => item.id === fundId);
+      const price = fundPrice(fund);
+      if (!player || !fund) return toast("Link your profile and choose a fund.");
+      if (Number(player.funds?.[fund.symbol] || 0) <= 0) return toast(`You do not own ${fund.symbol}.`);
+      const units = Number(player.funds[fund.symbol] || 0);
+      const oldCost = Number(player.fundCost?.[fund.symbol] || 0);
+      const costSold = units > 0 ? Math.round(oldCost / units) : 0;
+      player.funds[fund.symbol] = units - 1;
+      if (player.funds[fund.symbol] <= 0) {
+        delete player.funds[fund.symbol];
+        if (player.fundCost) delete player.fundCost[fund.symbol];
+      } else if (player.fundCost) {
+        player.fundCost[fund.symbol] = Math.max(0, oldCost - costSold);
+      }
+      const payout = Math.round(price);
+      adjustPlayerBankroll(player, payout);
+      addHistoryEvent({
+        type:"stock-fund-sell",
+        category:"Stocks",
+        player:player.name,
+        title:"Sector Fund Sale",
+        description:`${player.name} sold 1 unit of ${fund.name}.`,
+        amount:payout,
+        details:{fund:fund.symbol, price, gain:payout - costSold}
+      });
+      checkStockAchievements(player);
+      saveFast(renderStockMarket);
+      toast(`Sold 1 ${fund.symbol} fund unit.`);
     }
 
     function renderAssets() {
@@ -3273,7 +3853,8 @@
     }
 
     function achievementProgressData(definition) {
-      const totalXp = Number(currentPlayer()?.xp || 0);
+      if (achievementProgressCache?.has(definition.id)) return achievementProgressCache.get(definition.id);
+      const totalXp = playerTotalXP(currentPlayer());
       const player = currentPlayer();
       const bankroll = Math.max(0, bankrollValue(player));
       const debt = Math.max(0, Number(player?.bankDebt || 0));
@@ -3369,7 +3950,9 @@
         "uno-veteran": progress(state.counters.unoWins, 50, " wins"),
         "uno-legend": progress(state.counters.unoWins, 100, " wins")
       };
-      return progressMap[definition.id] || {text:"Locked", value:0};
+      const result = progressMap[definition.id] || {text:"Locked", value:0};
+      if (achievementProgressCache) achievementProgressCache.set(definition.id, result);
+      return result;
     }
 
     function rarityIcon(rarity) {
@@ -5363,6 +5946,46 @@
       toast(`Withdrew ${money(amount)} to bankroll.`);
     }
 
+    function buyGoldBar() {
+      const player = currentPlayer();
+      const cost = 100000;
+      if (!player) return toast("Link your profile to buy Gold Bars.");
+      if (bankrollValue(player) < cost) return toast(`You need ${money(cost)} bankroll to buy 1 Gold Bar.`);
+      adjustPlayerBankroll(player, -cost);
+      player.goldBars = Math.max(0, Math.floor(Number(player.goldBars || 0))) + 1;
+      addHistoryEvent({
+        type:"gold-bar-buy",
+        category:"Bank",
+        player:player.name,
+        title:"Gold Bar Purchased",
+        description:`${player.name} bought 1 Gold Bar for ${money(cost)}.`,
+        amount:-cost,
+        details:{goldBars:player.goldBars}
+      });
+      save();
+      toast("Gold Bar purchased.");
+    }
+
+    function sellGoldBar() {
+      const player = currentPlayer();
+      const value = 90000;
+      if (!player) return toast("Link your profile to sell Gold Bars.");
+      if (Number(player.goldBars || 0) <= 0) return toast("You do not have a Gold Bar to sell.");
+      player.goldBars = Math.max(0, Math.floor(Number(player.goldBars || 0)) - 1);
+      adjustPlayerBankroll(player, value);
+      addHistoryEvent({
+        type:"gold-bar-sell",
+        category:"Bank",
+        player:player.name,
+        title:"Gold Bar Sold",
+        description:`${player.name} sold 1 Gold Bar for ${money(value)}.`,
+        amount:value,
+        details:{goldBars:player.goldBars}
+      });
+      save();
+      toast("Gold Bar sold.");
+    }
+
     function transferBankroll() {
       const from = currentPlayer();
       const to = playerByName($("transferToPlayer").value);
@@ -5481,22 +6104,49 @@
     function addXP(name, amount, reason, options = {}) {
       const player = playerByName(name);
       if (!player) return;
-      player.xp += Number(amount);
-      trackDailyProgress(player.name, "xpEarned", Number(amount || 0));
+      const xpGain = Math.max(0, Math.floor(Number(amount || 0)));
+      if (!xpGain) return;
+      normalizePlayerProgress(player);
+      const oldStars = Number(player.stars || 0);
+      const oldLevel = displayLevelForPlayer(player);
+      player.totalXpEarned = Number(player.totalXpEarned || 0) + xpGain;
+      normalizePlayerProgress(player);
+      const newStars = Number(player.stars || 0);
+      const newLevel = displayLevelForPlayer(player);
+      trackDailyProgress(player.name, "xpEarned", xpGain);
       trackGameXp(reason);
       unlockByXpReason(player, reason);
-      while (player.xp >= 7600) {
-        player.xp -= 7600;
-        player.stars += 1;
+      if (newStars > oldStars) {
         unlockAchievement("first-prestige", player.name);
+        addHistoryEvent({
+          type:"player-prestige",
+          category:"Progression",
+          player:player.name,
+          title:"Prestige Earned",
+          description:`${player.name} reached Prestige ${newStars}.`,
+          amount:newStars - oldStars,
+          amountKind:"prestige",
+          details:{reason, xpGain}
+        });
+      } else if (newLevel > oldLevel) {
+        addHistoryEvent({
+          type:"player-level-up",
+          category:"Progression",
+          player:player.name,
+          title:"Level Up",
+          description:`${player.name} reached Level ${newLevel}.`,
+          amount:xpGain,
+          amountKind:"xp",
+          details:{reason}
+        });
       }
-      log(`${player.name} +${amount} XP - ${reason}`);
+      log(`${player.name} +${xpGain} XP - ${reason}`);
       if (options.persist === false) {
-        if (options.toast !== false) toast(`${player.name} gained ${amount} XP.`);
+        if (options.toast !== false) toast(`${player.name} gained ${xpGain} XP.`);
         return;
       }
       save();
-      if (options.toast !== false) toast(`${player.name} gained ${amount} XP.`);
+      if (options.toast !== false) toast(`${player.name} gained ${xpGain} XP.`);
     }
 
     function trackGameXp(reason) {
@@ -5566,11 +6216,11 @@
       const maxStars = Math.max(0, ...state.players.map((player) => Number(player.stars || 0)));
       const topByChips = rankedPlayers()[0];
       const topByXp = [...state.players].sort((a, b) => b.xp - a.xp)[0];
-      const level = levelFromXP(linkedPlayer.xp);
+      const level = displayLevelForPlayer(linkedPlayer);
       const bankroll = bankrollValue(linkedPlayer);
-      if (level >= 2) unlock("level-2");
-      if (level >= 5) unlock("level-5");
-      if (level >= 10) unlock("level-10");
+      if (level >= 2 || linkedPlayer.stars >= 1) unlock("level-2");
+      if (level >= 5 || linkedPlayer.stars >= 1) unlock("level-5");
+      if (level >= 10 || linkedPlayer.stars >= 1) unlock("level-10");
       if (linkedPlayer.stars >= 1) unlock("first-prestige");
       if (linkedPlayer.stars >= 2) unlock("double-prestige");
       if (linkedPlayer.stars >= 3) unlock("triple-prestige");
@@ -5933,11 +6583,20 @@
       }
       if (action === "toggle-global-chat") {
         globalChatOpen = !globalChatOpen;
+        if (globalChatOpen) markGlobalChatSeen();
         renderGlobalChat();
         return;
       }
       if (action === "send-global-chat") {
         sendGlobalChat();
+        return;
+      }
+      if (action === "edit-chat-message") {
+        editChatMessage(target?.dataset.chatId || "");
+        return;
+      }
+      if (action === "delete-chat-message") {
+        deleteChatMessage(target?.dataset.chatId || "");
         return;
       }
       if (action === "open-profile") {
@@ -5993,6 +6652,31 @@
       }
       if (action === "transfer-stock-shares") {
         transferStockShares();
+        return;
+      }
+      if (action === "toggle-stock-watchlist-filter") {
+        stockWatchlistOnly = !stockWatchlistOnly;
+        renderStockMarket();
+        return;
+      }
+      if (action === "toggle-stock-watch") {
+        toggleStockWatch(target?.dataset.stockSymbol || "");
+        return;
+      }
+      if (action === "create-limit-order") {
+        createLimitOrder();
+        return;
+      }
+      if (action === "cancel-limit-order") {
+        cancelLimitOrder(target?.dataset.orderId || "");
+        return;
+      }
+      if (action === "buy-stock-fund") {
+        buyStockFund(target?.dataset.fundId || "");
+        return;
+      }
+      if (action === "sell-stock-fund") {
+        sellStockFund(target?.dataset.fundId || "");
         return;
       }
       if (action === "buy-asset") {
@@ -6410,6 +7094,14 @@
         withdrawFromBank();
         return;
       }
+      if (action === "buy-gold-bar") {
+        buyGoldBar();
+        return;
+      }
+      if (action === "sell-gold-bar") {
+        sellGoldBar();
+        return;
+      }
       if (action === "bankroll-transfer") {
         transferBankroll();
         return;
@@ -6419,7 +7111,7 @@
         const name = $("newPlayerName").value.trim();
         if (!name) return toast("Enter a player name.");
         if (state.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) return toast("That player already exists.");
-        state.players.push({name, xp:0, stars:0, chips:{...blank}, bankroll:0, lifetime:0, bankBalance:0, bankDebt:0, casinoTickets:0, portfolio:{}, portfolioCost:{}, ownedAssets:[], sessionBuyIn:0, gamesPlayed:0});
+        state.players.push({name, xp:0, stars:0, totalXpEarned:0, chips:{...blank}, bankroll:0, lifetime:0, bankBalance:0, bankDebt:0, casinoTickets:0, goldBars:0, portfolio:{}, portfolioCost:{}, funds:{}, fundCost:{}, stockWatchlist:[], ownedAssets:[], sessionBuyIn:0, gamesPlayed:0});
         $("newPlayerName").value = "";
         addSystemHistory("Player Created", `${name} was created by admin.`, {player:name});
         save();
@@ -6442,8 +7134,10 @@
         if (!isDarrenAdmin()) return toast("Only Darren can set levels and stars.");
         const player = playerByName($("manualPlayer").value);
         if (!player) return;
-        player.xp = levelXP(Number($("manualLevel").value));
         player.stars = Math.max(0, Number($("manualStars").value || 0));
+        player.xp = levelXP(Number($("manualLevel").value));
+        player.totalXpEarned = (player.stars * PRESTIGE_XP) + player.xp;
+        normalizePlayerProgress(player);
         addSystemHistory("Manual Level", `${player.name} manually set to Level ${$("manualLevel").value} with ${player.stars} star(s).`, {player:player.name, level:$("manualLevel").value, stars:player.stars});
         save();
       }

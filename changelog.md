@@ -1,5 +1,43 @@
 # Virtual Casino Changelog
 
+## V1.4.0 - 2026-07-02 - Chat Controls, Prestige Loop, Gold Bars, and Stock Traits
+
+### Chat
+- Added chat message delete controls restricted to the message owner.
+- Added chat edit controls restricted to the current player's newest message only.
+- Added an unread-message red dot on the collapsed Global Chat dock.
+- Preserved edited chat metadata through the 72-hour chat pruning cycle.
+
+### UI Polish
+- Reworked the app loader with premium casino-floor wording, animated accents, and market-sync flavor text.
+- Fixed a startup crash where market phases could be referenced before initialization.
+
+### Progression
+- Redesigned player XP into a Level 1-10 prestige loop with `totalXpEarned` migration for existing saves.
+- Family level now loops from Level 1-10 and Family Prestige is derived from cumulative family lifetime XP.
+- Updated XP rewards and admin manual level/star tools to keep current-cycle XP and lifetime XP synchronized.
+
+### Performance
+- Reduced unnecessary hidden-view rendering when opening Achievements and added a per-render achievement progress cache for faster filters.
+
+### Bank and Gold Bars
+- Added Gold Bars as a premium store-of-value currency on the Bank page.
+- Gold Bars buy for $100,000 and sell for $90,000, with Bank history entries.
+- Moved the Gold Bars controls into the lower Bank stack so the Banking Center layout no longer creates a large empty side panel.
+
+### Stocks
+- Added stock traits to `data/stocks.json`: dividend yield, crash chance, moon chance, risk tier, and tags.
+- Added market capitalization tiers to all stock companies and wired those tiers into price movement, with a Total Listings summary card on the Stocks page.
+- Added market phases, insider rumors, dividend payout cycles, and the Casino Financial Times newspaper panel.
+- Added player stock watchlists with watched-stock filtering and watched stocks sorted first.
+- Added Limit Orders for auto-buy and auto-sell rules that execute during stock pulses and log history.
+- Added editable sector funds in `data/stock-funds.json`, including buy/sell support and portfolio value tracking.
+- Upgraded `data/market-news.json` to weighted events with severity, phase metadata, exact sector names, and explicit movement ranges while preserving saved recorded highs/lows.
+- Expanded the Stock Market Field Guide to cover market phases, market cap tiers, dividends, rumors, watchlists, limit orders, and sector funds.
+
+### Firebase
+- Added `firebase.rules.json` as the tracked source-of-truth rules file to publish in Firebase.
+
 ## V1.3.0 - 2026-07-02 - Chat, Achievement Validation, and Daily/Market Expansion
 
 ### Blackjack

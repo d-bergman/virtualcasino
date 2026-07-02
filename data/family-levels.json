@@ -1,3 +1,12 @@
 [
-  {"level":1,"xp":0},{"level":2,"xp":100},{"level":3,"xp":250},{"level":4,"xp":450},{"level":5,"xp":700},{"level":6,"xp":1000},{"level":7,"xp":1400},{"level":8,"xp":1900},{"level":9,"xp":2500},{"level":10,"xp":3200},{"level":11,"xp":4100},{"level":12,"xp":5200},{"level":13,"xp":6500},{"level":14,"xp":8100},{"level":15,"xp":10000}
+  {"level":1,"xp":0},
+  {"level":2,"xp":100},
+  {"level":3,"xp":250},
+  {"level":4,"xp":450},
+  {"level":5,"xp":700},
+  {"level":6,"xp":1000},
+  {"level":7,"xp":1400},
+  {"level":8,"xp":1900},
+  {"level":9,"xp":2500},
+  {"level":10,"xp":3200}
 ]
