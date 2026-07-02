@@ -1,5 +1,17 @@
 # Virtual Casino Changelog
 
+## V1.4.5 - 2026-07-02 - Admin Market Controls and Gold Bar Rewards
+
+### Stocks
+- Added Admin stock controls to reset all stock prices back to each company's base price.
+- Added Admin controls to force the stock market forward by 10, 15, or 20 pulses for testing and recovery.
+- Added stock-market update timestamps so current market prices from admin resets and forced pulses persist safely through Firebase realtime merges.
+- Expanded the Stock Market Field Guide with base prices, highs/lows, forced pulses, reset workflow, hourly dividends, weighted funds, and persistence notes.
+
+### Dailies
+- Added real Gold Bar reward support for daily activities, Lucky Wheel, and Scratch-Off rewards.
+- Added rare Gold Bar entries to `data/dailies.json` so the reward type is available and editable.
+
 ## V1.4.4 - 2026-07-02 - Stock UI and Record Reset Hotfix
 
 ### Stocks

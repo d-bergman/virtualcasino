@@ -209,8 +209,14 @@
           </article>
           <article class="panel panel-pad admin-stock-failsafe">
             <div class="section-title"><span>&#128200; Stock Record Tool</span></div>
-            <p class="auth-message">Use this to clear inherited or bad historical highs/lows. Current prices become the new record baseline.</p>
-            <button class="primary-btn" style="width:100%;" type="button" data-action="reset-stock-records">Reset Stock Highs / Lows</button>
+            <p class="auth-message">Use these tools for market testing and recovery. Reset prices to base first, then reset highs/lows if you want a fully clean baseline.</p>
+            <div class="admin-stock-tool-actions">
+              <button class="ghost-btn" type="button" data-action="reset-stock-base-prices">Reset Prices To Base</button>
+              <button class="primary-btn" type="button" data-action="reset-stock-records">Reset Highs / Lows</button>
+              <button class="ghost-btn" type="button" data-action="force-stock-pulses" data-pulses="10">Force +10 Pulses</button>
+              <button class="ghost-btn" type="button" data-action="force-stock-pulses" data-pulses="15">Force +15 Pulses</button>
+              <button class="ghost-btn" type="button" data-action="force-stock-pulses" data-pulses="20">Force +20 Pulses</button>
+            </div>
           </article>
         </div>
       </section>
@@ -962,11 +968,12 @@
               <h3>How the market breathes</h3>
               <p>Every pulse updates all listed companies. One company becomes the headline event, then its sector and network ripple outward. The featured company moves the hardest, similar-sector companies tend to follow, and the opposite side of the market may barely twitch.</p>
               <p>Business hours run from 8:00 AM to 6:00 PM Central. During those hours, movement is sharper and news has more bite. After hours still moves, but it is more like thin trading: smaller background drift with occasional ugly surprises.</p>
+              <p>Each company has a base price from <code>data/stocks.json</code>. Market pulses pull prices toward or away from that base depending on news, phase, volatility, market cap, and rare moon/crash rolls.</p>
             </section>
             <section>
               <h3>Market phases</h3>
               <p>The market has weather now. Bull Market favors risk, Bear Market punishes weak hands, Casino Boom boosts casino names, Health Panic makes health stocks violent, Luxury Bubble runs luxury hot, Recession favors defensive names, and Speculative Mania can send tiny companies flying or crashing.</p>
-              <p>The Casino Financial Times shows the current phase, phase timer, rumors, movers, dividend notices, and executed limit orders.</p>
+              <p>Phases last much longer than regular pulses: Bull Market about 90 minutes, Bear Market about 60, Casino Boom about 120, and Recession about 90. The Casino Financial Times shows the current phase, phase timer, rumors, movers, dividend notices, and executed limit orders.</p>
             </section>
             <section>
               <h3>Market capitalization</h3>
@@ -988,7 +995,8 @@
                 <li><strong>Portfolio</strong> is the current resale value of every share you own.</li>
                 <li><strong>Unrealized P/L</strong> is profit or loss before selling. It can vanish if the next pulse turns against you.</li>
                 <li><strong>Trade Ticket</strong> previews cost before you buy, and your holdings panel shows gain or loss before you sell.</li>
-                <li><strong>Dividends</strong> periodically pay bankroll for income-style companies you hold.</li>
+                <li><strong>Dividends</strong> pay about once per hour for income-style companies you hold.</li>
+                <li><strong>Low / High</strong> are that company's own recorded lifetime price range since the current record baseline. They are not fund totals, market cap values, or inherited from other companies.</li>
               </ul>
             </section>
             <section>
@@ -1001,13 +1009,31 @@
             </section>
             <section>
               <h3>Sector funds</h3>
-              <p>Funds are bundle investments. Instead of betting on one company, you can buy a unit of a basket like Casino Fund, Health Fund, Tech Growth Fund, Luxury &amp; Travel Fund, or Defensive Fund.</p>
-              <p>Fund values update from their underlying companies and count toward your portfolio value.</p>
+              <p>Funds are weighted basket investments. Instead of betting on one company, you can buy units of a basket like Casino Fund, Health Fund, Tech Growth Fund, Luxury &amp; Travel Fund, or Defensive Fund.</p>
+              <p>Fund values update from their underlying companies using the fund weights in <code>data/stock-funds.json</code>. The fund unit input lets you buy or sell many units at once.</p>
+            </section>
+            <section>
+              <h3>Admin market controls</h3>
+              <ul>
+                <li><strong>Reset Prices To Base</strong> moves every company back to its JSON base price while leaving historical highs/lows alone.</li>
+                <li><strong>Reset Highs / Lows</strong> makes the current price the new recorded high/low baseline and blocks older synced snapshots from restoring bad records.</li>
+                <li><strong>Force Pulses</strong> runs 10, 15, or 20 market pulses immediately for testing, recovery, or getting the economy moving after a reset.</li>
+              </ul>
             </section>
             <section>
               <h3>Rumors and headlines</h3>
               <p>Insider rumors are hints, not promises. Some are confident, some are shaky, and some will be wrong. Use them as a signal, not a guarantee.</p>
               <p>Market news has weighted severity and explicit movement ranges, so small headlines should feel different from critical squeezes, approvals, crashes, and sector shocks.</p>
+            </section>
+            <section>
+              <h3>Persistence and safety</h3>
+              <p>Realtime sync merges protected stock data instead of blindly applying one giant cloud snapshot. Portfolios, fund holdings, limit orders, highs/lows, reset timestamps, and current market state carry their own safety checks.</p>
+              <p>This is a strong emergency fix for avoiding rollbacks. The long-term ideal is still splitting Firebase into smaller transaction-level paths for players, market, chat, achievements, and history.</p>
+            </section>
+            <section>
+              <h3>Gold bars and rewards</h3>
+              <p>Gold Bars are premium store-of-value rewards. They can be bought in the Bank and can now appear as very rare daily rewards through configured daily activities, Lucky Wheel, and Scratch-Off pools.</p>
+              <p>A Gold Bar buys for $100,000 and sells for $90,000, so it is valuable but not a free infinite-money loop.</p>
             </section>
             <section>
               <h3>Strategy without getting cooked</h3>

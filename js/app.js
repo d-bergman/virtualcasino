@@ -528,7 +528,7 @@
     function validateWeightedRewards(items, fallback) {
       const source = Array.isArray(items) && items.length ? items : fallback;
       return source.map((item) => ({
-        label:String(item.label || (item.type === "xp" ? `${Number(item.value || 0)} XP` : money(Number(item.value || 0)))),
+        label:String(item.label || (item.type === "xp" ? `${Number(item.value || 0)} XP` : item.type === "goldbar" ? `${Number(item.value || 1)} Gold Bar` : money(Number(item.value || 0)))),
         type:String(item.type || "money"),
         value:Math.max(0, Number(item.value || 0)),
         weight:Math.max(0, Number(item.weight || 0)),
@@ -856,6 +856,7 @@
       market.lastTick = Number(market.lastTick || Date.now());
       market.nextTick = Number(market.nextTick || Date.now() + stockTickDelay());
       market.tickNumber = Number(market.tickNumber || 0);
+      market.updatedAt = Number(market.updatedAt || 0);
       market.news = Array.isArray(market.news) ? market.news.slice(0, 8) : [];
       market.limitOrders = Array.isArray(market.limitOrders) ? market.limitOrders : [];
       market.dividendHistory = Array.isArray(market.dividendHistory) ? market.dividendHistory.slice(0, 12) : [];
@@ -963,6 +964,7 @@
         }
       });
       if (changed) {
+        state.stockMarket.updatedAt = Date.now();
         state.updatedAt = Date.now();
         localStorage.setItem(localKey, JSON.stringify(state));
         queueCloudWrite();
@@ -1117,6 +1119,7 @@
       market.tickNumber += 1;
       market.lastTick = now;
       market.nextTick = now + stockTickDelay();
+      market.updatedAt = Date.now();
       const companies = Object.values(market.companies);
       const eventCompany = companies[Math.floor(Math.random() * companies.length)] || STOCK_COMPANIES[Math.floor(Math.random() * STOCK_COMPANIES.length)];
       const phase = activeMarketPhase();
@@ -1637,6 +1640,24 @@
       return tickets;
     }
 
+    function awardGoldBars(player, amount, reason) {
+      const bars = Math.max(0, Math.round(Number(amount || 0)));
+      if (!player || bars <= 0) return 0;
+      player.goldBars = Math.max(0, Math.floor(Number(player.goldBars || 0))) + bars;
+      player.updatedAt = Date.now();
+      addHistoryEvent({
+        type:"gold-bar-reward",
+        category:"Dailies",
+        player:player.name,
+        title:"Gold Bar Reward",
+        description:`${player.name} earned ${bars} Gold Bar${bars === 1 ? "" : "s"} from ${reason}.`,
+        amount:bars,
+        amountKind:"goldbar",
+        details:{reason, sellValue:bars * 90000}
+      });
+      return bars;
+    }
+
     function maybeDropCasinoTicket(player, chance, reason) {
       if (!player || Math.random() >= Number(chance || 0)) return 0;
       return awardCasinoTickets(player, 1, reason);
@@ -1865,16 +1886,23 @@
     }
 
     function mergeStockMarketLossless(cloudMarket = {}, localMarket = {}) {
-      const merged = {...(cloudMarket || {})};
-      merged.companies = {...(cloudMarket?.companies || {})};
+      const cloudUpdatedAt = Number(cloudMarket?.updatedAt || 0);
+      const localUpdatedAt = Number(localMarket?.updatedAt || 0);
+      const useLocalMarket = localUpdatedAt > cloudUpdatedAt;
+      const baseMarket = useLocalMarket ? localMarket : cloudMarket;
+      const merged = {...(baseMarket || {})};
+      merged.companies = {...(baseMarket?.companies || {})};
+      merged.updatedAt = Math.max(cloudUpdatedAt, localUpdatedAt);
       const cloudResetAt = Number(cloudMarket?.recordsResetAt || 0);
       const localResetAt = Number(localMarket?.recordsResetAt || 0);
       const useLocalRecords = localResetAt > cloudResetAt;
       const useCloudRecords = cloudResetAt > localResetAt;
       merged.recordsResetAt = Math.max(cloudResetAt, localResetAt);
-      Object.entries(localMarket?.companies || {}).forEach(([symbol, localCompany]) => {
-        const cloudCompany = merged.companies[symbol] || {};
-        const baseCompany = useLocalRecords ? localCompany : cloudCompany;
+      const symbols = new Set([...Object.keys(cloudMarket?.companies || {}), ...Object.keys(localMarket?.companies || {})]);
+      symbols.forEach((symbol) => {
+        const cloudCompany = cloudMarket?.companies?.[symbol] || {};
+        const localCompany = localMarket?.companies?.[symbol] || {};
+        const baseCompany = useLocalRecords ? localCompany : useCloudRecords ? cloudCompany : useLocalMarket ? localCompany : cloudCompany;
         const high = useLocalRecords
           ? Math.max(Number(localCompany.recordedHigh || 0), Number(localCompany.price || 0))
           : useCloudRecords
@@ -3378,9 +3406,45 @@
         stock.recordedLow = Number(price.toFixed(2));
       });
       state.stockMarket.recordsResetAt = Date.now();
+      state.stockMarket.updatedAt = Date.now();
       addSystemHistory("Stock Records Reset", "Admin reset all stock recorded highs and lows to current market prices.", {});
       saveFast(renderStockMarket);
       toast("Stock highs and lows reset to current prices.");
+    }
+
+    function resetStockPricesToBase() {
+      if (!isDarrenAdmin()) return toast("Only Darren can reset stock prices.");
+      Object.values(state.stockMarket?.companies || {}).forEach((stock) => {
+        const base = Math.max(1, Number(stock.base || 1));
+        stock.previous = Number(base.toFixed(2));
+        stock.price = Number(base.toFixed(2));
+        stock.trend = 0;
+        stock.event = "";
+      });
+      state.stockMarket.lastTick = Date.now();
+      state.stockMarket.nextTick = Date.now() + stockTickDelay();
+      state.stockMarket.updatedAt = Date.now();
+      state.stockMarket.news = ["Admin reset all stock prices to company base values.", ...(state.stockMarket.news || [])].slice(0, 8);
+      addSystemHistory("Stock Prices Reset", "Admin reset all stock prices to their base values. Historical highs/lows were left intact until reset separately.", {});
+      saveFast(renderStockMarket);
+      toast("Stock prices reset to base values.");
+    }
+
+    function forceStockPulses(count = 10) {
+      if (!isDarrenAdmin()) return toast("Only Darren can force stock pulses.");
+      const pulses = Math.max(1, Math.min(50, Math.round(Number(count || 10))));
+      const start = Date.now();
+      for (let index = 0; index < pulses; index += 1) {
+        const simulatedNow = start + (index * STOCK_TICK_MIN_MS);
+        maybeRotateMarketPhase(simulatedNow);
+        advanceStockMarketTick(simulatedNow);
+        executeLimitOrders();
+      }
+      state.stockMarket.updatedAt = Date.now();
+      state.updatedAt = Date.now();
+      addSystemHistory("Stock Pulses Forced", `Admin advanced the stock market by ${pulses} pulse${pulses === 1 ? "" : "s"}.`, {pulses});
+      saveFast(renderStockMarket);
+      toast(`Stock market advanced ${pulses} pulse${pulses === 1 ? "" : "s"}.`);
     }
 
     function renderStockFunds() {
@@ -3793,6 +3857,10 @@
           awardCasinoTickets(player, amount, activity.title);
           amountKind = "ticket";
           result = `${amount} Casino Ticket${amount === 1 ? "" : "s"}`;
+        } else if (reward.type === "goldbar") {
+          awardGoldBars(player, amount, activity.title);
+          amountKind = "goldbar";
+          result = `${amount} Gold Bar${amount === 1 ? "" : "s"}`;
         } else {
           addXP(player.name, amount, activity.title, {persist:false, toast:false});
           amountKind = "xp";
@@ -6737,6 +6805,14 @@
       els.luckyWheelDialog.showModal();
     }
 
+    function dailyRewardDisplay(reward) {
+      if (!reward) return "Nothing";
+      if (reward.type === "goldbar") return `${Number(reward.value || 0)} Gold Bar${Number(reward.value || 0) === 1 ? "" : "s"}`;
+      if (reward.type === "xp") return `${Number(reward.value || 0)} XP`;
+      if (reward.type === "ticket") return `${Number(reward.value || 0)} Casino Ticket${Number(reward.value || 0) === 1 ? "" : "s"}`;
+      return Number(reward.value || 0) > 0 ? money(reward.value) : "Nothing";
+    }
+
     function awardLuckyWheel() {
       const player = currentPlayer();
       if (!player) return toast("Link your profile to spin the wheel.");
@@ -6771,16 +6847,19 @@
       unlockAchievement("daily-wheel-spin", player.name);
       if (reward.type === "money") {
         grantDailyMoney(player, reward.value, "lucky wheel reward");
+      } else if (reward.type === "goldbar") {
+        awardGoldBars(player, reward.value, "Lucky Wheel");
       } else {
         addXP(player.name, reward.value, "Lucky Wheel", {persist:false, toast:false});
       }
-      const text = `${player.name} spun Lucky Wheel: ${reward.type === "money" ? money(reward.value) : `${reward.value} XP`}${reward.golden ? " GOLDEN JACKPOT" : ""}`;
+      const rewardText = dailyRewardDisplay(reward);
+      const text = `${player.name} spun Lucky Wheel: ${rewardText}${reward.golden ? " GOLDEN JACKPOT" : ""}`;
       state.daily.wheelHistory.unshift(text);
       state.daily.wheelHistory = state.daily.wheelHistory.slice(0, 12);
       log(text);
       save();
-      $("wheelResult").textContent = `${reward.golden ? "Golden Jackpot" : "Reward"}: ${reward.type === "money" ? money(reward.value) : `${reward.value} XP`}`;
-      resultToast(reward.golden ? "Golden Wheel Jackpot!" : "Lucky Wheel Reward", reward.type === "money" ? `+$${reward.value}` : `+${reward.value} XP`);
+      $("wheelResult").textContent = `${reward.golden ? "Golden Jackpot" : "Reward"}: ${rewardText}`;
+      resultToast(reward.golden ? "Golden Wheel Jackpot!" : "Lucky Wheel Reward", rewardText);
       const ticketsLeft = Number(player.casinoTickets || 0);
       $("wheelSpinAgainButton").hidden = ticketsLeft <= 0;
       $("wheelUseAllButton").hidden = ticketsLeft <= 0;
@@ -6802,13 +6881,18 @@
       state.daily.scratch[player.name] = todayKey();
       trackDailyProgress(player.name, "scratchCards", 1);
       unlockAchievement("daily-scratch-card", player.name);
-      if (reward.value > 0) grantDailyMoney(player, reward.value, "daily scratch reward");
-      const text = `${player.name} scratched daily card: ${reward.value > 0 ? money(reward.value) : "Nothing"}.`;
+      if (reward.type === "goldbar") {
+        awardGoldBars(player, reward.value, "Daily Scratch-Off");
+      } else if (reward.value > 0) {
+        grantDailyMoney(player, reward.value, "daily scratch reward");
+      }
+      const rewardText = dailyRewardDisplay(reward);
+      const text = `${player.name} scratched daily card: ${rewardText}.`;
       state.daily.wheelHistory.unshift(text);
       state.daily.wheelHistory = state.daily.wheelHistory.slice(0, 12);
       log(text);
       save();
-      resultToast("Daily Scratch-Off", reward.value > 0 ? `+$${reward.value}` : "$0");
+      resultToast("Daily Scratch-Off", rewardText);
     }
 
     function openTicketUseDialog(type) {
@@ -6873,12 +6957,17 @@
       if (!count) return toast("You have no Casino Tickets.");
       let total = 0;
       let hits = 0;
+      let bars = 0;
       const original = state.daily.scratch[player.name];
       while (count > 0) {
         player.casinoTickets = Math.max(0, Number(player.casinoTickets || 0) - 1);
         trackDailyProgress(player.name, "scratchCards", 1);
         const reward = weightedReward(SCRATCH_OFF_REWARDS);
-        if (reward.value > 0) {
+        if (reward.type === "goldbar") {
+          awardGoldBars(player, reward.value, "Ticket Scratch-Off");
+          bars += Number(reward.value || 0);
+          hits += 1;
+        } else if (reward.value > 0) {
           grantDailyMoney(player, reward.value, "ticket scratch reward");
           total += Number(reward.value || 0);
           hits += 1;
@@ -6891,17 +6980,17 @@
           description:`${player.name} used 1 Casino Ticket for an extra Scratch-Off.`,
           amount:-1,
           amountKind:"ticket",
-          details:{reward:"Scratch-Off", payout:reward.value || 0}
+          details:{reward:"Scratch-Off", payout:reward.type === "goldbar" ? 0 : reward.value || 0, goldBars:reward.type === "goldbar" ? reward.value || 0 : 0}
         });
         count = Number(player.casinoTickets || 0);
       }
       state.daily.scratch[player.name] = original || todayKey();
-      const text = `${player.name} used all Scratch-Off tickets: ${hits} hit${hits === 1 ? "" : "s"} for ${money(total)}.`;
+      const text = `${player.name} used all Scratch-Off tickets: ${hits} hit${hits === 1 ? "" : "s"} for ${money(total)}${bars ? ` and ${bars} Gold Bar${bars === 1 ? "" : "s"}` : ""}.`;
       state.daily.wheelHistory.unshift(text);
       state.daily.wheelHistory = state.daily.wheelHistory.slice(0, 12);
       pendingTicketUse = "";
       save();
-      resultToast("Scratch-Off Tickets Used", `${hits} hits / ${money(total)}`);
+      resultToast("Scratch-Off Tickets Used", `${hits} hits / ${money(total)}${bars ? ` / ${bars} Gold Bar${bars === 1 ? "" : "s"}` : ""}`);
     }
 
     function weightedReward(rewards) {
@@ -7553,6 +7642,14 @@
       }
       if (action === "reset-stock-records") {
         resetStockRecords();
+        return;
+      }
+      if (action === "reset-stock-base-prices") {
+        resetStockPricesToBase();
+        return;
+      }
+      if (action === "force-stock-pulses") {
+        forceStockPulses(target?.dataset.pulses || 10);
         return;
       }
       if (action === "save-motd") {

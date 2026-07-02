@@ -3515,6 +3515,12 @@
       max-width: 460px;
     }
 
+    .admin-stock-tool-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+    }
+
     .history-header { display: flex; justify-content: space-between; gap: 18px; align-items: end; }
     .history-header h2 { margin: 0 0 4px; }
     .history-header p { margin: 0; color: var(--muted); }
