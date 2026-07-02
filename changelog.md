@@ -1,5 +1,24 @@
 # Virtual Casino Changelog
 
+## V1.4.3 - 2026-07-02 - Firebase Persistence Emergency Patch
+
+### Firebase
+- Replaced whole-state cloud write skipping with a safer merge-before-write path so newer snapshots cannot erase protected local gameplay changes.
+- Realtime sync now merges incoming cloud snapshots with local state instead of blindly applying or ignoring the entire app state.
+- Added protection for player bankroll/bank balances, portfolios, fund holdings, gold bars, achievements, XP, chat messages, history, dailies, stock highs/lows, and limit orders.
+- Added per-player update timestamps for money, banking, asset, stock, ticket, and XP changes to keep player financial snapshots atomic during sync.
+
+### Stocks
+- Fixed stock info popovers so they only open from the `(i)` info icon instead of the whole stock card.
+- Added Sector Fund quantity input so players can buy or sell multiple fund units at once.
+- Updated Sector Funds to support weighted ETF-style holdings from `data/stock-funds.json`.
+- Changed dividends to pay on an hourly cycle, lengthened market phases, and slightly reduced random crash frequency per the new balance notes.
+- Added an admin action to reset stock recorded highs/lows to current prices.
+
+### Overview / Admin
+- Added an editable Message of the Day banner on Overview with a three-minute per-session auto-dismiss.
+- Added Admin controls to publish or delete the MOTD.
+
 ## V1.4.2 - 2026-07-02 - Stock Card Cleanup and Watchlist Hotfix
 
 ### Stocks

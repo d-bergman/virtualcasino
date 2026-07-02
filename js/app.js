@@ -355,13 +355,27 @@
         if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
         const items = await response.json();
         if (!Array.isArray(items)) throw new Error("data/stock-funds.json must be an array.");
-        return items.map((item, index) => ({
-          id:String(item.id || `fund-${index}`).trim(),
-          symbol:String(item.symbol || `FUND-${index}`).trim().toUpperCase(),
-          name:String(item.name || "Stock Fund").trim(),
-          contains:Array.isArray(item.contains) ? item.contains.map((symbol) => String(symbol).trim().toUpperCase()).filter(Boolean) : [],
-          purpose:String(item.purpose || "")
-        })).filter((fund) => fund.id && fund.symbol && fund.contains.length);
+        return items.map((item, index) => {
+          const holdings = Array.isArray(item.contains)
+            ? item.contains.map((entry) => {
+              if (entry && typeof entry === "object") {
+                return {
+                  symbol:String(entry.symbol || entry.ticker || "").trim().toUpperCase(),
+                  weight:Math.max(0.01, Number(entry.weight || 1))
+                };
+              }
+              return {symbol:String(entry || "").trim().toUpperCase(), weight:1};
+            }).filter((entry) => entry.symbol)
+            : [];
+          return {
+            id:String(item.id || `fund-${index}`).trim(),
+            symbol:String(item.symbol || `FUND-${index}`).trim().toUpperCase(),
+            name:String(item.name || "Stock Fund").trim(),
+            contains:holdings.map((entry) => entry.symbol),
+            weights:Object.fromEntries(holdings.map((entry) => [entry.symbol, entry.weight])),
+            purpose:String(item.purpose || "")
+          };
+        }).filter((fund) => fund.id && fund.symbol && fund.contains.length);
       } catch (error) {
         console.warn("Could not load stock funds.", error);
         return [];
@@ -575,13 +589,13 @@
     }
 
     const MARKET_PHASES = [
-      {name:"Bull Market", drift:1.6, positiveBias:0.62, favored:["Software","Luxury","Vehicles","Aerospace","Robotics & AI","Space Logistics"], weak:[]},
-      {name:"Bear Market", drift:-1.3, positiveBias:0.38, favored:["Banking","Food","Security","Telecom"], weak:["Luxury","Travel","Consumer","Vehicles"]},
-      {name:"Casino Boom", drift:.7, positiveBias:0.58, favored:["Casino & Hospitality","Casino Tech","Security"], weak:[]},
-      {name:"Health Panic", drift:0, positiveBias:0.5, favored:["Health"], weak:["Health"], volatilitySectors:["Health"]},
-      {name:"Luxury Bubble", drift:.8, positiveBias:0.57, favored:["Luxury","Vehicles","Real Estate","Travel"], weak:["Food","Banking"]},
-      {name:"Recession", drift:-.9, positiveBias:0.42, favored:["Banking","Food","Security","Telecom"], weak:["Travel","Luxury","Consumer","Vehicles"]},
-      {name:"Speculative Mania", drift:.2, positiveBias:0.55, favored:["Aerospace","Robotics & AI","Space Logistics","Automation"], weak:["Banking","Food","Telecom"], speculative:true}
+      {name:"Bull Market", drift:1.6, positiveBias:0.62, durationMinutes:90, favored:["Software","Luxury","Vehicles","Aerospace","Robotics & AI","Space Logistics"], weak:[]},
+      {name:"Bear Market", drift:-1.3, positiveBias:0.38, durationMinutes:60, favored:["Banking","Food","Security","Telecom"], weak:["Luxury","Travel","Consumer","Vehicles"]},
+      {name:"Casino Boom", drift:.7, positiveBias:0.58, durationMinutes:120, favored:["Casino & Hospitality","Casino Tech","Security"], weak:[]},
+      {name:"Health Panic", drift:0, positiveBias:0.5, durationMinutes:60, favored:["Health"], weak:["Health"], volatilitySectors:["Health"]},
+      {name:"Luxury Bubble", drift:.8, positiveBias:0.57, durationMinutes:90, favored:["Luxury","Vehicles","Real Estate","Travel"], weak:["Food","Banking"]},
+      {name:"Recession", drift:-.9, positiveBias:0.42, durationMinutes:90, favored:["Banking","Food","Security","Telecom"], weak:["Travel","Luxury","Consumer","Vehicles"]},
+      {name:"Speculative Mania", drift:.2, positiveBias:0.55, durationMinutes:60, favored:["Aerospace","Robotics & AI","Space Logistics","Automation"], weak:["Banking","Food","Telecom"], speculative:true}
     ];
 
     const MARKET_CAP_MODIFIERS = {Nano:1.4, Small:1.2, Mid:1, Large:.85, Mega:.7};
@@ -625,6 +639,8 @@
     let globalChatOpen = false;
     let globalChatLastSeen = Number(localStorage.getItem("virtualCasinoChatLastSeenV1") || 0);
     let editingChatMessageId = "";
+    let motdDismissTimer = null;
+    let motdDismissTimerKey = "";
     let activeAssetCategory = "garage";
     let localSettlement = {selectedPlayers: [], reviews: [], overrideImbalance: false};
     let changelogEntries = [];
@@ -716,6 +732,7 @@
         return {
           id: player.id || `player-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || Math.random().toString(36).slice(2, 9)}`,
           name,
+          updatedAt:Number(player.updatedAt || 0),
           xp: progress.xp,
           stars: progress.stars,
           totalXpEarned: progress.totalXpEarned,
@@ -754,6 +771,14 @@
       data.version = 11;
       data.updatedAt = data.updatedAt || Date.now();
       data.casinoVault = Math.max(0, Number(data.casinoVault || 0));
+      data.motd = data.motd && typeof data.motd === "object" && !Array.isArray(data.motd) ? data.motd : {};
+      data.motd = {
+        title:String(data.motd.title || "New Eden Casino Update").slice(0, 80),
+        body:String(data.motd.body || "").slice(0, 1000),
+        enabled:Boolean(data.motd.enabled && String(data.motd.body || "").trim()),
+        updatedAt:Number(data.motd.updatedAt || 0),
+        updatedBy:String(data.motd.updatedBy || "")
+      };
       data.pokerSessionActive = Boolean(data.pokerSessionActive);
       data.biggestPot = data.biggestPot || {player:"", value:0};
       data.log = Array.isArray(data.log) ? data.log.slice(0, 30) : [];
@@ -904,7 +929,7 @@
       const next = pool[Math.floor(Math.random() * pool.length)] || MARKET_PHASES[0];
       market.phase = next.name;
       market.phaseStartedAt = now;
-      market.phaseEndsAt = now + (10 + Math.floor(Math.random() * 9)) * 60 * 1000;
+      market.phaseEndsAt = now + Math.max(15, Number(next.durationMinutes || 90)) * 60 * 1000;
       market.news.unshift(`Market phase shifted: ${next.name}.`);
       market.news = market.news.slice(0, 8);
       generateInsiderRumors(now);
@@ -953,7 +978,7 @@
 
     function maybePayDividends(now = Date.now()) {
       const market = state.stockMarket;
-      const interval = 10 * 60 * 1000;
+      const interval = 60 * 60 * 1000;
       if (!market || now - Number(market.lastDividendAt || 0) < interval) return false;
       market.lastDividendAt = now;
       let total = 0;
@@ -1106,7 +1131,7 @@
         const networkMood = company.network === eventCompany.network ? eventDirection * randomRange(newsEvent.networkMove || [0, 2]) * Number(newsEvent.networkImpact || 1) : 0;
         const rareCatalyst = company.symbol === eventCompany.symbol && Math.random() < 0.07 ? eventDirection * (18 + Math.random() * 42) : 0;
         const stockMoon = Math.random() < Number(company.moonChance || 0) ? 12 + Math.random() * 38 : 0;
-        const stockCrash = Math.random() < Number(company.crashChance || 0) ? -(12 + Math.random() * 38) : 0;
+        const stockCrash = Math.random() < Number(company.crashChance || 0) * 0.7 ? -(12 + Math.random() * 38) : 0;
         const shock = company.symbol === eventCompany.symbol ? eventDirection * randomRange(newsEvent.companyMove || [3, 15]) * Number(newsEvent.companyImpact || 1) : 0;
         const drift = (Math.random() - 0.47) * 2.05;
         const pullToBase = ((Number(company.base || company.price) - Number(company.price || company.base)) / Math.max(1, Number(company.price || 1))) * 0.48;
@@ -1595,6 +1620,7 @@
       const tickets = Math.max(0, Math.round(Number(amount || 0)));
       if (!player || tickets <= 0) return 0;
       player.casinoTickets = Number(player.casinoTickets || 0) + tickets;
+      player.updatedAt = Date.now();
       trackDailyProgress(player.name, "ticketsEarned", tickets);
       addHistoryEvent({
         type:"casino-ticket",
@@ -1663,6 +1689,7 @@
       state.unlockedAchievements[achievementKey(id, player.name)] = {at: Date.now(), player: player.name, source, achievementId:id};
       const rewardXP = achievementRewardXP(definition.rarity);
       player.totalXpEarned = playerTotalXP(player) + rewardXP;
+      player.updatedAt = Date.now();
       normalizePlayerProgress(player);
       const validationSource = /validation/i.test(source);
       addHistoryEvent({
@@ -1705,30 +1732,172 @@
       return incomingAt > 0 && localAt > 0 && incomingAt > localAt;
     }
 
-    function hasNewerLocalPlayerPreferences(incoming, local = state) {
-      const incomingPlayers = new Map((incoming?.players || []).map((player) => [player.id || player.name, player]));
-      return (local?.players || []).some((player) => {
-        const key = player.id || player.name;
-        const incomingPlayer = incomingPlayers.get(key);
-        return Number(player.stockWatchlistUpdatedAt || 0) > Number(incomingPlayer?.stockWatchlistUpdatedAt || 0);
-      });
+    function mergePositiveNumberMax(a, b) {
+      return Math.max(0, Number(a || 0), Number(b || 0));
     }
 
-    function mergeLocalPlayerPreferences(incoming, local = state) {
-      if (!incoming?.players?.length || !local?.players?.length) return incoming;
-      const localPlayers = new Map(local.players.map((player) => [player.id || player.name, player]));
-      incoming.players = incoming.players.map((player) => {
-        const localPlayer = localPlayers.get(player.id || player.name);
-        if (localPlayer && Number(localPlayer.stockWatchlistUpdatedAt || 0) > Number(player.stockWatchlistUpdatedAt || 0)) {
-          return {
-            ...player,
-            stockWatchlist:Array.isArray(localPlayer.stockWatchlist) ? localPlayer.stockWatchlist.slice() : [],
-            stockWatchlistUpdatedAt:Number(localPlayer.stockWatchlistUpdatedAt || 0)
-          };
-        }
-        return player;
+    function mergeNumericMapMax(cloud = {}, local = {}) {
+      const result = {};
+      new Set([...Object.keys(cloud || {}), ...Object.keys(local || {})]).forEach((key) => {
+        const value = Math.max(0, Number(cloud?.[key] || 0), Number(local?.[key] || 0));
+        if (value > 0) result[key] = value;
       });
-      return incoming;
+      return result;
+    }
+
+    function mergeArrayUnionBy(itemsA = [], itemsB = [], keyFn = (item) => item?.id) {
+      const map = new Map();
+      [...(itemsA || []), ...(itemsB || [])].forEach((item, index) => {
+        if (!item || typeof item !== "object") return;
+        const key = keyFn(item) || `item-${index}-${JSON.stringify(item).slice(0, 60)}`;
+        map.set(key, {...(map.get(key) || {}), ...item});
+      });
+      return [...map.values()];
+    }
+
+    function mergeProgressMax(cloudPlayer, localPlayer) {
+      const cloudTotal = playerTotalXP(cloudPlayer);
+      const localTotal = playerTotalXP(localPlayer);
+      return localTotal > cloudTotal ? {
+        totalXpEarned:localTotal,
+        xp:Number(localPlayer.xp || 0),
+        stars:Number(localPlayer.stars || 0)
+      } : {
+        totalXpEarned:cloudTotal,
+        xp:Number(cloudPlayer.xp || 0),
+        stars:Number(cloudPlayer.stars || 0)
+      };
+    }
+
+    function playerHoldingUnits(player) {
+      return Object.values(player?.portfolio || {}).reduce((sum, value) => sum + Number(value || 0), 0)
+        + Object.values(player?.funds || {}).reduce((sum, value) => sum + Number(value || 0), 0)
+        + Number(player?.goldBars || 0)
+        + (Array.isArray(player?.ownedAssets) ? player.ownedAssets.length : 0);
+    }
+
+    function playerProtectedFinanceScore(player) {
+      return Number(player?.bankroll || 0)
+        + Number(player?.bankBalance || 0)
+        + Object.values(player?.portfolioCost || {}).reduce((sum, value) => sum + Number(value || 0), 0)
+        + Object.values(player?.fundCost || {}).reduce((sum, value) => sum + Number(value || 0), 0)
+        + Number(player?.goldBars || 0) * 100000
+        + (Array.isArray(player?.ownedAssets) ? player.ownedAssets.reduce((sum, asset) => sum + Number(asset.pricePaid || 0), 0) : 0);
+    }
+
+    function preferLocalFinancialSnapshot(cloudPlayer, localPlayer) {
+      const cloudAt = Number(cloudPlayer.updatedAt || 0);
+      const localAt = Number(localPlayer.updatedAt || 0);
+      if (cloudAt || localAt) return localAt >= cloudAt;
+      const cloudHoldings = playerHoldingUnits(cloudPlayer);
+      const localHoldings = playerHoldingUnits(localPlayer);
+      if (localHoldings !== cloudHoldings) return localHoldings > cloudHoldings;
+      return playerProtectedFinanceScore(localPlayer) >= playerProtectedFinanceScore(cloudPlayer);
+    }
+
+    function mergePlayerLossless(cloudPlayer, localPlayer) {
+      const localFinancial = preferLocalFinancialSnapshot(cloudPlayer, localPlayer);
+      const financial = localFinancial ? localPlayer : cloudPlayer;
+      const other = localFinancial ? cloudPlayer : localPlayer;
+      const merged = {...cloudPlayer, ...localPlayer};
+      const progress = mergeProgressMax(cloudPlayer, localPlayer);
+      merged.id = cloudPlayer.id || localPlayer.id;
+      merged.name = cloudPlayer.name || localPlayer.name;
+      merged.updatedAt = Math.max(Number(cloudPlayer.updatedAt || 0), Number(localPlayer.updatedAt || 0));
+      merged.bankroll = Number(financial.bankroll || 0);
+      merged.bankBalance = Number(financial.bankBalance || 0);
+      merged.bankDebt = Math.max(0, Number(financial.bankDebt || 0));
+      merged.casinoTickets = Math.max(Number(financial.casinoTickets || 0), Number(other.casinoTickets || 0));
+      merged.goldBars = Number(financial.goldBars || 0);
+      merged.lifetime = Math.max(Number(cloudPlayer.lifetime || 0), Number(localPlayer.lifetime || 0));
+      merged.portfolio = {...(financial.portfolio || {})};
+      merged.portfolioCost = {...(financial.portfolioCost || {})};
+      merged.funds = {...(financial.funds || {})};
+      merged.fundCost = {...(financial.fundCost || {})};
+      merged.stockWatchlistUpdatedAt = Math.max(Number(cloudPlayer.stockWatchlistUpdatedAt || 0), Number(localPlayer.stockWatchlistUpdatedAt || 0));
+      merged.stockWatchlist = Number(localPlayer.stockWatchlistUpdatedAt || 0) >= Number(cloudPlayer.stockWatchlistUpdatedAt || 0)
+        ? [...new Set([...(localPlayer.stockWatchlist || []), ...(cloudPlayer.stockWatchlist || [])])]
+        : [...new Set([...(cloudPlayer.stockWatchlist || []), ...(localPlayer.stockWatchlist || [])])];
+      merged.ownedAssets = mergeArrayUnionBy(cloudPlayer.ownedAssets, localPlayer.ownedAssets, (asset) => asset.assetId || asset.id || asset.listingId || `${asset.category}-${asset.name}-${asset.purchasedAt}`);
+      merged.favoriteAchievements = [...new Set([...(cloudPlayer.favoriteAchievements || []), ...(localPlayer.favoriteAchievements || [])])].slice(0, 3);
+      merged.localStats = {};
+      new Set([...Object.keys(cloudPlayer.localStats || {}), ...Object.keys(localPlayer.localStats || {})]).forEach((key) => {
+        merged.localStats[key] = Math.max(Number(cloudPlayer.localStats?.[key] || 0), Number(localPlayer.localStats?.[key] || 0));
+      });
+      Object.assign(merged, progress);
+      normalizePlayerProgress(merged);
+      return merged;
+    }
+
+    function mergePlayersLossless(cloudPlayers = [], localPlayers = []) {
+      const map = new Map();
+      (cloudPlayers || []).forEach((player) => map.set(player.id || player.name, player));
+      (localPlayers || []).forEach((player) => {
+        const key = player.id || player.name;
+        map.set(key, map.has(key) ? mergePlayerLossless(map.get(key), player) : player);
+      });
+      return [...map.values()];
+    }
+
+    function mergeHistoryLossless(cloudHistory = [], localHistory = []) {
+      return mergeArrayUnionBy(cloudHistory, localHistory, (item) => item.id || `${item.at}-${item.title}-${item.player}-${item.description}`)
+        .sort((a, b) => Number(b.at || 0) - Number(a.at || 0))
+        .slice(0, 250);
+    }
+
+    function mergeChatLossless(cloudMessages = [], localMessages = []) {
+      return pruneChatMessages(mergeArrayUnionBy(cloudMessages, localMessages, (item) => item.id || `${item.createdAt}-${item.senderName}-${item.text}`));
+    }
+
+    function mergePlainObjectLossless(cloud = {}, local = {}) {
+      return {...(cloud || {}), ...(local || {})};
+    }
+
+    function mergeDailyLossless(cloudDaily = {}, localDaily = {}) {
+      const merged = structuredClone(cloudDaily || {});
+      ["challenges","wheel","scratch","activities"].forEach((key) => {
+        merged[key] = mergePlainObjectLossless(cloudDaily?.[key], localDaily?.[key]);
+      });
+      merged.wheelHistory = mergeArrayUnionBy(cloudDaily?.wheelHistory, localDaily?.wheelHistory, (item) => item.id || `${item.at}-${item.player}-${item.reward}`).slice(0, 12);
+      return merged;
+    }
+
+    function mergeStockMarketLossless(cloudMarket = {}, localMarket = {}) {
+      const merged = {...(cloudMarket || {})};
+      merged.companies = {...(cloudMarket?.companies || {})};
+      Object.entries(localMarket?.companies || {}).forEach(([symbol, localCompany]) => {
+        const cloudCompany = merged.companies[symbol] || {};
+        const high = Math.max(Number(cloudCompany.recordedHigh || 0), Number(localCompany.recordedHigh || 0), Number(cloudCompany.price || 0), Number(localCompany.price || 0));
+        const lows = [cloudCompany.recordedLow, localCompany.recordedLow, cloudCompany.price, localCompany.price].map(Number).filter((value) => value > 0);
+        merged.companies[symbol] = {
+          ...cloudCompany,
+          recordedHigh:Number(high.toFixed(2)),
+          recordedLow:Number((lows.length ? Math.min(...lows) : Number(cloudCompany.price || localCompany.price || 1)).toFixed(2))
+        };
+      });
+      merged.limitOrders = mergeArrayUnionBy(cloudMarket?.limitOrders, localMarket?.limitOrders, (order) => order.id).slice(-50);
+      merged.dividendHistory = [...new Set([...(cloudMarket?.dividendHistory || []), ...(localMarket?.dividendHistory || [])])].slice(0, 12);
+      return merged;
+    }
+
+    function mergeStateLossless(cloudState, localState = state) {
+      const cloud = normalize(cloudState);
+      const local = normalize(localState);
+      const merged = {...cloud};
+      merged.players = mergePlayersLossless(cloud.players, local.players);
+      merged.history = mergeHistoryLossless(cloud.history, local.history);
+      merged.log = [...new Set([...(cloud.log || []), ...(local.log || [])])].slice(0, 30);
+      merged.chatMessages = mergeChatLossless(cloud.chatMessages, local.chatMessages);
+      merged.unlockedAchievements = mergePlainObjectLossless(cloud.unlockedAchievements, local.unlockedAchievements);
+      merged.daily = mergeDailyLossless(cloud.daily, local.daily);
+      merged.stockMarket = mergeStockMarketLossless(cloud.stockMarket, local.stockMarket);
+      merged.assetMarket = normalizeAssetMarket(cloud.assetMarket || local.assetMarket, merged.players);
+      merged.onlineRooms = mergePlainObjectLossless(cloud.onlineRooms, local.onlineRooms);
+      merged.linkages = mergePlainObjectLossless(cloud.linkages, local.linkages);
+      merged.casinoVault = mergePositiveNumberMax(cloud.casinoVault, local.casinoVault);
+      merged.motd = Number(local.motd?.updatedAt || 0) > Number(cloud.motd?.updatedAt || 0) ? local.motd : cloud.motd;
+      merged.updatedAt = Math.max(snapshotUpdatedAt(cloud), snapshotUpdatedAt(local), Date.now());
+      return normalize(merged);
     }
 
     function save({cloud = true} = {}) {
@@ -1788,14 +1957,11 @@
           const stateRef = dbRef(firebaseState.db, `${databasePath}/state`);
           const latest = await get(stateRef).catch(() => null);
           const latestValue = latest?.val?.();
-          if (isIncomingSnapshotNewer(latestValue, state) && !hasNewerLocalPlayerPreferences(latestValue, state)) {
-            setSync("Newer cloud state exists; local write skipped", false);
-            return;
-          }
-          const latestRooms = latestValue?.onlineRooms;
+          const mergedState = latestValue ? mergeStateLossless(latestValue, state) : normalize(state);
+          state = mergedState;
+          localStorage.setItem(localKey, JSON.stringify(state));
           await set(dbRef(firebaseState.db, `${databasePath}/state`), {
             ...state,
-            onlineRooms: latestRooms && typeof latestRooms === "object" ? latestRooms : state.onlineRooms,
             updatedAtServer: serverTimestamp(),
             updatedByUid: firebaseState.user.uid,
             updatedByEmail: firebaseState.user.email || ""
@@ -2184,6 +2350,64 @@
       if ($("manualChipResult")) $("manualChipResult").textContent = "Enter chips or a blackjack bet to calculate.";
     }
 
+    function motdSessionKey() {
+      return String(state.motd?.updatedAt || 0);
+    }
+
+    function dismissMotd() {
+      const key = motdSessionKey();
+      if (key && key !== "0") sessionStorage.setItem("virtualCasinoMotdDismissedKey", key);
+      if ($("motdBanner")) $("motdBanner").hidden = true;
+      clearTimeout(motdDismissTimer);
+      motdDismissTimer = null;
+      motdDismissTimerKey = "";
+    }
+
+    function renderMotd() {
+      const banner = $("motdBanner");
+      if (!banner) return;
+      const motd = state.motd || {};
+      const key = motdSessionKey();
+      const dismissed = sessionStorage.getItem("virtualCasinoMotdDismissedKey") === key;
+      if (!motd.enabled || !String(motd.body || "").trim() || dismissed) {
+        banner.hidden = true;
+        return;
+      }
+      $("motdTitle").textContent = motd.title || "New Eden Casino Update";
+      $("motdBody").textContent = motd.body || "";
+      banner.hidden = false;
+      if (motdDismissTimerKey !== key) {
+        clearTimeout(motdDismissTimer);
+        motdDismissTimerKey = key;
+        motdDismissTimer = setTimeout(dismissMotd, 3 * 60 * 1000);
+      }
+    }
+
+    function renderAdminMotd() {
+      if ($("motdAdminTitle")) $("motdAdminTitle").value = state.motd?.title || "";
+      if ($("motdAdminBody")) $("motdAdminBody").value = state.motd?.body || "";
+    }
+
+    function saveMotd() {
+      if (!isDarrenAdmin()) return toast("Only Darren can publish the MOTD.");
+      const title = String($("motdAdminTitle")?.value || "New Eden Casino Update").trim().slice(0, 80) || "New Eden Casino Update";
+      const body = String($("motdAdminBody")?.value || "").trim().slice(0, 1000);
+      if (!body) return toast("Write a message before publishing the MOTD.");
+      state.motd = {title, body, enabled:true, updatedAt:Date.now(), updatedBy:currentDisplayName()};
+      sessionStorage.removeItem("virtualCasinoMotdDismissedKey");
+      addSystemHistory("MOTD Published", `Admin published a new message of the day: ${title}.`, {title});
+      save();
+      toast("MOTD published.");
+    }
+
+    function deleteMotd() {
+      if (!isDarrenAdmin()) return toast("Only Darren can delete the MOTD.");
+      state.motd = {title:"New Eden Casino Update", body:"", enabled:false, updatedAt:Date.now(), updatedBy:currentDisplayName()};
+      addSystemHistory("MOTD Deleted", "Admin removed the message of the day.", {});
+      save();
+      toast("MOTD deleted.");
+    }
+
     function render() {
       document.body.classList.toggle("auth-locked", !isSignedIn() && !document.body.classList.contains("auth-checking"));
       if (isSignedIn()) maybeAdvanceMarkets();
@@ -2208,11 +2432,13 @@
       $("familyXpFill").style.width = `${levelProgress(fxp)}%`;
       $("familyPrestige").textContent = familyPrestige();
 
+      if (activeView === "overview") renderMotd();
       if (activeView === "overview") $("crewGrid").innerHTML = ranked.slice(0, 3).map(renderPlayerCard).join("");
       if (activeView === "players") $("allPlayersDetailedBoard").innerHTML = state.players.map(renderDetailedPlayerCard).join("");
       if (activeView === "overview") $("leaderboard").innerHTML = ranked.map((p, i) => renderLeaderboardRow(p, i)).join("");
       renderGlobalChat();
       if (activeView === "admin") $("playerAdminBoard").innerHTML = state.players.map((p) => renderAdminPlayerRow(p)).join("");
+      if (activeView === "admin") renderAdminMotd();
       document.querySelectorAll(".admin-link").forEach((item) => item.hidden = !isDarrenAdmin());
       if (activeView === "admin") renderLinkageAdminBoard();
       if (activeView === "overview") $("recentActivity").innerHTML = (state.log.length ? state.log : ["No activity yet."]).slice(0, 5).map((item, index) => renderListRow(index + 1, item, "", "")).join("");
@@ -2701,9 +2927,17 @@
 
     function fundPrice(fund) {
       const symbols = Array.isArray(fund?.contains) ? fund.contains : [];
-      const prices = symbols.map((symbol) => Number(state.stockMarket?.companies?.[symbol]?.price || 0)).filter((price) => price > 0);
-      if (!prices.length) return 0;
-      return Math.round((prices.reduce((sum, price) => sum + price, 0) / prices.length) * 100) / 100;
+      let total = 0;
+      let weightTotal = 0;
+      symbols.forEach((symbol) => {
+        const price = Number(state.stockMarket?.companies?.[symbol]?.price || 0);
+        if (price <= 0) return;
+        const weight = Math.max(0.01, Number(fund?.weights?.[symbol] || 1));
+        total += price * weight;
+        weightTotal += weight;
+      });
+      if (!weightTotal) return 0;
+      return Math.round((total / weightTotal) * 100) / 100;
     }
 
     function fundPortfolioValue(player) {
@@ -2870,13 +3104,7 @@
       const watched = currentPlayer()?.stockWatchlist?.includes(stock.symbol);
       const tags = (stock.tags || []).slice(0, 3).join(" • ") || "Market";
       return `<article class="market-card ${trendClass === "money" ? "stock-up" : "stock-down"}">
-        <div class="market-card-top"><strong>${escapeHtml(stock.symbol)} • ${escapeHtml(stock.network || "LCN")}</strong><span>${escapeHtml(stock.sector)} <button class="stock-info-btn" type="button" aria-label="${escapeAttr(stock.name)} stock details">i</button></span></div>
-        <h3>${escapeHtml(stock.name)}</h3>
-        <div class="market-price">${money(stock.price)}</div>
-        <p class="${trendClass}">${Number(stock.trend || 0) >= 0 ? "+" : ""}${Number(stock.trend || 0).toFixed(2)}% (${signedMoney(movement)})</p>
-        <div class="stock-range"><span>Low ${money(stock.recordedLow || stock.price)}</span><span>High ${money(stock.recordedHigh || stock.price)}</span></div>
-        <button class="mini-btn stock-watch-btn ${watched ? "active" : ""}" type="button" data-action="toggle-stock-watch" data-stock-symbol="${escapeAttr(stock.symbol)}">${watched ? "★" : "☆"} Watch</button>
-        <div class="stock-info-popover" role="tooltip">
+        <div class="market-card-top"><strong>${escapeHtml(stock.symbol)} • ${escapeHtml(stock.network || "LCN")}</strong><span>${escapeHtml(stock.sector)} <span class="stock-info"><button class="stock-info-btn" type="button" aria-label="${escapeAttr(stock.name)} stock details" aria-haspopup="true">i</button><span class="stock-info-popover" role="tooltip">
           <strong>${escapeHtml(stock.name)} Details</strong>
           <span>Risk: ${escapeHtml(stock.riskTier || "Balanced")}</span>
           <span>Market Cap: ${escapeHtml(stock.marketCap || "Mid")}</span>
@@ -2884,7 +3112,12 @@
           <span>Moon Chance: ${(Number(stock.moonChance || 0) * 100).toFixed(1)}%</span>
           <span>Crash Chance: ${(Number(stock.crashChance || 0) * 100).toFixed(1)}%</span>
           <span>Tags: ${escapeHtml(tags)}</span>
-        </div>
+        </span></span></span></div>
+        <h3>${escapeHtml(stock.name)}</h3>
+        <div class="market-price">${money(stock.price)}</div>
+        <p class="${trendClass}">${Number(stock.trend || 0) >= 0 ? "+" : ""}${Number(stock.trend || 0).toFixed(2)}% (${signedMoney(movement)})</p>
+        <div class="stock-range"><span>Low ${money(stock.recordedLow || stock.price)}</span><span>High ${money(stock.recordedHigh || stock.price)}</span></div>
+        <button class="mini-btn stock-watch-btn ${watched ? "active" : ""}" type="button" data-action="toggle-stock-watch" data-stock-symbol="${escapeAttr(stock.symbol)}">${watched ? "★" : "☆"} Watch</button>
         ${stock.event ? `<small>${escapeHtml(stock.event)}</small>` : ""}
       </article>`;
     }
@@ -2994,6 +3227,8 @@
       recipient.portfolioCost = recipient.portfolioCost || {};
       recipient.portfolio[symbol] = Number(recipient.portfolio[symbol] || 0) + shares;
       recipient.portfolioCost[symbol] = Number(recipient.portfolioCost[symbol] || 0) + costMoved;
+      sender.updatedAt = Date.now();
+      recipient.updatedAt = Date.now();
       addHistoryEvent({
         type:"stock-transfer",
         category:"Stocks",
@@ -3115,6 +3350,18 @@
       saveFast(renderStockMarket);
     }
 
+    function resetStockRecords() {
+      if (!isDarrenAdmin()) return toast("Only Darren can reset stock records.");
+      Object.values(state.stockMarket?.companies || {}).forEach((stock) => {
+        const price = Number(stock.price || stock.base || 1);
+        stock.recordedHigh = Number(price.toFixed(2));
+        stock.recordedLow = Number(price.toFixed(2));
+      });
+      addSystemHistory("Stock Records Reset", "Admin reset all stock recorded highs and lows to current market prices.", {});
+      saveFast(renderStockMarket);
+      toast("Stock highs and lows reset to current prices.");
+    }
+
     function renderStockFunds() {
       const board = $("stockFundsBoard");
       if (!board) return;
@@ -3125,68 +3372,79 @@
           const units = Number(player?.funds?.[fund.symbol] || 0);
           return `<article class="history-event stock-fund-row">
             <div><strong>${escapeHtml(fund.name)}</strong><span>${escapeHtml(fund.symbol)} • ${escapeHtml(fund.purpose || "Basket fund")} • ${escapeHtml(fund.contains.join(", "))}</span><small>${units.toLocaleString()} owned • Unit ${money(price)}</small></div>
-            <div class="fund-actions"><button class="mini-btn" type="button" data-action="buy-stock-fund" data-fund-id="${escapeAttr(fund.id)}">Buy 1</button>${units > 0 ? `<button class="mini-btn" type="button" data-action="sell-stock-fund" data-fund-id="${escapeAttr(fund.id)}">Sell 1</button>` : ""}</div>
+            <div class="fund-actions"><button class="mini-btn" type="button" data-action="buy-stock-fund" data-fund-id="${escapeAttr(fund.id)}">Buy</button>${units > 0 ? `<button class="mini-btn" type="button" data-action="sell-stock-fund" data-fund-id="${escapeAttr(fund.id)}">Sell</button>` : ""}</div>
           </article>`;
         }).join("")
         : `<div class="blackjack-status">No sector funds configured.</div>`;
+    }
+
+    function stockFundOrderUnits() {
+      const input = $("stockFundUnits");
+      const units = Math.max(1, Math.round(Number(input?.value || 1)));
+      if (input) input.value = String(units);
+      return units;
     }
 
     function buyStockFund(fundId) {
       const player = currentPlayer();
       const fund = STOCK_FUNDS.find((item) => item.id === fundId);
       const price = fundPrice(fund);
+      const units = stockFundOrderUnits();
+      const total = Math.round(price * units);
       if (!player || !fund) return toast("Link your profile and choose a fund.");
       if (price <= 0) return toast("That fund cannot be priced yet.");
-      if (bankrollValue(player) < price) return toast(`You need ${money(price)} bankroll to buy this fund.`);
-      adjustPlayerBankroll(player, -Math.round(price));
+      if (bankrollValue(player) < total) return toast(`You need ${money(total)} bankroll to buy ${units.toLocaleString()} fund units.`);
+      adjustPlayerBankroll(player, -total);
       player.funds = player.funds || {};
       player.fundCost = player.fundCost || {};
-      player.funds[fund.symbol] = Number(player.funds[fund.symbol] || 0) + 1;
-      player.fundCost[fund.symbol] = Number(player.fundCost[fund.symbol] || 0) + Math.round(price);
+      player.funds[fund.symbol] = Number(player.funds[fund.symbol] || 0) + units;
+      player.fundCost[fund.symbol] = Number(player.fundCost[fund.symbol] || 0) + total;
       addHistoryEvent({
         type:"stock-fund-buy",
         category:"Stocks",
         player:player.name,
         title:"Sector Fund Purchase",
-        description:`${player.name} bought 1 unit of ${fund.name}.`,
-        amount:-Math.round(price),
-        details:{fund:fund.symbol, price}
+        description:`${player.name} bought ${units.toLocaleString()} unit${units === 1 ? "" : "s"} of ${fund.name}.`,
+        amount:-total,
+        details:{fund:fund.symbol, price, units}
       });
       checkStockAchievements(player);
       saveFast(renderStockMarket);
-      toast(`Bought 1 ${fund.symbol} fund unit.`);
+      toast(`Bought ${units.toLocaleString()} ${fund.symbol} fund unit${units === 1 ? "" : "s"}.`);
     }
 
     function sellStockFund(fundId) {
       const player = currentPlayer();
       const fund = STOCK_FUNDS.find((item) => item.id === fundId);
       const price = fundPrice(fund);
+      const requested = stockFundOrderUnits();
       if (!player || !fund) return toast("Link your profile and choose a fund.");
       if (Number(player.funds?.[fund.symbol] || 0) <= 0) return toast(`You do not own ${fund.symbol}.`);
       const units = Number(player.funds[fund.symbol] || 0);
+      const sellUnits = Math.min(units, requested);
       const oldCost = Number(player.fundCost?.[fund.symbol] || 0);
-      const costSold = units > 0 ? Math.round(oldCost / units) : 0;
-      player.funds[fund.symbol] = units - 1;
+      const costSold = units > 0 ? Math.round(oldCost * (sellUnits / units)) : 0;
+      player.funds[fund.symbol] = units - sellUnits;
       if (player.funds[fund.symbol] <= 0) {
         delete player.funds[fund.symbol];
         if (player.fundCost) delete player.fundCost[fund.symbol];
       } else if (player.fundCost) {
         player.fundCost[fund.symbol] = Math.max(0, oldCost - costSold);
       }
-      const payout = Math.round(price);
+      const payout = Math.round(price * sellUnits);
       adjustPlayerBankroll(player, payout);
       addHistoryEvent({
         type:"stock-fund-sell",
         category:"Stocks",
         player:player.name,
         title:"Sector Fund Sale",
-        description:`${player.name} sold 1 unit of ${fund.name}.`,
+        description:`${player.name} sold ${sellUnits.toLocaleString()} unit${sellUnits === 1 ? "" : "s"} of ${fund.name}.`,
         amount:payout,
-        details:{fund:fund.symbol, price, gain:payout - costSold}
+        details:{fund:fund.symbol, price, units:sellUnits, gain:payout - costSold}
       });
       checkStockAchievements(player);
       saveFast(renderStockMarket);
-      toast(`Sold 1 ${fund.symbol} fund unit.`);
+      toast(`Sold ${sellUnits.toLocaleString()} ${fund.symbol} fund unit${sellUnits === 1 ? "" : "s"}.`);
     }
 
     function renderAssets() {
@@ -3329,6 +3587,7 @@
         acquiredAt:Date.now()
       };
       player.ownedAssets.push(asset);
+      player.updatedAt = Date.now();
       checkAssetAchievements(player);
       categoryMarket.listings = categoryMarket.listings.filter((item) => item.listingId !== listingId && item.vehicleId !== listing.vehicleId);
       state.assetMarket.categories[activeAssetCategory] = categoryMarket;
@@ -3352,6 +3611,7 @@
       if (!player || !asset) return toast("Choose one of your owned assets.");
       const payout = Math.round(Number(asset.pricePaid || 0) * Number(asset.resaleRate || 0.7));
       player.ownedAssets = player.ownedAssets.filter((item) => item.assetId !== assetId);
+      player.updatedAt = Date.now();
       adjustPlayerBankroll(player, payout);
       addHistoryEvent({
         type:"asset-sell",
@@ -5948,6 +6208,7 @@
     }
 
     function adjustPlayerBankroll(player, delta) {
+      player.updatedAt = Date.now();
       return setPlayerBankroll(player, bankrollValue(player) + Number(delta || 0));
     }
 
@@ -5959,6 +6220,7 @@
       if (bankrollValue(player) < amount) return toast("Not enough on-hand bankroll to deposit.");
       adjustPlayerBankroll(player, -amount);
       player.bankBalance = Number(player.bankBalance || 0) + amount;
+      player.updatedAt = Date.now();
       unlockAchievement("bank-first-deposit", player.name);
       if (player.bankBalance >= 10000) unlockAchievement("bank-safe-stack", player.name);
       $("bankDepositAmount").value = "";
@@ -5982,6 +6244,7 @@
       if (amount <= 0) return toast("Enter a withdrawal amount.");
       if (Number(player.bankBalance || 0) < amount) return toast("Not enough bank balance.");
       player.bankBalance -= amount;
+      player.updatedAt = Date.now();
       adjustPlayerBankroll(player, amount);
       $("bankWithdrawAmount").value = "";
       addHistoryEvent({
@@ -6004,6 +6267,7 @@
       if (bankrollValue(player) < cost) return toast(`You need ${money(cost)} bankroll to buy 1 Gold Bar.`);
       adjustPlayerBankroll(player, -cost);
       player.goldBars = Math.max(0, Math.floor(Number(player.goldBars || 0))) + 1;
+      player.updatedAt = Date.now();
       addHistoryEvent({
         type:"gold-bar-buy",
         category:"Bank",
@@ -6023,6 +6287,7 @@
       if (!player) return toast("Link your profile to sell Gold Bars.");
       if (Number(player.goldBars || 0) <= 0) return toast("You do not have a Gold Bar to sell.");
       player.goldBars = Math.max(0, Math.floor(Number(player.goldBars || 0)) - 1);
+      player.updatedAt = Date.now();
       adjustPlayerBankroll(player, value);
       addHistoryEvent({
         type:"gold-bar-sell",
@@ -6161,6 +6426,7 @@
       const oldStars = Number(player.stars || 0);
       const oldLevel = displayLevelForPlayer(player);
       player.totalXpEarned = Number(player.totalXpEarned || 0) + xpGain;
+      player.updatedAt = Date.now();
       normalizePlayerProgress(player);
       const newStars = Number(player.stars || 0);
       const newLevel = displayLevelForPlayer(player);
@@ -6628,6 +6894,10 @@
     }
 
     function handleAction(action, target = null) {
+      if (action === "dismiss-motd") {
+        dismissMotd();
+        return;
+      }
       if (action === "toggle-mobile-nav") {
         toggleMobileNav();
         return;
@@ -7170,7 +7440,7 @@
         const name = $("newPlayerName").value.trim();
         if (!name) return toast("Enter a player name.");
         if (state.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) return toast("That player already exists.");
-        state.players.push({name, xp:0, stars:0, totalXpEarned:0, chips:{...blank}, bankroll:0, lifetime:0, bankBalance:0, bankDebt:0, casinoTickets:0, goldBars:0, portfolio:{}, portfolioCost:{}, funds:{}, fundCost:{}, stockWatchlist:[], stockWatchlistUpdatedAt:0, ownedAssets:[], sessionBuyIn:0, gamesPlayed:0});
+        state.players.push({name, updatedAt:Date.now(), xp:0, stars:0, totalXpEarned:0, chips:{...blank}, bankroll:0, lifetime:0, bankBalance:0, bankDebt:0, casinoTickets:0, goldBars:0, portfolio:{}, portfolioCost:{}, funds:{}, fundCost:{}, stockWatchlist:[], stockWatchlistUpdatedAt:0, ownedAssets:[], sessionBuyIn:0, gamesPlayed:0});
         $("newPlayerName").value = "";
         addSystemHistory("Player Created", `${name} was created by admin.`, {player:name});
         save();
@@ -7196,6 +7466,7 @@
         player.stars = Math.max(0, Number($("manualStars").value || 0));
         player.xp = levelXP(Number($("manualLevel").value));
         player.totalXpEarned = (player.stars * PRESTIGE_XP) + player.xp;
+        player.updatedAt = Date.now();
         normalizePlayerProgress(player);
         addSystemHistory("Manual Level", `${player.name} manually set to Level ${$("manualLevel").value} with ${player.stars} star(s).`, {player:player.name, level:$("manualLevel").value, stars:player.stars});
         save();
@@ -7258,6 +7529,18 @@
         addSystemHistory("Achievements Validated", `${player.name}'s achievements were rechecked by admin. ${unlocked} new unlock${unlocked === 1 ? "" : "s"}.`, {player:player.name, unlocked});
         save();
         toast(`${player.name} validation complete: ${unlocked} new achievement${unlocked === 1 ? "" : "s"}.`);
+      }
+      if (action === "reset-stock-records") {
+        resetStockRecords();
+        return;
+      }
+      if (action === "save-motd") {
+        saveMotd();
+        return;
+      }
+      if (action === "delete-motd") {
+        deleteMotd();
+        return;
       }
       if (action === "reset-daily-wheel") {
         if (!isDarrenAdmin()) return toast("Only Darren can reset daily spins.");
@@ -7700,19 +7983,17 @@
       if (firebaseState.roomsUnsubscribe) firebaseState.roomsUnsubscribe();
       firebaseState.unsubscribe = onValue(stateRef, (snap) => {
         if (!snap.exists()) return;
-        const incoming = normalize(mergeLocalPlayerPreferences(snap.val(), state));
+        const incoming = normalize(snap.val());
         const canApplyInitialCloud = !realtimeSnapshotApplied && !hadLocalSaveAtBoot;
-        if (!canApplyInitialCloud && isIncomingSnapshotOlder(incoming, state)) {
-          setSync("Ignored older cloud snapshot", true);
-          return;
-        }
+        const incomingOlder = isIncomingSnapshotOlder(incoming, state);
+        const incomingNewer = isIncomingSnapshotNewer(incoming, state);
         skipNextCloudWrite = true;
         const previousRooms = state.onlineRooms || {};
-        state = incoming;
-        state.onlineRooms = previousRooms;
+        state = canApplyInitialCloud ? incoming : mergeStateLossless(incoming, state);
+        state.onlineRooms = mergePlainObjectLossless(state.onlineRooms, previousRooms);
         localStorage.setItem(localKey, JSON.stringify(state));
         realtimeSnapshotApplied = true;
-        setSync("Live sync loaded", true);
+        setSync(incomingOlder ? "Merged older cloud snapshot safely" : incomingNewer ? "Live sync merged" : "Live sync loaded", true);
         runAchievementSweep({cloud: false});
         render();
         setTimeout(() => { skipNextCloudWrite = false; }, 50);

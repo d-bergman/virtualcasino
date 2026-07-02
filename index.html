@@ -105,6 +105,14 @@
       </section>
 
       <section id="overviewView" class="view active">
+        <article id="motdBanner" class="motd-banner panel" hidden>
+          <div class="motd-copy">
+            <span class="motd-kicker">Casino Broadcast</span>
+            <strong id="motdTitle">Message of the Day</strong>
+            <p id="motdBody"></p>
+          </div>
+          <button class="mini-btn" type="button" data-action="dismiss-motd">Dismiss</button>
+        </article>
         <div class="layout-grid">
           <div>
             <div class="section-title">
@@ -176,6 +184,18 @@
             <button class="ghost-btn" type="button" data-action="reset-daily-clickables">Reset Clickables</button>
             <button class="ghost-btn" type="button" data-action="reset-daily-all">Reset All Dailies</button>
             <button class="ghost-btn" type="button" data-action="validate-player-achievements">Validate Achievements</button>
+            <button class="ghost-btn" type="button" data-action="reset-stock-records">Reset Stock Highs/Lows</button>
+          </div>
+        </article>
+        <article class="panel panel-pad admin-motd-panel" style="margin-top:18px;">
+          <div class="section-title"><span>&#128226; Message of the Day</span><span class="sync-pill">Overview banner</span></div>
+          <div class="form-grid">
+            <div><label for="motdAdminTitle">Title</label><input id="motdAdminTitle" type="text" maxlength="80" placeholder="New Eden Casino Update" /></div>
+            <div><label for="motdAdminBody">Message</label><textarea id="motdAdminBody" rows="4" maxlength="1000" placeholder="Write an announcement players will see on Overview."></textarea></div>
+          </div>
+          <div class="action-grid">
+            <button class="primary-btn" type="button" data-action="save-motd">Save / Publish MOTD</button>
+            <button class="ghost-btn danger-btn" type="button" data-action="delete-motd">Delete MOTD</button>
           </div>
         </article>
         <article class="panel panel-pad" style="margin-top:18px;">
@@ -923,6 +943,8 @@
             </article>
             <article class="panel panel-pad">
               <div class="section-title"><span>Sector Funds</span></div>
+              <label for="stockFundUnits">Fund Units</label>
+              <input id="stockFundUnits" type="number" inputmode="numeric" min="1" value="10" />
               <div id="stockFundsBoard" class="leaderboard-list compact-feed"></div>
             </article>
           </aside>
