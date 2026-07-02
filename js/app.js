@@ -574,6 +574,18 @@
       }
     }
 
+    const MARKET_PHASES = [
+      {name:"Bull Market", drift:1.6, positiveBias:0.62, favored:["Software","Luxury","Vehicles","Aerospace","Robotics & AI","Space Logistics"], weak:[]},
+      {name:"Bear Market", drift:-1.3, positiveBias:0.38, favored:["Banking","Food","Security","Telecom"], weak:["Luxury","Travel","Consumer","Vehicles"]},
+      {name:"Casino Boom", drift:.7, positiveBias:0.58, favored:["Casino & Hospitality","Casino Tech","Security"], weak:[]},
+      {name:"Health Panic", drift:0, positiveBias:0.5, favored:["Health"], weak:["Health"], volatilitySectors:["Health"]},
+      {name:"Luxury Bubble", drift:.8, positiveBias:0.57, favored:["Luxury","Vehicles","Real Estate","Travel"], weak:["Food","Banking"]},
+      {name:"Recession", drift:-.9, positiveBias:0.42, favored:["Banking","Food","Security","Telecom"], weak:["Travel","Luxury","Consumer","Vehicles"]},
+      {name:"Speculative Mania", drift:.2, positiveBias:0.55, favored:["Aerospace","Robotics & AI","Space Logistics","Automation"], weak:["Banking","Food","Telecom"], speculative:true}
+    ];
+
+    const MARKET_CAP_MODIFIERS = {Nano:1.4, Small:1.2, Mid:1, Large:.85, Mega:.7};
+
     const defaultState = normalize(decodeSave(attachedSaveText));
     let state = normalize(JSON.parse(localStorage.getItem(localKey) || "null") || structuredClone(defaultState));
     let activeView = "overview";
@@ -810,18 +822,6 @@
       };
       return data;
     }
-
-    const MARKET_PHASES = [
-      {name:"Bull Market", drift:1.6, positiveBias:0.62, favored:["Software","Luxury","Vehicles","Aerospace","Robotics & AI","Space Logistics"], weak:[]},
-      {name:"Bear Market", drift:-1.3, positiveBias:0.38, favored:["Banking","Food","Security","Telecom"], weak:["Luxury","Travel","Consumer","Vehicles"]},
-      {name:"Casino Boom", drift:.7, positiveBias:0.58, favored:["Casino & Hospitality","Casino Tech","Security"], weak:[]},
-      {name:"Health Panic", drift:0, positiveBias:0.5, favored:["Health"], weak:["Health"], volatilitySectors:["Health"]},
-      {name:"Luxury Bubble", drift:.8, positiveBias:0.57, favored:["Luxury","Vehicles","Real Estate","Travel"], weak:["Food","Banking"]},
-      {name:"Recession", drift:-.9, positiveBias:0.42, favored:["Banking","Food","Security","Telecom"], weak:["Travel","Luxury","Consumer","Vehicles"]},
-      {name:"Speculative Mania", drift:.2, positiveBias:0.55, favored:["Aerospace","Robotics & AI","Space Logistics","Automation"], weak:["Banking","Food","Telecom"], speculative:true}
-    ];
-
-    const MARKET_CAP_MODIFIERS = {Nano:1.4, Small:1.2, Mid:1, Large:.85, Mega:.7};
 
     function normalizeStockMarket(input) {
       const market = input && typeof input === "object" && !Array.isArray(input) ? structuredClone(input) : {};

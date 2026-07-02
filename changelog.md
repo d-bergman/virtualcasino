@@ -1,5 +1,11 @@
 # Virtual Casino Changelog
 
+## V1.4.1 - 2026-07-02 - Loader Hotfix
+
+### Hotfix
+- Fixed the stock market phase initialization order so the app no longer gets stuck on the premium loader.
+- Verified the local app boots past the loader with no browser console errors.
+
 ## V1.4.0 - 2026-07-02 - Chat Controls, Prestige Loop, Gold Bars, and Stock Traits
 
 ### Chat
