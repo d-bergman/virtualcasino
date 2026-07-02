@@ -641,6 +641,7 @@
     let editingChatMessageId = "";
     let motdDismissTimer = null;
     let motdDismissTimerKey = "";
+    let motdAdminDirty = false;
     let activeAssetCategory = "garage";
     let localSettlement = {selectedPlayers: [], reviews: [], overrideImbalance: false};
     let changelogEntries = [];
@@ -863,6 +864,7 @@
       market.phaseStartedAt = Number(market.phaseStartedAt || Date.now());
       market.phaseEndsAt = Number(market.phaseEndsAt || Date.now() + 12 * 60 * 1000);
       market.lastDividendAt = Number(market.lastDividendAt || 0);
+      market.recordsResetAt = Number(market.recordsResetAt || 0);
       market.companies = market.companies && typeof market.companies === "object" && !Array.isArray(market.companies) ? market.companies : {};
       STOCK_COMPANIES.forEach((company, index) => {
         const existing = market.companies[company.symbol] || {};
@@ -1865,12 +1867,26 @@
     function mergeStockMarketLossless(cloudMarket = {}, localMarket = {}) {
       const merged = {...(cloudMarket || {})};
       merged.companies = {...(cloudMarket?.companies || {})};
+      const cloudResetAt = Number(cloudMarket?.recordsResetAt || 0);
+      const localResetAt = Number(localMarket?.recordsResetAt || 0);
+      const useLocalRecords = localResetAt > cloudResetAt;
+      const useCloudRecords = cloudResetAt > localResetAt;
+      merged.recordsResetAt = Math.max(cloudResetAt, localResetAt);
       Object.entries(localMarket?.companies || {}).forEach(([symbol, localCompany]) => {
         const cloudCompany = merged.companies[symbol] || {};
-        const high = Math.max(Number(cloudCompany.recordedHigh || 0), Number(localCompany.recordedHigh || 0), Number(cloudCompany.price || 0), Number(localCompany.price || 0));
-        const lows = [cloudCompany.recordedLow, localCompany.recordedLow, cloudCompany.price, localCompany.price].map(Number).filter((value) => value > 0);
+        const baseCompany = useLocalRecords ? localCompany : cloudCompany;
+        const high = useLocalRecords
+          ? Math.max(Number(localCompany.recordedHigh || 0), Number(localCompany.price || 0))
+          : useCloudRecords
+            ? Math.max(Number(cloudCompany.recordedHigh || 0), Number(cloudCompany.price || 0))
+            : Math.max(Number(cloudCompany.recordedHigh || 0), Number(localCompany.recordedHigh || 0), Number(cloudCompany.price || 0), Number(localCompany.price || 0));
+        const lows = useLocalRecords
+          ? [localCompany.recordedLow, localCompany.price].map(Number).filter((value) => value > 0)
+          : useCloudRecords
+            ? [cloudCompany.recordedLow, cloudCompany.price].map(Number).filter((value) => value > 0)
+            : [cloudCompany.recordedLow, localCompany.recordedLow, cloudCompany.price, localCompany.price].map(Number).filter((value) => value > 0);
         merged.companies[symbol] = {
-          ...cloudCompany,
+          ...baseCompany,
           recordedHigh:Number(high.toFixed(2)),
           recordedLow:Number((lows.length ? Math.min(...lows) : Number(cloudCompany.price || localCompany.price || 1)).toFixed(2))
         };
@@ -2384,6 +2400,8 @@
     }
 
     function renderAdminMotd() {
+      const active = document.activeElement;
+      if (motdAdminDirty || active?.id === "motdAdminTitle" || active?.id === "motdAdminBody") return;
       if ($("motdAdminTitle")) $("motdAdminTitle").value = state.motd?.title || "";
       if ($("motdAdminBody")) $("motdAdminBody").value = state.motd?.body || "";
     }
@@ -2394,6 +2412,7 @@
       const body = String($("motdAdminBody")?.value || "").trim().slice(0, 1000);
       if (!body) return toast("Write a message before publishing the MOTD.");
       state.motd = {title, body, enabled:true, updatedAt:Date.now(), updatedBy:currentDisplayName()};
+      motdAdminDirty = false;
       sessionStorage.removeItem("virtualCasinoMotdDismissedKey");
       addSystemHistory("MOTD Published", `Admin published a new message of the day: ${title}.`, {title});
       save();
@@ -2403,6 +2422,7 @@
     function deleteMotd() {
       if (!isDarrenAdmin()) return toast("Only Darren can delete the MOTD.");
       state.motd = {title:"New Eden Casino Update", body:"", enabled:false, updatedAt:Date.now(), updatedBy:currentDisplayName()};
+      motdAdminDirty = false;
       addSystemHistory("MOTD Deleted", "Admin removed the message of the day.", {});
       save();
       toast("MOTD deleted.");
@@ -3104,7 +3124,7 @@
       const watched = currentPlayer()?.stockWatchlist?.includes(stock.symbol);
       const tags = (stock.tags || []).slice(0, 3).join(" • ") || "Market";
       return `<article class="market-card ${trendClass === "money" ? "stock-up" : "stock-down"}">
-        <div class="market-card-top"><strong>${escapeHtml(stock.symbol)} • ${escapeHtml(stock.network || "LCN")}</strong><span>${escapeHtml(stock.sector)} <span class="stock-info"><button class="stock-info-btn" type="button" aria-label="${escapeAttr(stock.name)} stock details" aria-haspopup="true">i</button><span class="stock-info-popover" role="tooltip">
+        <div class="market-card-top"><strong>${escapeHtml(stock.symbol)} • ${escapeHtml(stock.network || "LCN")}</strong><span class="stock-sector-wrap">${escapeHtml(stock.sector)} <span class="stock-info"><button class="stock-info-btn" type="button" aria-label="${escapeAttr(stock.name)} stock details" aria-haspopup="true">i</button><span class="stock-info-popover" role="tooltip">
           <strong>${escapeHtml(stock.name)} Details</strong>
           <span>Risk: ${escapeHtml(stock.riskTier || "Balanced")}</span>
           <span>Market Cap: ${escapeHtml(stock.marketCap || "Mid")}</span>
@@ -3357,6 +3377,7 @@
         stock.recordedHigh = Number(price.toFixed(2));
         stock.recordedLow = Number(price.toFixed(2));
       });
+      state.stockMarket.recordsResetAt = Date.now();
       addSystemHistory("Stock Records Reset", "Admin reset all stock recorded highs and lows to current market prices.", {});
       saveFast(renderStockMarket);
       toast("Stock highs and lows reset to current prices.");
@@ -8255,6 +8276,8 @@
     $("shareTransferSymbol")?.addEventListener("change", updateShareTransferPreview);
     $("shareTransferPlayer")?.addEventListener("change", updateShareTransferPreview);
     $("shareTransferAmount")?.addEventListener("input", updateShareTransferPreview);
+    $("motdAdminTitle")?.addEventListener("input", () => { motdAdminDirty = true; });
+    $("motdAdminBody")?.addEventListener("input", () => { motdAdminDirty = true; });
     $("stockNetworkFilter")?.addEventListener("change", () => {
       stockNetworkFilter = $("stockNetworkFilter").value || "all";
       renderStockMarket();

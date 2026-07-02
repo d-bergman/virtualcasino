@@ -2982,17 +2982,18 @@
         radial-gradient(circle at top right, rgba(255,216,107,.12), transparent 34%);
     }
 
-    .market-card > div:first-child,
     .market-card-top {
       display: flex;
       justify-content: space-between;
+      align-items: flex-start;
       gap: 10px;
       color: var(--gold);
       font-size: .78rem;
       text-transform: uppercase;
     }
 
-    .market-card-top span {
+    .market-card-top > span,
+    .stock-sector-wrap {
       display: inline-flex;
       align-items: center;
       justify-content: flex-end;
@@ -3110,7 +3111,7 @@
       z-index: 4;
       top: calc(100% + 8px);
       right: 0;
-      display: none;
+      display: none !important;
       width: 230px;
       border: 1px solid rgba(255,216,107,.26);
       border-radius: 12px;
@@ -3139,7 +3140,7 @@
 
     .stock-info:focus-within .stock-info-popover,
     .stock-info:hover .stock-info-popover {
-      display: block;
+      display: block !important;
     }
 
     .stock-watch-btn {
@@ -3502,7 +3503,15 @@
     .linkage-actions .mini-btn {
       flex: 1 1 120px;
     }
-    .admin-room-failsafe {
+    .admin-tool-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .admin-room-failsafe,
+    .admin-stock-failsafe {
       max-width: 460px;
     }
 

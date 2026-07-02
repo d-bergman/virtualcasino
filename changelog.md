@@ -1,5 +1,17 @@
 # Virtual Casino Changelog
 
+## V1.4.4 - 2026-07-02 - Stock UI and Record Reset Hotfix
+
+### Stocks
+- Fixed stock card popovers painting over every market card by scoping top-row CSS to the sector wrapper and keeping info panels hidden unless the `(i)` icon is active.
+- Moved the stock high/low reset into its own Admin Stock Record Tool next to the room failsafe tools.
+- Added a stock record reset timestamp so old Firebase/local snapshots cannot resurrect inherited or bad historical highs/lows after an admin reset.
+- Confirmed stock highs/lows are stored per company and updated from that company’s own price/previous price, not fund totals or market cap values.
+
+### Admin / MOTD
+- Prevented Admin MOTD title/body inputs from being overwritten by render/sync while Darren is actively editing them.
+- Kept MOTD dismissal session-local so each player sees a published message until their own browser session dismisses it.
+
 ## V1.4.3 - 2026-07-02 - Firebase Persistence Emergency Patch
 
 ### Firebase

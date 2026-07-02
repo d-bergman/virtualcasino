@@ -184,7 +184,6 @@
             <button class="ghost-btn" type="button" data-action="reset-daily-clickables">Reset Clickables</button>
             <button class="ghost-btn" type="button" data-action="reset-daily-all">Reset All Dailies</button>
             <button class="ghost-btn" type="button" data-action="validate-player-achievements">Validate Achievements</button>
-            <button class="ghost-btn" type="button" data-action="reset-stock-records">Reset Stock Highs/Lows</button>
           </div>
         </article>
         <article class="panel panel-pad admin-motd-panel" style="margin-top:18px;">
@@ -202,11 +201,18 @@
           <div class="section-title"><span>&#9881; Account Linkage</span></div>
           <div id="linkageAdminBoard" class="leaderboard-list"></div>
         </article>
-        <article class="panel panel-pad admin-room-failsafe" style="margin-top:18px;">
-          <div class="section-title"><span>&#127922; Room Failsafe</span></div>
-          <p class="auth-message">Use this if an online room gets stuck open.</p>
-          <button class="primary-btn danger-btn" style="width:100%;" type="button" data-action="clear-all-rooms">Delete All Open Rooms</button>
-        </article>
+        <div class="admin-tool-grid">
+          <article class="panel panel-pad admin-room-failsafe">
+            <div class="section-title"><span>&#127922; Room Failsafe</span></div>
+            <p class="auth-message">Use this if an online room gets stuck open.</p>
+            <button class="primary-btn danger-btn" style="width:100%;" type="button" data-action="clear-all-rooms">Delete All Open Rooms</button>
+          </article>
+          <article class="panel panel-pad admin-stock-failsafe">
+            <div class="section-title"><span>&#128200; Stock Record Tool</span></div>
+            <p class="auth-message">Use this to clear inherited or bad historical highs/lows. Current prices become the new record baseline.</p>
+            <button class="primary-btn" style="width:100%;" type="button" data-action="reset-stock-records">Reset Stock Highs / Lows</button>
+          </article>
+        </div>
       </section>
 
       <section id="sessionsView" class="view">
