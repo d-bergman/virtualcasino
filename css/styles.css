@@ -2272,6 +2272,7 @@
     }
     .stock-filter-bar label { color: var(--gold); font-size:.75rem; font-weight:900; text-transform:uppercase; white-space:nowrap; }
     .stock-filter-bar select { min-width: 170px; }
+    .stock-filter-bar input[type="search"] { min-width: 230px; }
     .farkle-table {
       position: relative;
       min-height: 560px;
@@ -2568,6 +2569,22 @@
       font-size: 0.82rem;
       white-space: nowrap;
     }
+    .env-badge {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid rgba(255,241,91,.5);
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: rgba(255,241,91,.12);
+      color: #fff15b;
+      font-size: .74rem;
+      font-weight: 950;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      box-shadow: 0 0 18px rgba(255,241,91,.12);
+    }
+    .env-badge[hidden] { display: none; }
     .sync-dot {
       width: 8px;
       height: 8px;
@@ -2829,6 +2846,55 @@
         linear-gradient(135deg, rgba(255,216,107,.08), rgba(141,60,255,.06)),
         rgba(6,5,10,.84);
     }
+    .stock-news-card strong {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      font-size: clamp(.95rem, 1.3vw, 1.08rem);
+      line-height: 1.18;
+    }
+    .stock-news-card .mini-btn {
+      margin-top: 5px;
+      width: fit-content;
+      min-height: 28px;
+      padding: 5px 10px;
+    }
+    .market-newspaper-paper {
+      border: 1px solid rgba(92,62,26,.28);
+      border-radius: 18px;
+      padding: clamp(14px, 2vw, 24px);
+      background:
+        radial-gradient(circle at top left, rgba(255,216,107,.18), transparent 24%),
+        linear-gradient(135deg, #f6e7bd, #d6bd7c 48%, #efe0ad);
+      color: #21160a;
+      box-shadow: inset 0 0 42px rgba(90,55,12,.18), 0 24px 80px rgba(0,0,0,.55);
+    }
+    .newspaper-masthead {
+      text-align: center;
+      border-bottom: 3px double rgba(35,22,7,.5);
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+    }
+    .newspaper-masthead p {
+      margin: 0;
+      color: #6b4716;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      font-size: .72rem;
+    }
+    .newspaper-masthead h2 {
+      margin: 2px 0;
+      color: #1f1508;
+      font-family: Georgia, serif;
+      font-size: clamp(2rem, 5vw, 4rem);
+      letter-spacing: -.04em;
+    }
+    .newspaper-masthead span {
+      color: #6b4716;
+      font-weight: 900;
+    }
 
     .market-newspaper-grid {
       display: grid;
@@ -2838,18 +2904,18 @@
 
     .market-newspaper-grid section {
       min-height: 122px;
-      border: 1px solid rgba(255,216,107,.13);
+      border: 1px solid rgba(49,30,7,.22);
       border-radius: 12px;
       padding: 12px;
       background:
-        radial-gradient(circle at top right, rgba(255,216,107,.1), transparent 38%),
-        rgba(0,0,0,.22);
-      box-shadow: inset 0 0 18px rgba(0,0,0,.16);
+        radial-gradient(circle at top right, rgba(255,255,255,.26), transparent 38%),
+        rgba(255,255,255,.22);
+      box-shadow: inset 0 0 18px rgba(90,55,12,.08);
     }
 
     .market-newspaper-grid h3 {
       margin: 0 0 8px;
-      color: var(--gold);
+      color: #3b2509;
       font-size: .78rem;
       letter-spacing: .08em;
       text-transform: uppercase;
@@ -2859,7 +2925,7 @@
     .market-newspaper-grid small {
       display: block;
       margin: 0 0 6px;
-      color: var(--muted);
+      color: #3d3121;
       font-size: .82rem;
       line-height: 1.35;
     }

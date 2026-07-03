@@ -1,5 +1,27 @@
 # Virtual Casino Changelog
 
+## V1.4.6 - 2026-07-02 - Dev Firebase Split and Market Shock Rebalance
+
+### Firebase / Persistence
+- Added automatic local-development Firebase isolation: localhost, 127.0.0.1, and ::1 now use `virtualCasino/familyCardRpg_DEV`, while GitHub Pages production stays on `virtualCasino/familyCardRpg`.
+- Added a visible DEV MODE badge showing the active Firebase path when running locally.
+- Updated `firebase.rules.json` with matching production and development database paths.
+- Fixed Casino Ticket spending persistence by preventing older higher ticket counts from being max-merged back over newer spending.
+- Fixed stock watchlist and pinned achievement merges so unwatching/unpinning is preserved instead of resurrected by older snapshots.
+- Improved history merge ordering so newer stock purchases and sales stay visible by sorting on `createdAt`.
+
+### Stocks
+- Reworked stock movement around Base Price, Fair Value, and Current Price so moonshots, crashes, and booms are temporary events instead of permanent runaway baselines.
+- Added risk-based sanity bands and stronger fair-value mean reversion to prevent speculative stocks from compounding upward forever.
+- Added active moonshot/crash/boom reporting in the Casino Financial Times.
+- Replaced the old market news banner with a Casino Financial Times card and newspaper-style modal.
+- Added a stock search field for ticker symbols and company names.
+- Updated the Stock Market Field Guide with fair value, temporary shock events, runaway protection, and dividend history filtering.
+
+### History / Chat
+- Moved dividend payouts into their own Dividends history filter and hid them from the default All view so stock purchases and sales are easier to find.
+- Added an incoming Global Chat chime for new messages from other players.
+
 ## V1.4.5 - 2026-07-02 - Admin Market Controls and Gold Bar Rewards
 
 ### Stocks

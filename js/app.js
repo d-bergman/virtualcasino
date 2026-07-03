@@ -10,8 +10,10 @@
 
     const firebaseVersion = "12.13.0";
     const firebaseDisabled = new URLSearchParams(window.location.search).has("nofirebase");
-    const databasePath = "virtualCasino/familyCardRpg";
-    const localKey = "virtualCasinoFamilyCardRpgV1";
+    const isLocalDev = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+    const firebaseEnvironment = isLocalDev ? "development" : "production";
+    const databasePath = isLocalDev ? "virtualCasino/familyCardRpg_DEV" : "virtualCasino/familyCardRpg";
+    const localKey = isLocalDev ? "virtualCasinoFamilyCardRpgDevV1" : "virtualCasinoFamilyCardRpgV1";
     const activeRoomStorageKey = "virtualCasinoActiveRoomV1";
     const attachedSaveText = "eyJwbGF5ZXJzIjpbeyJuYW1lIjoiRGFycmVuIiwieHAiOjM0MCwic3RhcnMiOjAsImNoaXBzIjp7IndoaXRlIjoyMywicmVkIjozMSwiYmx1ZSI6MjcsImdyZWVuIjoxOCwiYmxhY2siOjEwfSwibGlmZXRpbWUiOjc3MCwic2Vzc2lvblN0YXJ0IjoxODk4LCJiYW5rcm9sbCI6NzcwLCJzZXNzaW9uQnV5SW4iOjE4OTh9LHsibmFtZSI6IkJodW1pa2EiLCJ4cCI6MCwic3RhcnMiOjAsImNoaXBzIjp7IndoaXRlIjowLCJyZWQiOjAsImJsdWUiOjAsImdyZWVuIjowLCJibGFjayI6MH0sImxpZmV0aW1lIjotMzgwLCJzZXNzaW9uU3RhcnQiOjAsImJhbmtyb2xsIjotMzgwLCJzZXNzaW9uQnV5SW4iOjB9LHsibmFtZSI6Ik1haXRyaSIsInhwIjozMDUsInN0YXJzIjowLCJjaGlwcyI6eyJ3aGl0ZSI6MjIsInJlZCI6MTksImJsdWUiOjMsImdyZWVuIjo2LCJibGFjayI6MH0sImxpZmV0aW1lIjotMzkwLCJzZXNzaW9uU3RhcnQiOjI5NywiYmFua3JvbGwiOi0zOTAsInNlc3Npb25CdXlJbiI6Mjk3fV0sImJpZ2dlc3RQb3QiOnsicGxheWVyIjoiIiwidmFsdWUiOjB9LCJsb2ciOlsiUG9rZXIgc2Vzc2lvbiBlbmRlZC4gU2Vzc2lvbiByZXN1bHRzIGFkZGVkIHRvIGxpZmV0aW1lLiIsIkJodW1pa2EgY2hpcCBjb3VudCBzYXZlZDogJDAiLCJEYXJyZW4gY2hpcCBjb3VudCBzYXZlZDogJDE4OTgiLCJNYWl0cmkgY2hpcCBjb3VudCBzYXZlZDogJDI5NyIsIk1haXRyaSArMjAgWFAg4oCUIFBva2VyOiBUd28gUGFpciIsIkRhcnJlbiArMTAgWFAg4oCUIFBva2VyOiBPbmUgUGFpciIsIk1haXRyaSArNTAgWFAg4oCUIFBva2VyOiBTdHJhaWdodCIsIk1haXRyaSArMTAwIFhQIOKAlCBQb2tlcjogRnVsbCBIb3VzZSIsIkRhcnJlbiArMzUgWFAg4oCUIFBva2VyOiBUaHJlZSBvZiBhIEtpbmQiLCJNYWl0cmkgKzUwIFhQIOKAlCBQb2tlcjogU3RyYWlnaHQiXSwicG9rZXJTZXNzaW9uQWN0aXZlIjpmYWxzZSwidmVyc2lvbiI6NH0=";
 
@@ -124,6 +126,10 @@
         }
         if (kind === "achievement") {
           [740, 988, 1318].forEach((frequency, index) => playTone(ctx, {frequency, start:index * .09, duration:.2, type:"sine", gain:.045}));
+          return;
+        }
+        if (kind === "chat") {
+          [880, 1174].forEach((frequency, index) => playTone(ctx, {frequency, start:index * .07, duration:.16, type:"sine", gain:.035}));
         }
       } catch (error) {
         console.warn("Casino audio unavailable", error);
@@ -617,6 +623,7 @@
     let achievementProgressCache = null;
     let stockNetworkFilter = "all";
     let stockSectorFilter = "all";
+    let stockSearch = "";
     let stockWatchlistOnly = false;
     let achievementCheckTimer = null;
     let roomPollTimer = null;
@@ -638,6 +645,7 @@
     let assetViewPlayerName = "";
     let globalChatOpen = false;
     let globalChatLastSeen = Number(localStorage.getItem("virtualCasinoChatLastSeenV1") || 0);
+    let globalChatLastSoundAt = Number(localStorage.getItem("virtualCasinoChatLastSoundV1") || 0);
     let editingChatMessageId = "";
     let motdDismissTimer = null;
     let motdDismissTimerKey = "";
@@ -766,7 +774,8 @@
             customNet: Number(player.localStats?.customNet || 0)
           },
           gamesPlayed: Number(player.gamesPlayed || 0),
-          favoriteAchievements: Array.isArray(player.favoriteAchievements) ? player.favoriteAchievements.slice(0, 3) : []
+          favoriteAchievements: Array.isArray(player.favoriteAchievements) ? player.favoriteAchievements.slice(0, 3) : [],
+          favoriteAchievementsUpdatedAt: Number(player.favoriteAchievementsUpdatedAt || player.updatedAt || 0)
         };
       });
       data.version = 11;
@@ -870,16 +879,29 @@
       STOCK_COMPANIES.forEach((company, index) => {
         const existing = market.companies[company.symbol] || {};
         const start = Math.max(1, Number(existing.price || company.base + (index % 5) * 3));
+        const fairValue = Math.max(1, Number(existing.fairValue || existing.fair || company.base));
+        const eventState = existing.eventState && typeof existing.eventState === "object" && !Array.isArray(existing.eventState)
+          ? {
+            type:["moonshot","crash","boom"].includes(String(existing.eventState.type || "")) ? String(existing.eventState.type) : "",
+            pulsesLeft:Math.max(0, Math.round(Number(existing.eventState.pulsesLeft || 0))),
+            magnitude:Number(existing.eventState.magnitude || 0),
+            label:String(existing.eventState.label || "")
+          }
+          : {type:"", pulsesLeft:0, magnitude:0, label:""};
         market.companies[company.symbol] = {
           ...company,
           price: Number(start.toFixed(2)),
+          fairValue: Number(fairValue.toFixed(2)),
           previous: Number(existing.previous || start),
           recordedHigh: Number(existing.recordedHigh || Math.max(start, Number(existing.previous || start))),
           recordedLow: Number(existing.recordedLow || Math.min(start, Number(existing.previous || start))),
           trend: Number(existing.trend || 0),
           network: existing.network || company.network,
-          event: existing.event || ""
+          event: existing.event || "",
+          eventState
         };
+        market.companies[company.symbol].price = Number(clampStockPrice(market.companies[company.symbol], market.companies[company.symbol].price).toFixed(2));
+        market.companies[company.symbol].fairValue = Number(Math.max(1, Math.min(market.companies[company.symbol].fairValue, company.base * riskPriceBand(market.companies[company.symbol]) * .72)).toFixed(2));
       });
       return market;
     }
@@ -998,7 +1020,7 @@
           total += payout;
           addHistoryEvent({
             type:"stock-dividend",
-            category:"Stocks",
+            category:"Dividends",
             player:player.name,
             title:"Dividend Paid",
             description:`${player.name} received ${money(payout)} in ${symbol} dividends.`,
@@ -1114,6 +1136,41 @@
         .replaceAll("{session}", openHours ? "business hours" : "after hours");
     }
 
+    function riskPriceBand(company) {
+      const risk = String(company?.riskTier || "").toLowerCase();
+      if (risk.includes("stable")) return 3;
+      if (risk.includes("high")) return 10;
+      if (risk.includes("speculative")) return 20;
+      return 5;
+    }
+
+    function clampStockPrice(company, price) {
+      const base = Math.max(1, Number(company.base || 1));
+      const eventType = company.eventState?.type || "";
+      const eventLeft = Number(company.eventState?.pulsesLeft || 0);
+      const boomAllowance = eventType === "boom" && eventLeft > 0 ? 2.6 : eventType === "moonshot" && eventLeft > 0 ? 1.9 : 1;
+      const crashAllowance = eventType === "crash" && eventLeft > 0 ? 0.18 : 0.32;
+      const max = base * riskPriceBand(company) * boomAllowance;
+      const min = Math.max(1, base * crashAllowance);
+      return Math.max(min, Math.min(max, Number(price || base)));
+    }
+
+    function eventNewsIcon(type) {
+      return {moonshot:"🚀", crash:"⚠️", boom:"📈"}[type] || "📰";
+    }
+
+    function registerStockEvent(company, type, magnitude, label = "") {
+      const pulses = type === "boom" ? 3 : 2 + Math.floor(Math.random() * 2);
+      company.eventState = {type, pulsesLeft:pulses, magnitude:Number(magnitude || 0), label};
+      return `${eventNewsIcon(type)} ${type === "moonshot" ? "MOONSHOT" : type === "crash" ? "MARKET CRASH" : "MARKET BOOM"}: ${company.symbol} ${label || company.name} (${magnitude >= 0 ? "+" : ""}${Number(magnitude || 0).toFixed(0)}%, ${pulses} pulses)`;
+    }
+
+    function activeMarketEvents() {
+      return Object.values(state.stockMarket?.companies || {})
+        .filter((stock) => stock.eventState?.type && Number(stock.eventState?.pulsesLeft || 0) > 0)
+        .sort((a, b) => Number(b.eventState?.pulsesLeft || 0) - Number(a.eventState?.pulsesLeft || 0));
+    }
+
     function advanceStockMarketTick(now = Date.now()) {
       const market = state.stockMarket;
       market.tickNumber += 1;
@@ -1127,6 +1184,7 @@
       const openHours = isStockBusinessHours(new Date(now));
       const newsEvent = selectMarketNewsEvent(eventCompany, eventDirection);
       const eventText = formatMarketNewsEvent(newsEvent, eventCompany, openHours);
+      const pulseAlerts = [];
       companies.forEach((company) => {
         const capModifier = MARKET_CAP_MODIFIERS[company.marketCap] || 1;
         const phaseSector = phase.favored?.includes(company.sector) ? 1.25 : phase.weak?.includes(company.sector) ? .78 : 1;
@@ -1134,24 +1192,45 @@
         const phaseDrift = Number(phase.drift || 0) * phaseSector;
         const sectorMood = company.sector === eventCompany.sector ? eventDirection * randomRange(newsEvent.sectorMove || [0, 3]) * Number(newsEvent.sectorImpact || 1) : 0;
         const networkMood = company.network === eventCompany.network ? eventDirection * randomRange(newsEvent.networkMove || [0, 2]) * Number(newsEvent.networkImpact || 1) : 0;
-        const rareCatalyst = company.symbol === eventCompany.symbol && Math.random() < 0.07 ? eventDirection * (18 + Math.random() * 42) : 0;
-        const stockMoon = Math.random() < Number(company.moonChance || 0) ? 12 + Math.random() * 38 : 0;
-        const stockCrash = Math.random() < Number(company.crashChance || 0) * 0.7 ? -(12 + Math.random() * 38) : 0;
         const shock = company.symbol === eventCompany.symbol ? eventDirection * randomRange(newsEvent.companyMove || [3, 15]) * Number(newsEvent.companyImpact || 1) : 0;
         const drift = (Math.random() - 0.47) * 2.05;
-        const pullToBase = ((Number(company.base || company.price) - Number(company.price || company.base)) / Math.max(1, Number(company.price || 1))) * 0.48;
+        const base = Math.max(1, Number(company.base || company.price || 1));
+        const currentFair = Math.max(1, Number(company.fairValue || base));
+        const fairDriftPercent = Math.max(-8, Math.min(8, (shock * .14) + (sectorMood * .08) + (networkMood * .05) + (phaseDrift * .08)));
+        const fairPull = ((base - currentFair) / Math.max(1, currentFair)) * 3.4;
+        company.fairValue = Number(Math.max(base * .45, Math.min(base * riskPriceBand(company) * .72, currentFair * (1 + (fairDriftPercent + fairPull) / 100))).toFixed(2));
+        const pullToFair = ((Number(company.fairValue || base) - Number(company.price || base)) / Math.max(1, Number(company.price || 1))) * 18;
         const multiplier = openHours ? 2.15 : 1.08;
-        const routinePercent = (((drift + shock + sectorMood + networkMood + pullToBase + phaseDrift) * Number(company.volatility || 1) * capModifier * phaseVolatility) * multiplier * Number(newsEvent.marketImpact || 1));
+        const routinePercent = (((drift + shock + sectorMood + networkMood + pullToFair + phaseDrift) * Number(company.volatility || 1) * capModifier * phaseVolatility) * multiplier * Number(newsEvent.marketImpact || 1));
         const routineLimit = MARKET_CAP_TICK_LIMITS[company.marketCap] || 26;
-        const percent = Math.max(-65, Math.min(65, Math.max(-routineLimit, Math.min(routineLimit, routinePercent)) + rareCatalyst + stockMoon + stockCrash));
+        let eventPercent = 0;
+        if (!company.eventState?.type || Number(company.eventState?.pulsesLeft || 0) <= 0) {
+          const moonRoll = Math.random() < Number(company.moonChance || 0);
+          const crashRoll = Math.random() < Number(company.crashChance || 0) * 0.7;
+          const catalystRoll = company.symbol === eventCompany.symbol && Math.random() < 0.055;
+          if (moonRoll || (catalystRoll && eventDirection > 0)) {
+            eventPercent = 35 + Math.random() * (phase.speculative ? 95 : 55);
+            pulseAlerts.push(registerStockEvent(company, phase.speculative && Math.random() < .32 ? "boom" : "moonshot", eventPercent, eventText));
+          } else if (crashRoll || (catalystRoll && eventDirection < 0)) {
+            eventPercent = -(28 + Math.random() * 55);
+            pulseAlerts.push(registerStockEvent(company, "crash", eventPercent, eventText));
+          }
+        } else {
+          const left = Math.max(0, Number(company.eventState.pulsesLeft || 0));
+          const magnitude = Number(company.eventState.magnitude || 0);
+          eventPercent = magnitude * (left / 3) * (company.eventState.type === "crash" ? .45 : .38);
+          company.eventState.pulsesLeft = Math.max(0, left - 1);
+          if (company.eventState.pulsesLeft <= 0) company.eventState = {type:"", pulsesLeft:0, magnitude:0, label:""};
+        }
+        const percent = Math.max(-75, Math.min(140, Math.max(-routineLimit, Math.min(routineLimit, routinePercent)) + eventPercent));
         company.previous = Number(company.price || company.base);
-        company.price = Number(Math.max(1, company.previous * (1 + percent / 100)).toFixed(2));
+        company.price = Number(clampStockPrice(company, company.previous * (1 + percent / 100)).toFixed(2));
         company.trend = Number(((company.price - company.previous) / company.previous * 100).toFixed(2));
         company.recordedHigh = Number(Math.max(Number(company.recordedHigh || 0), company.price, company.previous).toFixed(2));
         company.recordedLow = Number(Math.min(Number(company.recordedLow || company.price), company.price, company.previous).toFixed(2));
-        company.event = company.symbol === eventCompany.symbol ? eventText : "";
+        company.event = pulseAlerts.find((text) => text.includes(company.symbol)) || (company.symbol === eventCompany.symbol ? eventText : "");
       });
-      market.news.unshift(eventText);
+      market.news.unshift(...pulseAlerts, eventText);
       market.news = market.news.slice(0, 8);
     }
 
@@ -1532,6 +1611,11 @@
       const editableId = player && latest?.player === player.name ? latest.id : "";
       if (globalChatOpen) markGlobalChatSeen();
       const hasUnread = !globalChatOpen && Number(latest?.createdAt || 0) > Number(globalChatLastSeen || 0);
+      if (hasUnread && latest?.player !== player?.name && Number(latest?.createdAt || 0) > Number(globalChatLastSoundAt || 0)) {
+        playCasinoSound("chat");
+        globalChatLastSoundAt = Number(latest.createdAt || Date.now());
+        localStorage.setItem("virtualCasinoChatLastSoundV1", String(globalChatLastSoundAt));
+      }
       dock.classList.toggle("collapsed", !globalChatOpen);
       $("globalChatArrow").textContent = globalChatOpen ? "▼" : "▲";
       if ($("globalChatUnreadDot")) $("globalChatUnreadDot").hidden = !hasUnread;
@@ -1830,7 +1914,7 @@
       merged.bankroll = Number(financial.bankroll || 0);
       merged.bankBalance = Number(financial.bankBalance || 0);
       merged.bankDebt = Math.max(0, Number(financial.bankDebt || 0));
-      merged.casinoTickets = Math.max(Number(financial.casinoTickets || 0), Number(other.casinoTickets || 0));
+      merged.casinoTickets = Number(financial.casinoTickets || 0);
       merged.goldBars = Number(financial.goldBars || 0);
       merged.lifetime = Math.max(Number(cloudPlayer.lifetime || 0), Number(localPlayer.lifetime || 0));
       merged.portfolio = {...(financial.portfolio || {})};
@@ -1839,10 +1923,13 @@
       merged.fundCost = {...(financial.fundCost || {})};
       merged.stockWatchlistUpdatedAt = Math.max(Number(cloudPlayer.stockWatchlistUpdatedAt || 0), Number(localPlayer.stockWatchlistUpdatedAt || 0));
       merged.stockWatchlist = Number(localPlayer.stockWatchlistUpdatedAt || 0) >= Number(cloudPlayer.stockWatchlistUpdatedAt || 0)
-        ? [...new Set([...(localPlayer.stockWatchlist || []), ...(cloudPlayer.stockWatchlist || [])])]
-        : [...new Set([...(cloudPlayer.stockWatchlist || []), ...(localPlayer.stockWatchlist || [])])];
+        ? [...new Set(localPlayer.stockWatchlist || [])]
+        : [...new Set(cloudPlayer.stockWatchlist || [])];
       merged.ownedAssets = mergeArrayUnionBy(cloudPlayer.ownedAssets, localPlayer.ownedAssets, (asset) => asset.assetId || asset.id || asset.listingId || `${asset.category}-${asset.name}-${asset.purchasedAt}`);
-      merged.favoriteAchievements = [...new Set([...(cloudPlayer.favoriteAchievements || []), ...(localPlayer.favoriteAchievements || [])])].slice(0, 3);
+      merged.favoriteAchievementsUpdatedAt = Math.max(Number(cloudPlayer.favoriteAchievementsUpdatedAt || 0), Number(localPlayer.favoriteAchievementsUpdatedAt || 0));
+      merged.favoriteAchievements = Number(localPlayer.favoriteAchievementsUpdatedAt || 0) >= Number(cloudPlayer.favoriteAchievementsUpdatedAt || 0)
+        ? (localPlayer.favoriteAchievements || []).slice(0, 3)
+        : (cloudPlayer.favoriteAchievements || []).slice(0, 3);
       merged.localStats = {};
       new Set([...Object.keys(cloudPlayer.localStats || {}), ...Object.keys(localPlayer.localStats || {})]).forEach((key) => {
         merged.localStats[key] = Math.max(Number(cloudPlayer.localStats?.[key] || 0), Number(localPlayer.localStats?.[key] || 0));
@@ -1863,8 +1950,8 @@
     }
 
     function mergeHistoryLossless(cloudHistory = [], localHistory = []) {
-      return mergeArrayUnionBy(cloudHistory, localHistory, (item) => item.id || `${item.at}-${item.title}-${item.player}-${item.description}`)
-        .sort((a, b) => Number(b.at || 0) - Number(a.at || 0))
+      return mergeArrayUnionBy(cloudHistory, localHistory, (item) => item.id || `${item.createdAt || item.at}-${item.title}-${item.player}-${item.description}`)
+        .sort((a, b) => Number(b.createdAt || b.at || 0) - Number(a.createdAt || a.at || 0))
         .slice(0, 250);
     }
 
@@ -2472,6 +2559,10 @@
       const ranked = rankedPlayers();
       const champion = ranked[0] || state.players[0];
       const linked = currentPlayer();
+      if ($("environmentBadge")) {
+        $("environmentBadge").hidden = !isLocalDev;
+        $("environmentBadge").textContent = `DEV MODE • ${databasePath.replace("virtualCasino/", "")}`;
+      }
       $("championName").innerHTML = `${escapeHtml(linked ? currentDisplayName() : displayNameForPlayer(champion?.name || "Champion"))} ${linked ? playerSymbol(linked.name) : (champion ? playerSymbol(champion.name) : "")}`;
       const fxp = familyCycleXP();
       const fl = familyLevel();
@@ -2540,7 +2631,8 @@
 
     function renderHistoryBoard() {
       const items = (state.history || []).map(normalizeHistoryItem).filter((item) => {
-        const categoryMatch = historyFilter === "all" || item.category.toLowerCase() === historyFilter;
+        const key = item.category.toLowerCase();
+        const categoryMatch = historyFilter === "all" ? key !== "dividends" : key === historyFilter;
         const haystack = `${item.player} ${item.category} ${item.title} ${item.description}`.toLowerCase();
         return categoryMatch && (!historySearch || haystack.includes(historySearch));
       });
@@ -2554,11 +2646,12 @@
     function renderHistoryEvent(item) {
       const meta = historyCategoryMeta(item.category);
       const amount = item.amount;
-      const amountClass = item.amountKind === "xp" || item.amountKind === "ticket" ? "xp" : item.type.includes("achievement") ? "achievement" : Number(amount || 0) < 0 ? "loss" : Number(amount || 0) > 0 ? "win" : "";
+      const amountClass = item.amountKind === "xp" || item.amountKind === "ticket" || item.amountKind === "goldbar" ? "xp" : item.type.includes("achievement") ? "achievement" : Number(amount || 0) < 0 ? "loss" : Number(amount || 0) > 0 ? "win" : "";
       const amountNumber = Number(amount || 0);
       const amountText = amount === null || amount === undefined ? ""
         : item.amountKind === "xp" ? `+${Number(amount).toLocaleString()} XP`
         : item.amountKind === "ticket" ? `${amountNumber > 0 ? "+" : ""}${amountNumber.toLocaleString()} 🎟️`
+        : item.amountKind === "goldbar" ? `${amountNumber > 0 ? "+" : ""}${amountNumber.toLocaleString()} Gold Bar${Math.abs(amountNumber) === 1 ? "" : "s"}`
         : signedMoney(amount);
       const details = Object.entries(item.details || {}).filter(([, value]) => value !== "" && value !== null && value !== undefined).slice(0, 4)
         .map(([key, value]) => `<span><b>${escapeHtml(historyDetailLabel(key))}</b> ${typeof value === "number" && /amount|wager|payout|net|debt|buyIn|cashOut|pot/i.test(key) ? money(value) : escapeHtml(value)}</span>`).join("");
@@ -2586,6 +2679,7 @@
         Craps:{key:"craps",icon:"&#127922;"},
         Bank:{key:"bank",icon:"&#9878;"},
         Stocks:{key:"stocks",icon:"&#128200;"},
+        Dividends:{key:"dividends",icon:"&#128181;"},
         Assets:{key:"assets",icon:"&#128663;"},
         Achievements:{key:"achievements",icon:"&#127942;"},
         Dailies:{key:"dailies",icon:"&#127873;"},
@@ -3073,9 +3167,10 @@
         ["lifetime","📈","Portfolio",money(portfolio),"Current value"],
         ["safe","📊","Unrealized P/L",signedMoney(gain),cost > 0 ? `${gain >= 0 ? "Up" : "Down"} ${Math.abs(gain / cost * 100).toFixed(1)}%` : "No positions"],
         ["worth","⏱️","Next Pulse",`<span id="stockNextPulseValue">${marketCountdown(market.nextTick)}</span>`,"LCN/BAWSAQ 30-45s"],
-        ["vault","🏛️","Total Listings",`${Object.keys(market.companies || {}).length} Companies Listed`,`${phase.name} phase`]
-      ].map(([tone, icon, label, value, note]) => `<article class="bank-summary-card ${tone}"><span class="bank-summary-icon">${icon}</span><div><span>${label}</span><strong>${value}</strong><small>${note}</small></div></article>`).join("");
-      if ($("marketNewsBanner")) $("marketNewsBanner").innerHTML = `<span class="market-news-icon">📰</span><div><span>Market News</span><strong>${escapeHtml(market.news?.[0] || "Quiet trading day across LCN and BAWSAQ.")}</strong><small>${isStockBusinessHours() ? "Business hours: heavier swings, stronger sector reactions, faster volatility." : "After hours: lighter liquidity, but shocks can still move a favorite stock."}</small></div>`;
+        ["vault","🏛️","Total Listings",`${Object.keys(market.companies || {}).length} Companies Listed`,"LCN / BAWSAQ"],
+        ["vault","🏛️","Current Phase",phase.name,`${isStockBusinessHours() ? "8A-6P CT active" : "After hours"} • ${marketCountdown(market.phaseEndsAt)}`],
+        ["news","📰","Casino Financial Times",escapeHtml(market.news?.[0] || "Quiet trading day across LCN and BAWSAQ."),`<button class="mini-btn" type="button" data-action="open-market-newspaper">Open Newspaper</button>`]
+      ].map(([tone, icon, label, value, note]) => `<article class="bank-summary-card ${tone} stock-news-card"><span class="bank-summary-icon">${icon}</span><div><span>${label}</span><strong>${value}</strong><small>${note}</small></div></article>`).join("");
       renderMarketNewspaper();
       $("marketClock").textContent = `Next ${marketCountdown(market.nextTick)} • ${isStockBusinessHours() ? "8A-6P CT active" : "after hours"}`;
       renderStockFilters();
@@ -3100,9 +3195,11 @@
       const biggestGainer = stocks.slice().sort((a, b) => Number(b.trend || 0) - Number(a.trend || 0))[0];
       const biggestLoser = stocks.slice().sort((a, b) => Number(a.trend || 0) - Number(b.trend || 0))[0];
       const orderNotes = (state.history || []).filter((item) => item.type === "stock-limit-order").slice(0, 2);
+      const events = activeMarketEvents();
       $("marketPhaseBadge").textContent = `${phase.name} • ${marketCountdown(market.phaseEndsAt)}`;
       $("marketNewspaperBoard").innerHTML = [
         `<section><h3>Current Phase</h3><p>${escapeHtml(phase.name)}</p><small>Favored: ${escapeHtml((phase.favored || []).join(", ") || "None")}</small></section>`,
+        `<section><h3>Active Shock Events</h3>${events.length ? events.slice(0, 5).map((stock) => `<p>${eventNewsIcon(stock.eventState.type)} <strong>${escapeHtml(stock.symbol)}</strong> ${escapeHtml(stock.eventState.type)} • ${Number(stock.eventState.pulsesLeft || 0)} pulse${Number(stock.eventState.pulsesLeft || 0) === 1 ? "" : "s"} left</p>`).join("") : "<p>No active moonshots, crashes, or booms right now.</p>"}</section>`,
         `<section><h3>Latest Headlines</h3>${(market.news || []).slice(0, 3).map((item) => `<p>${escapeHtml(item)}</p>`).join("") || "<p>Quiet trading day.</p>"}</section>`,
         `<section><h3>Insider Rumors</h3>${(market.rumors || []).map((rumor) => `<p>${escapeHtml(rumor.text)}</p>`).join("") || "<p>No desk chatter right now.</p>"}</section>`,
         `<section><h3>Movers</h3><p>Biggest gainer: ${escapeHtml(biggestGainer?.symbol || "N/A")} ${biggestGainer ? `${Number(biggestGainer.trend || 0).toFixed(2)}%` : ""}</p><p>Biggest loser: ${escapeHtml(biggestLoser?.symbol || "N/A")} ${biggestLoser ? `${Number(biggestLoser.trend || 0).toFixed(2)}%` : ""}</p></section>`,
@@ -3114,6 +3211,7 @@
       const networkSelect = $("stockNetworkFilter");
       const sectorSelect = $("stockSectorFilter");
       if (!networkSelect || !sectorSelect) return;
+      if ($("stockSearch") && $("stockSearch") !== document.activeElement) $("stockSearch").value = stockSearch;
       networkSelect.value = stockNetworkFilter;
       const currentSector = stockSectorFilter;
       const sectors = [...new Set(Object.values(state.stockMarket?.companies || {}).map((stock) => stock.sector).filter(Boolean))].sort();
@@ -3134,7 +3232,8 @@
         const networkOk = stockNetworkFilter === "all" || stock.network === stockNetworkFilter;
         const sectorOk = stockSectorFilter === "all" || stock.sector === stockSectorFilter;
         const watchOk = !stockWatchlistOnly || watchlist.includes(stock.symbol);
-        return networkOk && sectorOk && watchOk;
+        const searchOk = !stockSearch || `${stock.symbol} ${stock.name}`.toLowerCase().includes(stockSearch);
+        return networkOk && sectorOk && watchOk && searchOk;
       }).sort((a, b) => Number(watchlist.includes(b.symbol)) - Number(watchlist.includes(a.symbol)));
     }
 
@@ -3418,8 +3517,10 @@
         const base = Math.max(1, Number(stock.base || 1));
         stock.previous = Number(base.toFixed(2));
         stock.price = Number(base.toFixed(2));
+        stock.fairValue = Number(base.toFixed(2));
         stock.trend = 0;
         stock.event = "";
+        stock.eventState = {type:"", pulsesLeft:0, magnitude:0, label:""};
       });
       state.stockMarket.lastTick = Date.now();
       state.stockMarket.nextTick = Date.now() + stockTickDelay();
@@ -6829,6 +6930,7 @@
       setTimeout(() => {
       if (pendingTicketUse === "wheel-active") {
         player.casinoTickets = Math.max(0, Number(player.casinoTickets || 0) - 1);
+        player.updatedAt = Date.now();
         addHistoryEvent({
           type:"casino-ticket-spent",
           category:"Dailies",
@@ -6932,6 +7034,7 @@
           return;
         }
         player.casinoTickets = Math.max(0, Number(player.casinoTickets || 0) - 1);
+        player.updatedAt = Date.now();
         pendingTicketUse = "";
         addHistoryEvent({
           type:"casino-ticket-spent",
@@ -6961,6 +7064,7 @@
       const original = state.daily.scratch[player.name];
       while (count > 0) {
         player.casinoTickets = Math.max(0, Number(player.casinoTickets || 0) - 1);
+        player.updatedAt = Date.now();
         trackDailyProgress(player.name, "scratchCards", 1);
         const reward = weightedReward(SCRATCH_OFF_REWARDS);
         if (reward.type === "goldbar") {
@@ -7088,6 +7192,15 @@
       if (action === "toggle-stock-watchlist-filter") {
         stockWatchlistOnly = !stockWatchlistOnly;
         renderStockMarket();
+        return;
+      }
+      if (action === "open-market-newspaper") {
+        renderMarketNewspaper();
+        $("marketNewspaperDialog")?.showModal();
+        return;
+      }
+      if (action === "close-market-newspaper") {
+        $("marketNewspaperDialog")?.close();
         return;
       }
       if (action === "toggle-stock-watch") {
@@ -7522,6 +7635,8 @@
           player.favoriteAchievements.push(id);
           toast("Achievement added to your showcase.");
         }
+        player.favoriteAchievementsUpdatedAt = Date.now();
+        player.updatedAt = Date.now();
         save();
         return;
       }
@@ -8323,6 +8438,9 @@
     els.slotMachineDialog?.addEventListener("click", (event) => {
       if (event.target === els.slotMachineDialog) els.slotMachineDialog.close();
     });
+    $("marketNewspaperDialog")?.addEventListener("click", (event) => {
+      if (event.target === $("marketNewspaperDialog")) $("marketNewspaperDialog").close();
+    });
     els.blackjackGuideDialog.addEventListener("click", (event) => {
       if (event.target === els.blackjackGuideDialog) closeBlackjackGuide();
     });
@@ -8370,6 +8488,10 @@
     $("slotBetAmount").addEventListener("input", renderSlots);
     $("stockSymbol")?.addEventListener("change", updateTradePreview);
     $("stockShares")?.addEventListener("input", updateTradePreview);
+    $("stockSearch")?.addEventListener("input", () => {
+      stockSearch = $("stockSearch").value.trim().toLowerCase();
+      renderStockMarket();
+    });
     $("shareTransferSymbol")?.addEventListener("change", updateShareTransferPreview);
     $("shareTransferPlayer")?.addEventListener("change", updateShareTransferPreview);
     $("shareTransferAmount")?.addEventListener("input", updateShareTransferPreview);

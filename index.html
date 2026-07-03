@@ -95,6 +95,7 @@
               <strong id="familyXpLabel">0 / 100 XP</strong>
               <div class="progress-track"><span id="familyXpFill" class="progress-fill" style="width:0%"></span></div>
               <span id="syncStatus" class="sync-pill"><span id="syncDot" class="sync-dot"></span><span id="syncText">Cloud pending</span></span>
+              <span id="environmentBadge" class="env-badge" hidden>DEV MODE • Firebase DEV</span>
             </div>
           </div>
           <div class="prestige">
@@ -886,8 +887,9 @@
           <div><p class="eyebrow">Market Floor</p><h2>&#128200; Stock Market</h2><p>Buy low, sell high, and try not to get wrecked by the market gods.</p></div>
         </header>
         <div id="stockSummaryGrid" class="bank-summary-grid"></div>
-        <div id="marketNewsBanner" class="market-news-banner"></div>
         <div class="stock-filter-bar">
+          <label for="stockSearch">Search</label>
+          <input id="stockSearch" type="search" placeholder="AERO or Aurelius..." />
           <label for="stockNetworkFilter">Network</label>
           <select id="stockNetworkFilter">
             <option value="all">All Networks</option>
@@ -900,10 +902,6 @@
           </select>
           <button class="mini-btn" type="button" data-action="toggle-stock-watchlist-filter">Watchlist</button>
         </div>
-        <article class="panel panel-pad market-newspaper-panel">
-          <div class="section-title"><span>&#128240; Casino Financial Times</span><span id="marketPhaseBadge" class="sync-pill">Market Phase</span></div>
-          <div id="marketNewspaperBoard" class="market-newspaper-grid"></div>
-        </article>
         <div class="stock-layout">
           <article class="panel panel-pad">
             <div class="section-title"><span>Market Listings</span><span id="marketClock" class="sync-pill">Market closed</span></div>
@@ -968,12 +966,13 @@
               <h3>How the market breathes</h3>
               <p>Every pulse updates all listed companies. One company becomes the headline event, then its sector and network ripple outward. The featured company moves the hardest, similar-sector companies tend to follow, and the opposite side of the market may barely twitch.</p>
               <p>Business hours run from 8:00 AM to 6:00 PM Central. During those hours, movement is sharper and news has more bite. After hours still moves, but it is more like thin trading: smaller background drift with occasional ugly surprises.</p>
-              <p>Each company has a base price from <code>data/stocks.json</code>. Market pulses pull prices toward or away from that base depending on news, phase, volatility, market cap, and rare moon/crash rolls.</p>
+              <p>Each company has a base price from <code>data/stocks.json</code>. The market now tracks three layers: <strong>Base Price</strong>, <strong>Fair Value</strong>, and <strong>Current Price</strong>. News and phases mostly move fair value, while current price trades around fair value.</p>
+              <p>Moonshots, crashes, and market booms are temporary shock events. They can shove current price far above or below fair value for a few pulses, then decay back toward fair value instead of becoming the new permanent baseline.</p>
             </section>
             <section>
               <h3>Market phases</h3>
               <p>The market has weather now. Bull Market favors risk, Bear Market punishes weak hands, Casino Boom boosts casino names, Health Panic makes health stocks violent, Luxury Bubble runs luxury hot, Recession favors defensive names, and Speculative Mania can send tiny companies flying or crashing.</p>
-              <p>Phases last much longer than regular pulses: Bull Market about 90 minutes, Bear Market about 60, Casino Boom about 120, and Recession about 90. The Casino Financial Times shows the current phase, phase timer, rumors, movers, dividend notices, and executed limit orders.</p>
+              <p>Phases last much longer than regular pulses: Bull Market about 90 minutes, Bear Market about 60, Casino Boom about 120, and Recession about 90. The Casino Financial Times shows the current phase, phase timer, rumors, movers, active moonshots, crashes, booms, dividend notices, and executed limit orders.</p>
             </section>
             <section>
               <h3>Market capitalization</h3>
@@ -983,6 +982,11 @@
                 <li><strong>Mid</strong> stocks are the balanced baseline.</li>
                 <li><strong>Large</strong> and <strong>Mega</strong> stocks are steadier, but still move on major headlines.</li>
               </ul>
+            </section>
+            <section>
+              <h3>Runaway protection</h3>
+              <p>Stable, Balanced, High-risk, and Speculative companies each have sanity bands tied to their base price. Speculative names can still produce massive wins, but normal trading is pulled back toward fair value after temporary spikes.</p>
+              <p>Rare boom events can temporarily exceed the normal band, but those events are time-limited and reported in the Casino Financial Times.</p>
             </section>
             <section>
               <h3>LCN vs BAWSAQ</h3>
@@ -995,7 +999,7 @@
                 <li><strong>Portfolio</strong> is the current resale value of every share you own.</li>
                 <li><strong>Unrealized P/L</strong> is profit or loss before selling. It can vanish if the next pulse turns against you.</li>
                 <li><strong>Trade Ticket</strong> previews cost before you buy, and your holdings panel shows gain or loss before you sell.</li>
-                <li><strong>Dividends</strong> pay about once per hour for income-style companies you hold.</li>
+                <li><strong>Dividends</strong> pay about once per hour for income-style companies you hold. They have their own History filter so stock buys and sells do not get buried.</li>
                 <li><strong>Low / High</strong> are that company's own recorded lifetime price range since the current record baseline. They are not fund totals, market cap values, or inherited from other companies.</li>
               </ul>
             </section>
@@ -1140,6 +1144,7 @@
               <button class="sub-tab" type="button" data-history-filter="craps">Craps</button>
               <button class="sub-tab" type="button" data-history-filter="bank">Bank</button>
               <button class="sub-tab" type="button" data-history-filter="stocks">Stocks</button>
+              <button class="sub-tab" type="button" data-history-filter="dividends">Dividends</button>
               <button class="sub-tab" type="button" data-history-filter="assets">Assets</button>
               <button class="sub-tab" type="button" data-history-filter="achievements">Achievements</button>
               <button class="sub-tab" type="button" data-history-filter="dailies">Dailies</button>
@@ -1366,6 +1371,20 @@
         <button class="ghost-btn" type="button" data-action="open-blackjack-multi">Multiplayer Rooms</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="marketNewspaperDialog" class="profile-dialog wide-dialog">
+    <div class="dialog-head">
+      <span>&#128240; Casino Financial Times</span>
+      <button class="mini-btn" type="button" data-action="close-market-newspaper">Close</button>
+    </div>
+    <div class="market-newspaper-paper">
+      <div class="newspaper-masthead">
+        <p>New Eden Business Desk</p>
+        <h2>Casino Financial Times</h2>
+        <span id="marketPhaseBadge">Market Phase</span>
+      </div>
+      <div id="marketNewspaperBoard" class="market-newspaper-grid"></div>
+    </div>
   </dialog>
 
   <dialog id="crapsGuideDialog" class="profile-dialog">

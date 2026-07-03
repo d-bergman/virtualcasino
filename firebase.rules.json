@@ -18,6 +18,24 @@
             ".write": "auth != null"
           }
         }
+      },
+      "familyCardRpg_DEV": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "users": {
+          "$uid": {
+            ".read": "auth != null",
+            ".write": "auth != null && auth.uid === $uid"
+          }
+        },
+        "state": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          "onlineRooms": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+          }
+        }
       }
     }
   }
